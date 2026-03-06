@@ -10,6 +10,7 @@ const src = path.join(
   "..",
   "node_modules",
   "pdfjs-dist",
+  "legacy",
   "build",
   "pdf.worker.min.mjs"
 );

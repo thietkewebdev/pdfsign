@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import * as pdfjsLib from "pdfjs-dist";
+import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
 import { SignatureBox } from "./SignatureBox";
 import type { SignaturePlacement } from "@/lib/types";
 
@@ -45,6 +45,7 @@ export function PdfViewer({
 }: PdfViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const renderTaskRef = useRef<{ cancel: () => void } | null>(null);
   const [pdfDoc, setPdfDoc] = useState<pdfjsLib.PDFDocumentProxy | null>(null);
   const [pageDimensions, setPageDimensions] = useState<{
     width: number;
@@ -67,6 +68,13 @@ export function PdfViewer({
   const renderPage = useCallback(
     async (pageNum: number) => {
       if (!pdfDoc || !canvasRef.current) return;
+
+      // Cancel any in-flight render before starting a new one
+      if (renderTaskRef.current) {
+        renderTaskRef.current.cancel();
+        renderTaskRef.current = null;
+      }
+
       const page = await pdfDoc.getPage(pageNum);
       const viewport = page.getViewport({ scale });
       const canvas = canvasRef.current;
@@ -82,7 +90,18 @@ export function PdfViewer({
         canvas,
         viewport,
       };
-      await page.render(renderContext).promise;
+      const renderTask = page.render(renderContext);
+      renderTaskRef.current = renderTask;
+
+      try {
+        await renderTask.promise;
+      } catch {
+        // Ignore cancellation when user changes page/scale quickly
+      } finally {
+        if (renderTaskRef.current === renderTask) {
+          renderTaskRef.current = null;
+        }
+      }
     },
     [pdfDoc, scale]
   );
@@ -91,6 +110,12 @@ export function PdfViewer({
     if (pdfDoc && currentPage >= 1) {
       renderPage(currentPage);
     }
+    return () => {
+      if (renderTaskRef.current) {
+        renderTaskRef.current.cancel();
+        renderTaskRef.current = null;
+      }
+    };
   }, [pdfDoc, currentPage, renderPage]);
 
   const pagePlacements = placements
