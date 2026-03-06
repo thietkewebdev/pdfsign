@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "postinstall": "node scripts/copy-pdf-worker.cjs"
   },
   "dependencies": {
     "@radix-ui/react-dropdown-menu": "^2.1.16",

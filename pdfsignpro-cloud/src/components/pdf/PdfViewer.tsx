@@ -5,9 +5,9 @@ import * as pdfjsLib from "pdfjs-dist";
 import { SignatureBox } from "./SignatureBox";
 import type { SignaturePlacement } from "@/lib/types";
 
-// Worker for pdf.js (use CDN for Next.js compatibility)
+// Worker for pdf.js (self-hosted from public/pdfjs/)
 if (typeof window !== "undefined") {
-  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+  pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdfjs/pdf.worker.min.mjs";
 }
 
 interface PdfViewerProps {
