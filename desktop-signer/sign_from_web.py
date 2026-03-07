@@ -2,8 +2,8 @@
 """
 PDFSignPro Desktop Signer - Entry point for web deep link and CLI.
 
-When launched via deep link: pdfsignpro://sign?jobId=...&token=...&apiBaseUrl=...
-  -> Fetches job, downloads PDF, signs, uploads.
+When launched via deep link: pdfsignpro://sign?jobId=...&code=...&u=...
+  -> Claims job (exchanges code for token), fetches job, downloads PDF, signs, uploads.
 
 When launched with --in/--out: CLI mode (delegates to sign_pades).
 
@@ -40,7 +40,7 @@ def _pause_on_error():
 
 
 def _parse_deep_link(url: str) -> dict | None:
-    """Parse pdfsignpro://sign?jobId=...&token=...&apiBaseUrl=..."""
+    """Parse pdfsignpro://sign?jobId=...&code=...&u=... (or legacy token/apiBaseUrl)."""
     if not url or not url.strip().lower().startswith("pdfsignpro://"):
         return None
     parsed = urlparse(url)
@@ -48,12 +48,39 @@ def _parse_deep_link(url: str) -> dict | None:
         return None
     qs = parse_qs(parsed.query)
     job_id = (qs.get("jobId") or qs.get("jobid") or [None])[0]
+    code = (qs.get("code") or [None])[0]
+    hostname = (qs.get("u") or [None])[0]
     token = (qs.get("token") or [None])[0]
     api_base = (qs.get("apiBaseUrl") or qs.get("apibaseurl") or [None])[0]
-    if not job_id or not token or not api_base:
-        return None
-    api_base = api_base.rstrip("/")
-    return {"jobId": job_id, "token": token, "apiBaseUrl": api_base}
+
+    # New format: jobId + code + u (hostname)
+    if job_id and code and hostname:
+        is_local = hostname == "localhost" or hostname.startswith("localhost:")
+        scheme = "http" if is_local else "https"
+        port = ":3000" if hostname == "localhost" else ""
+        api_base = f"{scheme}://{hostname}{port}"
+        return {"jobId": job_id, "code": code, "apiBaseUrl": api_base}
+
+    # Legacy: jobId + token + apiBaseUrl
+    if job_id and token and api_base:
+        api_base = api_base.rstrip("/")
+        return {"jobId": job_id, "token": token, "apiBaseUrl": api_base}
+
+    return None
+
+
+def _claim_job(api_base: str, job_id: str, code: str) -> tuple[str, str]:
+    """POST /api/jobs/[jobId]/claim with {code}, return (jobToken, apiBaseUrl)."""
+    url = f"{api_base.rstrip('/')}/api/jobs/{job_id}/claim"
+    r = requests.post(
+        url,
+        json={"code": code},
+        headers={"Content-Type": "application/json"},
+        timeout=30,
+    )
+    r.raise_for_status()
+    data = r.json()
+    return data["jobToken"], data["apiBaseUrl"]
 
 
 def _fetch_job(api_base: str, job_id: str, token: str) -> dict:
@@ -86,10 +113,21 @@ def _upload_signed(api_base: str, job_id: str, token: str, signed_path: Path) ->
 
 
 def run_deep_link(params: dict) -> int:
-    """Run full flow: fetch job -> download -> sign -> upload."""
+    """Run full flow: claim (if code) -> fetch job -> download -> sign -> upload."""
     job_id = params["jobId"]
-    token = params["token"]
     api_base = params["apiBaseUrl"]
+
+    # Resolve token: either from claim (new format) or direct (legacy)
+    if "code" in params:
+        try:
+            token, api_base = _claim_job(api_base, job_id, params["code"])
+        except requests.RequestException as e:
+            err = getattr(e, "response", None)
+            body = err.text if err else str(e)
+            print(f"Lỗi: Không claim được job: {body}", file=sys.stderr)
+            return 1
+    else:
+        token = params["token"]
 
     print("PDFSignPro Signer - Chế độ ký từ web")
     print(f"Job: {job_id}")

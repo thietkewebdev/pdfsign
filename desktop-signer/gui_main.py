@@ -2,7 +2,7 @@
 """
 PDFSignPro Signer - PySide6 GUI (Linear dark theme).
 
-Entry point for deep link: pdfsignpro://sign?jobId=...&token=...&apiBaseUrl=...
+Entry point for deep link: pdfsignpro://sign?jobId=...&code=...&u=...
 CLI (--in/--out) delegates to sign_pades.py.
 """
 from __future__ import annotations
@@ -96,7 +96,7 @@ LINEAR_DARK = """
 
 
 def _parse_deep_link(url: str) -> dict | None:
-    """Parse pdfsignpro://sign?jobId=...&token=...&apiBaseUrl=..."""
+    """Parse pdfsignpro://sign?jobId=...&code=...&u=hostname (short URL)"""
     if not url or not url.strip().lower().startswith("pdfsignpro://"):
         return None
     parsed = urlparse(url)
@@ -104,12 +104,19 @@ def _parse_deep_link(url: str) -> dict | None:
         return None
     qs = parse_qs(parsed.query)
     job_id = (qs.get("jobId") or qs.get("jobid") or [None])[0]
-    token = (qs.get("token") or [None])[0]
-    api_base = (qs.get("apiBaseUrl") or qs.get("apibaseurl") or [None])[0]
-    if not job_id or not token or not api_base:
+    code = (qs.get("code") or [None])[0]
+    host = (qs.get("u") or [None])[0]
+    if not job_id or not code:
         return None
+    if host:
+        is_local = host == "localhost" or host.startswith("localhost:")
+        scheme = "http" if is_local else "https"
+        port = ":3000" if host == "localhost" else ""
+        api_base = f"{scheme}://{host}{port}"
+    else:
+        api_base = os.environ.get("PDFSIGNPRO_API_URL", "http://localhost:3000")
     api_base = api_base.rstrip("/")
-    return {"jobId": job_id, "token": token, "apiBaseUrl": api_base}
+    return {"jobId": job_id, "code": code, "apiBaseUrl": api_base}
 
 
 def _fetch_job(api_base: str, job_id: str, token: str) -> dict:
@@ -257,23 +264,44 @@ class SignWorker(QThread):
             self.finished_err.emit(f"Lỗi: {e}")
 
 
+def _claim_job(api_base: str, job_id: str, code: str) -> dict:
+    """POST /api/jobs/:jobId/claim with { code } -> { jobToken, apiBaseUrl }"""
+    url = f"{api_base}/api/jobs/{job_id}/claim"
+    r = requests.post(
+        url,
+        headers={"Content-Type": "application/json"},
+        json={"code": code},
+        timeout=30,
+    )
+    r.raise_for_status()
+    return r.json()
+
+
 class FetchJobWorker(QThread):
     finished_ok = Signal(dict)
     finished_err = Signal(str)
 
-    def __init__(self, job_id: str, token: str, api_base: str):
+    def __init__(self, job_id: str, code: str, api_base: str):
         super().__init__()
-        self.job_id, self.token, self.api_base = job_id, token, api_base
+        self.job_id, self.code, self.api_base = job_id, code, api_base
 
     def run(self):
         try:
-            job = _fetch_job(self.api_base, self.job_id, self.token)
+            claim = _claim_job(self.api_base, self.job_id, self.code)
+            token = claim.get("jobToken")
+            api_base = claim.get("apiBaseUrl", self.api_base).rstrip("/")
+            if not token:
+                self.finished_err.emit("Claim response missing jobToken.")
+                return
+            job = _fetch_job(api_base, self.job_id, token)
+            job["_token"] = token
+            job["_apiBaseUrl"] = api_base
             self.finished_ok.emit(job)
         except requests.RequestException as e:
             resp = getattr(e, "response", None)
             msg = resp.text if resp else str(e)
             if resp and resp.status_code == 401:
-                msg = "Invalid or expired token. Create a new signing job on the web."
+                msg = "Invalid or expired claim code. Create a new signing job on the web."
             elif resp and resp.status_code == 410:
                 msg = "Job expired. Create a new signing job on the web."
             self.finished_err.emit(msg)
@@ -311,8 +339,8 @@ class MainWindow(QMainWindow):
 
         if deep_link_params:
             self.stack.setCurrentIndex(0)
-            self._append_loading_log("Parsed URL: pdfsignpro://sign?...")
-            self._append_loading_log("Fetching job...")
+            self._append_loading_log("Parsed URL: pdfsignpro://sign?jobId=...&code=...")
+            self._append_loading_log("Claiming job...")
             self._start_fetch_job()
         else:
             self._show_idle_page()
@@ -495,13 +523,21 @@ class MainWindow(QMainWindow):
         if not self.deep_link_params:
             return
         p = self.deep_link_params
-        worker = FetchJobWorker(p["jobId"], p["token"], p["apiBaseUrl"])
+        worker = FetchJobWorker(p["jobId"], p["code"], p["apiBaseUrl"])
         worker.finished_ok.connect(self._on_job_fetched)
         worker.finished_err.connect(self._on_fetch_error)
         worker.start()
 
     def _on_job_fetched(self, job: dict):
-        self._append_loading_log("Job fetched.")
+        self._append_loading_log("Job claimed and fetched.")
+        token = job.pop("_token", None)
+        api_base = job.pop("_apiBaseUrl", None)
+        if token and api_base and self.deep_link_params:
+            self.deep_link_params = {
+                **self.deep_link_params,
+                "token": token,
+                "apiBaseUrl": api_base,
+            }
         self.job_data = job
         doc = job.get("document", {})
         placement = job.get("placement", {})
@@ -638,8 +674,21 @@ def main():
 
     win = MainWindow(deep_link_params=deep_link_params)
     win.show()
+    win.raise_()
+    win.activateWindow()
     sys.exit(app.exec())
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as e:
+        from PySide6.QtWidgets import QApplication, QMessageBox
+        app = QApplication.instance() or QApplication(sys.argv)
+        QMessageBox.critical(
+            None,
+            "PDFSignPro Signer - Lỗi",
+            f"Ứng dụng gặp lỗi khi khởi động:\n\n{str(e)}\n\n"
+            "Đảm bảo đã cài qua PDFSignProSignerSetup.exe để đăng ký pdfsignpro://",
+        )
+        sys.exit(1)

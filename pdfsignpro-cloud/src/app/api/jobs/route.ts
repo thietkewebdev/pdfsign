@@ -3,6 +3,7 @@ import { z } from "zod";
 import { randomBytes } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { generateJobToken, hashJobToken } from "@/lib/job-token";
+import { generateClaimCode, hashClaimCode } from "@/lib/claim-code";
 
 const rectPctSchema = z.object({
   x: z.number().min(0).max(1),
@@ -74,6 +75,8 @@ export async function POST(request: Request) {
 
     const jobToken = generateJobToken();
     const jobTokenHash = hashJobToken(jobToken);
+    const claimCode = generateClaimCode();
+    const claimCodeHash = hashClaimCode(claimCode);
     const jobId = `job_${randomBytes(8).toString("hex")}`;
 
     const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
@@ -84,6 +87,8 @@ export async function POST(request: Request) {
         documentVersionId: currentVersion.id,
         documentId: document.id,
         jobTokenHash,
+        jobToken,
+        claimCodeHash,
         status: "CREATED",
         placementJson: JSON.stringify(placement),
         expiresAt,
@@ -92,11 +97,10 @@ export async function POST(request: Request) {
 
     const apiBaseUrl =
       process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-    const deepLink = `pdfsignpro://sign?jobId=${jobId}&token=${jobToken}&apiBaseUrl=${encodeURIComponent(apiBaseUrl)}`;
+    const deepLink = `pdfsignpro://sign?jobId=${jobId}&code=${claimCode}&u=${new URL(apiBaseUrl).hostname}`;
 
     return NextResponse.json({
       jobId,
-      jobToken,
       deepLink,
       placement,
       documentId: document.id,

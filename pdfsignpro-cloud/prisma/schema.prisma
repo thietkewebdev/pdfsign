@@ -39,7 +39,9 @@ model SigningJob {
   documentVersion     DocumentVersion @relation("InputVersion", fields: [documentVersionId], references: [id], onDelete: Cascade)
   documentId          String
   document            Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
-  jobTokenHash        String    // sha256 of jobToken, never store raw
+  jobTokenHash        String    // sha256 of jobToken
+  jobToken            String?   // raw token for claim exchange (new jobs only)
+  claimCodeHash       String?   // sha256 of short claim code (new jobs only)
   status              String    @default("CREATED") // CREATED, COMPLETED, EXPIRED, CANCELED
   placementJson       String    // JSON: { page, rectPct: { x, y, w, h } }
   certMetaJson        String?   // JSON: subject O/CN, serial, signingTime...
@@ -47,9 +49,11 @@ model SigningJob {
   outputVersion       DocumentVersion? @relation("OutputVersion", fields: [outputVersionId], references: [id])
   createdAt           DateTime  @default(now())
   completedAt         DateTime?
+  claimedAt           DateTime? // when claim code was exchanged for token
   expiresAt           DateTime  // job expires after 30m
 
   @@index([documentVersionId])
   @@index([documentId])
   @@index([jobTokenHash])
+  @@index([claimCodeHash])
 }

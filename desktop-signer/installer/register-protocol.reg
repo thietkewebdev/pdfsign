@@ -1,0 +1,13 @@
+Windows Registry Editor Version 5.00
+
+; Register pdfsignpro:// protocol (per-user, HKCU)
+; SỬA đường dẫn bên dưới cho đúng vị trí PDFSignProSigner.exe trên máy bạn
+
+[HKEY_CURRENT_USER\Software\Classes\pdfsignpro]
+@="URL:PDFSignPro Protocol"
+
+[HKEY_CURRENT_USER\Software\Classes\pdfsignpro]
+"URL Protocol"=""
+
+[HKEY_CURRENT_USER\Software\Classes\pdfsignpro\shell\open\command]
+@="\"C:\\Users\\YOUR_USERNAME\\AppData\\Local\\PDFSignProSigner\\PDFSignProSigner.exe\" \"%1\""

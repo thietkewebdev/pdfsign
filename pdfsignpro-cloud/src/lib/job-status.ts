@@ -12,7 +12,6 @@ export type JobStatusResponse = z.infer<typeof JobStatusResponseSchema>;
 
 export const CreateJobResponseSchema = z.object({
   jobId: z.string(),
-  jobToken: z.string(),
   deepLink: z.string(),
   placement: z.object({
     page: z.union([z.literal("LAST"), z.number()]),

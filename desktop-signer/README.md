@@ -51,43 +51,48 @@ cd desktop-signer
 
 ### Install steps
 
-1. Run `PDFSignProSignerSetup.exe`
+1. Run `PDFSignProSignerSetup.exe` (bắt buộc – chỉ installer mới đăng ký `pdfsignpro://`)
 2. Follow the wizard (install path: `%LOCALAPPDATA%\PDFSignProSigner`)
 3. Optionally create desktop shortcut
 4. Optionally launch the app after install
 
+**Nếu bấm "Mở PDFSignPro Signer" mà app không hiện:**
+- Phải cài qua `PDFSignProSignerSetup.exe`, không chạy trực tiếp file .exe tải từ web
+- Nếu đã cài: gỡ cài đặt cũ → chạy lại installer
+- Hoặc dùng `installer/register-protocol.reg` (sửa đường dẫn exe trong file) → double-click để đăng ký
+
 ### Chạy GUI qua deep link
 
-**Cách 1: Từ web** – Trên PDFSignPro Cloud, bấm "Ký số" → "Mở PDFSignPro Signer". Ứng dụng mở qua `pdfsignpro://` với jobId, token, apiBaseUrl thật.
+**Cách 1: Từ web** – Trên PDFSignPro Cloud, bấm "Ký số" → "Mở PDFSignPro Signer". Ứng dụng mở qua `pdfsignpro://sign?jobId=...&code=...&u=...` (URL ngắn, Windows launch ổn định).
 
-**Cách 2: Test không cần web** – Dùng deep link mẫu (sẽ lỗi fetch job nhưng đủ để kiểm tra GUI mở):
+**Cách 2: Test không cần web** – Dùng deep link mẫu (sẽ lỗi claim nhưng đủ để kiểm tra GUI mở):
 
 ```powershell
 # PowerShell
-Start-Process "pdfsignpro://sign?jobId=job_test123&token=abc&apiBaseUrl=https://localhost:3000"
+Start-Process "pdfsignpro://sign?jobId=job_test123&code=abc12345&u=localhost"
 ```
 
 Hoặc chạy trực tiếp với tham số:
 
 ```powershell
-python gui_main.py "pdfsignpro://sign?jobId=job_test&token=x&apiBaseUrl=http://localhost:3000"
+python gui_main.py "pdfsignpro://sign?jobId=job_test&code=abc12345&u=localhost"
 ```
 
-Nếu PDFSignPro Cloud chạy local tại `http://localhost:3000`, tạo job thật trên web rồi copy `jobId` và `token` từ response `POST /api/jobs` vào deep link.
+Nếu PDFSignPro Cloud chạy local tại `http://localhost:3000`, tạo job thật trên web rồi copy `jobId` và `code` từ deep link trong response `POST /api/jobs`.
 
 ### Test deep link locally
 
-Chạy với deep link đầy đủ (thay `jobId`, `token`, `apiBaseUrl` bằng giá trị thật):
+Chạy với deep link đầy đủ (thay `jobId`, `code`, `u` bằng giá trị thật):
 
 ```powershell
 # Python
-python gui_main.py "pdfsignpro://sign?jobId=job_abc123&token=YOUR_TOKEN&apiBaseUrl=https://your-app.onrender.com"
+python gui_main.py "pdfsignpro://sign?jobId=job_abc123&code=a1b2c3d4&u=myapp.onrender.com"
 
 # Exe (sau khi build)
-PDFSignProSigner.exe "pdfsignpro://sign?jobId=job_abc123&token=YOUR_TOKEN&apiBaseUrl=https://your-app.onrender.com"
+PDFSignProSigner.exe "pdfsignpro://sign?jobId=job_abc123&code=a1b2c3d4&u=myapp.onrender.com"
 ```
 
-Lấy `jobId` và `token` từ response `POST /api/jobs` khi bấm "Ký số" trên web.
+Lấy `jobId` và `code` từ deep link trong response `POST /api/jobs` khi bấm "Ký số" trên web.
 
 ## Sử dụng
 
@@ -149,10 +154,10 @@ python sign_pades.py --in input.pdf --out signed.pdf
 
 1. **Deep link**: Parse `pdfsignpro://sign?jobId=...&token=...&apiBaseUrl=...` từ `argv[1]`
 2. **Fetch job**: `GET {apiBaseUrl}/api/jobs/{jobId}` với header `x-job-token`
-3. **Tải chứng thư**: Nhập PIN → "Tải chứng thư" → liệt kê O/CN, serial, validity
-4. **Ký**: Chọn cert → "Ký" → tải PDF, ký PAdES (pikepdf sanitize + pyHanko), upload
-5. **Upload**: `POST /api/jobs/{jobId}/complete` multipart (file + certMeta JSON)
-6. **Hoàn tất**: Hiển thị nút "Mở tài liệu đã ký trong trình duyệt"
+4. **Tải chứng thư**: Nhập PIN → "Tải chứng thư" → liệt kê O/CN, serial, validity
+5. **Ký**: Chọn cert → "Ký" → tải PDF, ký PAdES (pikepdf sanitize + pyHanko), upload
+6. **Upload**: `POST /api/jobs/{jobId}/complete` multipart (file + certMeta JSON)
+7. **Hoàn tất**: Hiển thị nút "Mở tài liệu đã ký trong trình duyệt"
 
 **certMeta JSON:** `subjectO`, `subjectCN`, `serial`, `signingTime`
 
