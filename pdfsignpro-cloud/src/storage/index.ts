@@ -1,5 +1,5 @@
 import type { StorageDriver } from "./types";
-import { uploadToR2, getR2PresignedUrl, getR2Buffer } from "./r2";
+import { uploadToR2, getR2PresignedUrl, getR2Buffer, headR2Object } from "./r2";
 import { createLocalStorageDriver } from "./local";
 
 class R2StorageDriver implements StorageDriver {
@@ -20,6 +20,10 @@ class R2StorageDriver implements StorageDriver {
 
   async getBuffer(key: string): Promise<Buffer> {
     return getR2Buffer(key);
+  }
+
+  async exists(key: string): Promise<boolean> {
+    return headR2Object(key);
   }
 }
 

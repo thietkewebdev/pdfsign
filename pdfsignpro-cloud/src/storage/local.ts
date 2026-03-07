@@ -32,6 +32,16 @@ class LocalStorageDriver implements StorageDriver {
     const fullPath = path.join(UPLOAD_DIR, key);
     return fs.readFile(fullPath);
   }
+
+  async exists(key: string): Promise<boolean> {
+    try {
+      const fullPath = path.join(UPLOAD_DIR, key);
+      const stat = await fs.stat(fullPath);
+      return stat.isFile();
+    } catch {
+      return false;
+    }
+  }
 }
 
 export function createLocalStorageDriver(): StorageDriver {

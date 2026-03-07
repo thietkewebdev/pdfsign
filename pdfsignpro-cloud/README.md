@@ -156,6 +156,23 @@ Response:
 }
 ```
 
+## Signer download
+
+`/api/signer/download` redirects to a presigned R2 URL for `PDFSignProSigner.exe`.
+
+**Upload the exe to R2:**
+
+1. Build: `cd desktop-signer && .\build.ps1` → outputs `dist/PDFSignProSigner.exe`
+2. Upload to R2 at key `signer/PDFSignProSigner.exe` (or set `SIGNER_R2_KEY` to your key)
+3. Use Cloudflare Dashboard, AWS CLI, or any S3-compatible tool:
+
+   ```bash
+   aws s3 cp desktop-signer/dist/PDFSignProSigner.exe s3://YOUR_BUCKET/signer/PDFSignProSigner.exe \
+     --endpoint-url https://YOUR_ACCOUNT.r2.cloudflarestorage.com
+   ```
+
+If the file is missing, the API returns 404 with a hint.
+
 ## Architecture
 
 - **Documents** – stored in R2 (or local `.storage/` when `STORAGE_DRIVER=local`)

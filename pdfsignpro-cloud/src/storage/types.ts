@@ -8,6 +8,9 @@ export interface StorageDriver {
   /** Fetch file content as Buffer (for server-side proxy, avoids CORS) */
   getBuffer?(key: string): Promise<Buffer>;
 
+  /** Check if object exists (for download validation) */
+  exists?(key: string): Promise<boolean>;
+
   /** Generate a presigned PUT URL for client uploads (optional) */
   getPresignedPutUrl?(key: string, contentType: string, expiresInSeconds?: number): Promise<string>;
 }

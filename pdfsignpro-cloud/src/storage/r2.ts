@@ -2,6 +2,7 @@ import {
   S3Client,
   PutObjectCommand,
   GetObjectCommand,
+  HeadObjectCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
@@ -13,7 +14,7 @@ const endpoint =
 const accessKeyId = process.env.R2_ACCESS_KEY_ID;
 const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
 const bucketName =
-  process.env.R2_BUCKET ?? process.env.R2_BUCKET_NAME ?? "pdfsignpro";
+  process.env.R2_BUCKET ?? process.env.R2_BUCKET_NAME ?? "pdfsign";
 
 function getClient(): S3Client {
   if (!endpoint || !accessKeyId || !secretAccessKey) {
@@ -59,6 +60,25 @@ export async function getR2PresignedUrl(
     Key: key,
   });
   return getSignedUrl(client, command, { expiresIn: expiresInSeconds });
+}
+
+export async function headR2Object(key: string): Promise<boolean> {
+  try {
+    const client = getClient();
+    await client.send(
+      new HeadObjectCommand({ Bucket: bucketName, Key: key })
+    );
+    return true;
+  } catch (err: unknown) {
+    const e = err as { name?: string; $metadata?: { httpStatusCode?: number } };
+    if (
+      e?.name === "NotFound" ||
+      e?.name === "NoSuchKey" ||
+      e?.$metadata?.httpStatusCode === 404
+    )
+      return false;
+    throw err;
+  }
 }
 
 export async function getR2Buffer(key: string): Promise<Buffer> {
