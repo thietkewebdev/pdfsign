@@ -60,3 +60,18 @@ export async function getR2PresignedUrl(
   });
   return getSignedUrl(client, command, { expiresIn: expiresInSeconds });
 }
+
+export async function getR2Buffer(key: string): Promise<Buffer> {
+  const client = getClient();
+  const response = await client.send(
+    new GetObjectCommand({ Bucket: bucketName, Key: key })
+  );
+  const body = response.Body;
+  if (!body) throw new Error("Empty response body");
+  const chunks: Uint8Array[] = [];
+  const stream = body as AsyncIterable<Uint8Array>;
+  for await (const chunk of stream) {
+    chunks.push(chunk);
+  }
+  return Buffer.concat(chunks);
+}

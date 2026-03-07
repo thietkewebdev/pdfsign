@@ -27,6 +27,11 @@ class LocalStorageDriver implements StorageDriver {
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
     return `${baseUrl}/api/storage/${encodeURIComponent(key)}`;
   }
+
+  async getBuffer(key: string): Promise<Buffer> {
+    const fullPath = path.join(UPLOAD_DIR, key);
+    return fs.readFile(fullPath);
+  }
 }
 
 export function createLocalStorageDriver(): StorageDriver {

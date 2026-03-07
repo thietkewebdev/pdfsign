@@ -1,5 +1,5 @@
 import type { StorageDriver } from "./types";
-import { uploadToR2, getR2PresignedUrl } from "./r2";
+import { uploadToR2, getR2PresignedUrl, getR2Buffer } from "./r2";
 import { createLocalStorageDriver } from "./local";
 
 class R2StorageDriver implements StorageDriver {
@@ -16,6 +16,10 @@ class R2StorageDriver implements StorageDriver {
     expiresInSeconds = 3600
   ): Promise<string> {
     return getR2PresignedUrl(key, expiresInSeconds);
+  }
+
+  async getBuffer(key: string): Promise<Buffer> {
+    return getR2Buffer(key);
   }
 }
 

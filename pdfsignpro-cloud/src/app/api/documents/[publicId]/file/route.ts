@@ -12,10 +12,7 @@ export async function GET(
     const document = await prisma.document.findUnique({
       where: { publicId },
       include: {
-        versions: {
-          orderBy: { version: "desc" },
-          take: 1,
-        },
+        versions: { orderBy: { version: "desc" }, take: 1 },
       },
     });
 
@@ -32,31 +29,25 @@ export async function GET(
     }
 
     const storage = getStorageDriver();
-    const presignedUrl = await storage.getPresignedUrl(
-      currentVersion.storageKey,
-      3600
-    );
+    const getBuffer = storage.getBuffer;
+    if (!getBuffer) {
+      return NextResponse.json(
+        { error: "Storage driver does not support direct read" },
+        { status: 500 }
+      );
+    }
 
-    const viewUrl = `/api/documents/${document.publicId}/file`;
+    const buffer = await getBuffer(currentVersion.storageKey);
 
-    return NextResponse.json({
-      document: {
-        id: document.id,
-        publicId: document.publicId,
-        title: document.title,
-        status: document.status,
-        createdAt: document.createdAt.toISOString(),
+    return new NextResponse(new Uint8Array(buffer), {
+      headers: {
+        "Content-Type": "application/pdf",
+        "Content-Length": String(buffer.length),
+        "Cache-Control": "private, max-age=300",
       },
-      currentVersion: {
-        version: currentVersion.version,
-        sizeBytes: currentVersion.sizeBytes,
-        createdAt: currentVersion.createdAt.toISOString(),
-      },
-      presignedUrl,
-      viewUrl,
     });
   } catch (err) {
-    console.error("GET /api/documents/[publicId] error:", err);
+    console.error("GET /api/documents/[publicId]/file error:", err);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

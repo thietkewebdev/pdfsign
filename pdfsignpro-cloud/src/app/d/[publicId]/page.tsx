@@ -25,6 +25,7 @@ interface DocumentData {
     createdAt: string;
   };
   presignedUrl: string;
+  viewUrl?: string;
 }
 
 function StatusBadge({ status }: { status: string }) {
@@ -79,7 +80,8 @@ export default function SigningViewerPage() {
     );
   }
 
-  const { document: doc, currentVersion, presignedUrl } = data;
+  const { document: doc, currentVersion, presignedUrl, viewUrl } = data;
+  const pdfUrl = viewUrl ?? presignedUrl;
 
   return (
     <div className="flex h-[calc(100vh-3.5rem)] flex-col">
@@ -95,7 +97,7 @@ export default function SigningViewerPage() {
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <Button variant="outline" size="sm" asChild>
-            <a href={presignedUrl} download={doc.title}>
+            <a href={presignedUrl} download={doc.title ?? "document.pdf"}>
               <Download className="size-4" />
               Download
             </a>
@@ -135,7 +137,7 @@ export default function SigningViewerPage() {
           </div>
           <div className="overflow-hidden">
             <PdfViewer
-              pdfUrl={presignedUrl}
+              pdfUrl={pdfUrl}
               currentPage={currentPage}
               onPageChange={setCurrentPage}
               scale={scale}
@@ -195,7 +197,7 @@ export default function SigningViewerPage() {
               </TabsContent>
               <TabsContent value="document" className="m-0 p-0 h-full">
                 <PdfViewer
-                  pdfUrl={presignedUrl}
+                  pdfUrl={pdfUrl}
                   currentPage={currentPage}
                   onPageChange={setCurrentPage}
                   scale={scale}

@@ -27,6 +27,7 @@ interface DocumentData {
   document: { id: string; publicId: string; title: string };
   currentVersion: { version: number };
   presignedUrl: string;
+  viewUrl?: string;
 }
 
 export default function SignPage() {
@@ -130,7 +131,7 @@ export default function SignPage() {
   const activePage = activePlacement?.page ?? currentPage;
 
   const pdfSource = docData
-    ? { pdfUrl: docData.presignedUrl }
+    ? { pdfUrl: docData.viewUrl ?? docData.presignedUrl }
     : file
       ? { file }
       : null;
