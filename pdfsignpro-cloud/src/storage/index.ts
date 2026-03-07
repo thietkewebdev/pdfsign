@@ -25,7 +25,7 @@ let _driver: StorageDriver | null = null;
 
 export function getStorageDriver(): StorageDriver {
   if (!_driver) {
-    const driver = (process.env.STORAGE_DRIVER ?? "r2").toLowerCase();
+    const driver = (process.env.STORAGE_DRIVER ?? "r2").toLowerCase().trim();
     if (driver === "r2" || driver === "s3") {
       _driver = new R2StorageDriver();
     } else if (driver === "local") {
