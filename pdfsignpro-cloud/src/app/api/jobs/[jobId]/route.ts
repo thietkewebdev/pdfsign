@@ -21,6 +21,7 @@ export async function GET(
     const job = await prisma.signingJob.findUnique({
       where: { id: jobId },
       include: {
+        document: true,
         documentVersion: true,
       },
     });
