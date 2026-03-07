@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 """
-PDFSignPro Signer - PySide6 GUI.
+PDFSignPro Signer - PySide6 GUI (Linear dark theme).
 
-When launched normally: show GUI (idle state).
-When launched via deep link pdfsignpro://sign?jobId=...&token=...&apiBaseUrl=...:
-  - Fetch job, show cert picker + PIN, sign, upload, show success.
+Entry point for deep link: pdfsignpro://sign?jobId=...&token=...&apiBaseUrl=...
+CLI (--in/--out) delegates to sign_pades.py.
 """
 from __future__ import annotations
 
@@ -27,23 +26,73 @@ from PySide6.QtWidgets import (
     QLabel,
     QPushButton,
     QLineEdit,
-    QListWidget,
-    QListWidgetItem,
+    QComboBox,
     QTextEdit,
     QProgressBar,
     QStackedWidget,
     QFrame,
-    QSizePolicy,
     QMessageBox,
-    QSpacerItem,
+    QScrollArea,
 )
-from PySide6.QtGui import QFont
+from PySide6.QtGui import QFont, QPalette, QColor
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from signer.pkcs11_discovery import get_pkcs11_dll
 from signer.cert_selector import list_certs_from_token, CertInfo, get_signer_name
 from signer.pades_signer import sign_pdf_sync
+
+# Linear dark palette (zinc-950 bg, zinc-900 cards)
+LINEAR_DARK = """
+    QWidget { background-color: #0a0a0a; color: #fafafa; }
+    QMainWindow { background-color: #0a0a0a; }
+    QFrame#card { background-color: #18181b; border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; }
+    QLabel { color: #fafafa; }
+    QLabel#muted { color: #71717a; }
+    QLineEdit, QComboBox { 
+        background-color: #27272a; 
+        color: #fafafa; 
+        border: 1px solid rgba(255,255,255,0.08); 
+        border-radius: 6px; 
+        padding: 8px 12px;
+        min-height: 20px;
+    }
+    QLineEdit:focus, QComboBox:focus { border-color: rgba(59,130,246,0.5); }
+    QComboBox::drop-down { border: none; }
+    QComboBox QAbstractItemView { background-color: #27272a; }
+    QPushButton { 
+        background-color: #27272a; 
+        color: #fafafa; 
+        border: 1px solid rgba(255,255,255,0.08); 
+        border-radius: 6px; 
+        padding: 10px 16px;
+        min-height: 24px;
+    }
+    QPushButton:hover { background-color: #3f3f46; }
+    QPushButton:disabled { opacity: 0.5; }
+    QPushButton#primary { 
+        background-color: #3b82f6; 
+        border-color: #3b82f6;
+        color: white;
+    }
+    QPushButton#primary:hover { background-color: #2563eb; }
+    QProgressBar { 
+        background-color: #27272a; 
+        border: none; 
+        border-radius: 4px;
+        text-align: center;
+    }
+    QProgressBar::chunk { background-color: #3b82f6; border-radius: 4px; }
+    QTextEdit { 
+        background-color: #18181b; 
+        color: #a1a1aa; 
+        border: 1px solid rgba(255,255,255,0.06); 
+        border-radius: 6px;
+        padding: 8px;
+        font-family: 'Cascadia Code', 'Consolas', monospace;
+        font-size: 12px;
+    }
+"""
 
 
 def _parse_deep_link(url: str) -> dict | None:
@@ -84,7 +133,6 @@ def _upload_signed(
     signed_path: Path,
     cert_meta: dict,
 ) -> dict:
-    """POST /api/jobs/[jobId]/complete with multipart file + certMeta."""
     url = f"{api_base}/api/jobs/{job_id}/complete"
     with open(signed_path, "rb") as f:
         r = requests.post(
@@ -98,12 +146,21 @@ def _upload_signed(
     return r.json()
 
 
-class SignWorker(QThread):
-    """Worker thread for signing (fetch, sign, upload)."""
+def _format_placement(placement: dict) -> str:
+    """Format placement as 'Page X • rect x,y,w,h'."""
+    page = placement.get("page", "LAST")
+    rect = placement.get("rectPct", {})
+    x = rect.get("x", 0.64)
+    y = rect.get("y", 0.06)
+    w = rect.get("w", 0.32)
+    h = rect.get("h", 0.1)
+    return f"Trang {page} • Ô chữ ký {float(w)*100:.0f}%×{float(h)*100:.0f}%"
 
+
+class SignWorker(QThread):
     log = Signal(str)
-    progress = Signal(int, int)  # current, total
-    finished_ok = Signal(dict)  # result with signedPublicUrl
+    progress = Signal(int, int)
+    finished_ok = Signal(dict)
     finished_err = Signal(str)
 
     def __init__(
@@ -158,7 +215,6 @@ class SignWorker(QThread):
 
                 self.log.emit("Đang ký PDF...")
                 self.progress.emit(4, 5)
-
                 sign_pdf_sync(
                     input_path=input_path,
                     output_path=output_path,
@@ -188,46 +244,33 @@ class SignWorker(QThread):
                 self.log.emit("Đang tải lên server...")
                 self.progress.emit(5, 5)
                 result = _upload_signed(
-                    self.api_base,
-                    self.job_id,
-                    self.token,
-                    output_path,
-                    cert_meta,
+                    self.api_base, self.job_id, self.token, output_path, cert_meta
                 )
-
             self.finished_ok.emit(result)
         except requests.RequestException as e:
             resp = getattr(e, "response", None)
             body = resp.text if resp else str(e)
             self.finished_err.emit(f"Lỗi mạng: {body}")
-        except FileNotFoundError as e:
-            self.finished_err.emit(str(e))
-        except RuntimeError as e:
+        except (FileNotFoundError, RuntimeError) as e:
             self.finished_err.emit(str(e))
         except Exception as e:
             self.finished_err.emit(f"Lỗi: {e}")
 
 
 class FetchJobWorker(QThread):
-    """Worker to fetch job details (non-blocking)."""
-
     finished_ok = Signal(dict)
     finished_err = Signal(str)
 
     def __init__(self, job_id: str, token: str, api_base: str):
         super().__init__()
-        self.job_id = job_id
-        self.token = token
-        self.api_base = api_base
+        self.job_id, self.token, self.api_base = job_id, token, api_base
 
     def run(self):
         try:
-            job = _fetch_job(self.api_base, self.job_id, self.token)
-            self.finished_ok.emit(job)
+            self.finished_ok.emit(_fetch_job(self.api_base, self.job_id, self.token))
         except requests.RequestException as e:
             resp = getattr(e, "response", None)
-            body = resp.text if resp else str(e)
-            self.finished_err.emit(f"Không lấy được job: {body}")
+            self.finished_err.emit(resp.text if resp else str(e))
         except Exception as e:
             self.finished_err.emit(str(e))
 
@@ -243,13 +286,13 @@ class MainWindow(QMainWindow):
         self.sign_worker: SignWorker | None = None
 
         self.setWindowTitle("PDFSignPro Signer")
-        self.setMinimumSize(520, 480)
-        self.resize(560, 520)
+        self.setMinimumSize(440, 520)
+        self.resize(480, 580)
 
         central = QWidget()
         self.setCentralWidget(central)
         layout = QVBoxLayout(central)
-        layout.setSpacing(16)
+        layout.setSpacing(20)
         layout.setContentsMargins(24, 24, 24, 24)
 
         self.stack = QStackedWidget()
@@ -269,77 +312,91 @@ class MainWindow(QMainWindow):
         page = QWidget()
         v = QVBoxLayout(page)
         v.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        v.setSpacing(16)
         self.loading_label = QLabel("Đang tải thông tin job...")
         self.loading_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        font = self.loading_label.font()
-        font.setPointSize(12)
-        self.loading_label.setFont(font)
+        self.loading_label.setObjectName("muted")
         v.addWidget(self.loading_label)
         self.loading_spinner = QProgressBar()
         self.loading_spinner.setRange(0, 0)
-        self.loading_spinner.setFixedWidth(200)
+        self.loading_spinner.setFixedWidth(220)
         v.addWidget(self.loading_spinner, alignment=Qt.AlignmentFlag.AlignCenter)
         self.stack.addWidget(page)
 
     def _build_main_page(self):
         page = QWidget()
         v = QVBoxLayout(page)
-        v.setSpacing(12)
+        v.setSpacing(16)
 
-        doc_frame = QFrame()
-        doc_frame.setFrameShape(QFrame.Shape.StyledPanel)
-        doc_frame.setStyleSheet("QFrame { background-color: palette(base); border-radius: 6px; }")
-        doc_layout = QVBoxLayout(doc_frame)
+        # Document card
+        doc_card = QFrame()
+        doc_card.setObjectName("card")
+        doc_card.setProperty("card", True)
+        doc_layout = QVBoxLayout(doc_card)
+        doc_layout.setSpacing(6)
+        doc_layout.setContentsMargins(16, 14, 16, 14)
         self.doc_title = QLabel("")
         self.doc_title.setWordWrap(True)
-        font = self.doc_title.font()
-        font.setPointSize(11)
-        font.setBold(True)
-        self.doc_title.setFont(font)
+        f = self.doc_title.font()
+        f.setPointSize(13)
+        f.setWeight(QFont.Weight.DemiBold)
+        self.doc_title.setFont(f)
         doc_layout.addWidget(self.doc_title)
         self.doc_public_id = QLabel("")
-        self.doc_public_id.setStyleSheet("color: palette(mid);")
+        self.doc_public_id.setObjectName("muted")
+        self.doc_public_id.setStyleSheet("font-size: 12px;")
         doc_layout.addWidget(self.doc_public_id)
-        v.addWidget(doc_frame)
+        self.placement_label = QLabel("")
+        self.placement_label.setObjectName("muted")
+        self.placement_label.setStyleSheet("font-size: 11px;")
+        doc_layout.addWidget(self.placement_label)
+        v.addWidget(doc_card)
 
-        cert_label = QLabel("Chọn chứng thư số:")
+        # Certificate
+        cert_label = QLabel("Chứng thư số")
+        cert_label.setStyleSheet("font-size: 12px; font-weight: 500;")
         v.addWidget(cert_label)
-        self.cert_list = QListWidget()
-        self.cert_list.setMinimumHeight(120)
-        self.cert_list.setSelectionMode(QListWidget.SelectionMode.SingleSelection)
-        v.addWidget(self.cert_list)
+        self.cert_combo = QComboBox()
+        self.cert_combo.setMinimumHeight(40)
+        v.addWidget(self.cert_combo)
 
-        pin_layout = QHBoxLayout()
-        pin_label = QLabel("PIN token:")
+        # PIN
+        pin_label = QLabel("PIN token")
+        pin_label.setStyleSheet("font-size: 12px; font-weight: 500;")
+        v.addWidget(pin_label)
         self.pin_input = QLineEdit()
         self.pin_input.setEchoMode(QLineEdit.EchoMode.Password)
         self.pin_input.setPlaceholderText("Nhập PIN")
-        self.pin_input.setMinimumWidth(180)
-        pin_layout.addWidget(pin_label)
-        pin_layout.addWidget(self.pin_input)
-        v.addLayout(pin_layout)
+        self.pin_input.setMinimumHeight(40)
+        v.addWidget(self.pin_input)
 
-        load_certs_btn = QPushButton("Tải chứng thư")
-        load_certs_btn.clicked.connect(self._load_certs)
-        v.addWidget(load_certs_btn)
-
-        self.sign_btn = QPushButton("Ký")
-        self.sign_btn.setMinimumHeight(40)
-        font = self.sign_btn.font()
-        font.setPointSize(11)
-        self.sign_btn.setFont(font)
+        # Load certs + Sign
+        btn_row = QHBoxLayout()
+        self.load_certs_btn = QPushButton("Tải chứng thư")
+        self.load_certs_btn.clicked.connect(self._load_certs)
+        btn_row.addWidget(self.load_certs_btn)
+        self.sign_btn = QPushButton("Ký số")
+        self.sign_btn.setObjectName("primary")
+        self.sign_btn.setMinimumHeight(44)
         self.sign_btn.setEnabled(False)
         self.sign_btn.clicked.connect(self._on_sign_clicked)
-        v.addWidget(self.sign_btn)
+        btn_row.addWidget(self.sign_btn, 1)
+        v.addLayout(btn_row)
 
+        # Progress
         self.progress_bar = QProgressBar()
         self.progress_bar.setVisible(False)
+        self.progress_bar.setFixedHeight(6)
         v.addWidget(self.progress_bar)
 
+        # Log
+        log_label = QLabel("Nhật ký")
+        log_label.setStyleSheet("font-size: 12px; font-weight: 500;")
+        v.addWidget(log_label)
         self.log_area = QTextEdit()
         self.log_area.setReadOnly(True)
         self.log_area.setMaximumHeight(100)
-        self.log_area.setPlaceholderText("Nhật ký...")
+        self.log_area.setPlaceholderText("...")
         v.addWidget(self.log_area)
 
         self.stack.addWidget(page)
@@ -348,21 +405,22 @@ class MainWindow(QMainWindow):
         page = QWidget()
         v = QVBoxLayout(page)
         v.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        v.setSpacing(20)
+        v.setSpacing(24)
 
-        success_label = QLabel("Đã ký xong!")
-        font = success_label.font()
-        font.setPointSize(14)
-        font.setBold(True)
-        success_label.setFont(font)
+        success_label = QLabel("Ký thành công")
+        f = success_label.font()
+        f.setPointSize(18)
+        f.setWeight(QFont.Weight.DemiBold)
+        success_label.setFont(f)
         success_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         v.addWidget(success_label)
 
-        self.open_btn = QPushButton("Mở tài liệu đã ký trong trình duyệt")
-        self.open_btn.setMinimumHeight(44)
-        font = self.open_btn.font()
-        font.setPointSize(11)
-        self.open_btn.setFont(font)
+        self.open_btn = QPushButton("Mở tài liệu trên web")
+        self.open_btn.setObjectName("primary")
+        self.open_btn.setMinimumHeight(48)
+        f = self.open_btn.font()
+        f.setPointSize(12)
+        self.open_btn.setFont(f)
         self.open_btn.clicked.connect(self._on_open_browser)
         v.addWidget(self.open_btn, alignment=Qt.AlignmentFlag.AlignCenter)
 
@@ -373,11 +431,10 @@ class MainWindow(QMainWindow):
         self.stack.addWidget(page)
 
     def _show_idle_page(self):
-        """Show idle state when no deep link."""
         page = QWidget()
         v = QVBoxLayout(page)
         v.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        v.setSpacing(16)
+        v.setSpacing(20)
         label = QLabel(
             "PDFSignPro Signer\n\n"
             "Mở ứng dụng từ PDFSignPro Cloud:\n"
@@ -385,9 +442,8 @@ class MainWindow(QMainWindow):
         )
         label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         label.setWordWrap(True)
-        font = label.font()
-        font.setPointSize(11)
-        label.setFont(font)
+        label.setObjectName("muted")
+        label.setStyleSheet("font-size: 13px; line-height: 1.5;")
         v.addWidget(label)
         self.stack.addWidget(page)
         self.stack.setCurrentWidget(page)
@@ -396,21 +452,19 @@ class MainWindow(QMainWindow):
         if not self.deep_link_params:
             return
         p = self.deep_link_params
-        self.loading_label.setText("Đang tải thông tin job...")
         worker = FetchJobWorker(p["jobId"], p["token"], p["apiBaseUrl"])
         worker.finished_ok.connect(self._on_job_fetched)
         worker.finished_err.connect(self._on_fetch_error)
         worker.start()
-        worker.finished.connect(lambda: setattr(self, "_fetch_worker", None))
 
     def _on_job_fetched(self, job: dict):
         self.job_data = job
         doc = job.get("document", {})
-        title = doc.get("title", "Tài liệu")
-        public_id = doc.get("publicId", "")
+        placement = job.get("placement", {})
 
-        self.doc_title.setText(title)
-        self.doc_public_id.setText(f"ID: {public_id}")
+        self.doc_title.setText(doc.get("title", "Tài liệu") or "Tài liệu")
+        self.doc_public_id.setText(f"ID: {doc.get('publicId', '')}")
+        self.placement_label.setText(_format_placement(placement))
 
         try:
             self.dll_path = get_pkcs11_dll(os.environ.get("PKCS11_DLL"))
@@ -419,7 +473,7 @@ class MainWindow(QMainWindow):
             return
 
         self.stack.setCurrentIndex(1)
-        self.cert_list.clear()
+        self.cert_combo.clear()
         self.pin_input.clear()
 
     def _load_certs(self):
@@ -437,14 +491,11 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(self, "Lỗi", str(e))
             return
 
-        self.cert_list.clear()
+        self.cert_combo.clear()
         for c in self.cert_infos:
             name = get_signer_name(c)
-            item = QListWidgetItem(f"{name} | Serial: {c.serial} | Đến: {c.valid_to}")
-            self.cert_list.addItem(item)
-        if self.cert_list.count() > 0:
-            self.cert_list.setCurrentRow(0)
-        self.sign_btn.setEnabled(True)
+            self.cert_combo.addItem(f"{name} • Serial {c.serial} • Đến {c.valid_to}", c)
+        self.sign_btn.setEnabled(self.cert_combo.count() > 0)
 
     def _on_fetch_error(self, msg: str):
         QMessageBox.critical(self, "Lỗi", msg)
@@ -453,7 +504,7 @@ class MainWindow(QMainWindow):
     def _on_sign_clicked(self):
         if not self.deep_link_params or not self.job_data or not self.dll_path:
             return
-        idx = self.cert_list.currentRow()
+        idx = self.cert_combo.currentIndex()
         if idx < 0 or idx >= len(self.cert_infos):
             QMessageBox.warning(self, "Lỗi", "Chọn chứng thư số.")
             return
@@ -463,6 +514,7 @@ class MainWindow(QMainWindow):
             return
 
         self.sign_btn.setEnabled(False)
+        self.load_certs_btn.setEnabled(False)
         self.progress_bar.setVisible(True)
         self.progress_bar.setRange(0, 5)
         self.progress_bar.setValue(0)
@@ -479,9 +531,7 @@ class MainWindow(QMainWindow):
             slot_no=self.slot_no,
         )
         self.sign_worker.log.connect(self._append_log)
-        self.sign_worker.progress.connect(
-            lambda cur, tot: self.progress_bar.setValue(cur)
-        )
+        self.sign_worker.progress.connect(self.progress_bar.setValue)
         self.sign_worker.finished_ok.connect(self._on_sign_ok)
         self.sign_worker.finished_err.connect(self._on_sign_err)
         self.sign_worker.start()
@@ -492,6 +542,7 @@ class MainWindow(QMainWindow):
     def _on_sign_ok(self, result: dict):
         self.sign_worker = None
         self.sign_btn.setEnabled(True)
+        self.load_certs_btn.setEnabled(True)
         self.progress_bar.setVisible(False)
         self.signed_public_url = result.get("signedPublicUrl", "")
         self.stack.setCurrentIndex(2)
@@ -499,6 +550,7 @@ class MainWindow(QMainWindow):
     def _on_sign_err(self, msg: str):
         self.sign_worker = None
         self.sign_btn.setEnabled(True)
+        self.load_certs_btn.setEnabled(True)
         self.progress_bar.setVisible(False)
         QMessageBox.critical(self, "Lỗi ký", msg)
 
@@ -510,19 +562,24 @@ class MainWindow(QMainWindow):
 
 
 def main():
-    # CLI mode: --in, --out -> delegate to sign_pades
+    # CLI: --in, --out -> delegate to sign_pades
     if "--in" in sys.argv or "--help" in sys.argv or "-h" in sys.argv:
         from sign_pades import main as cli_main
-        old_argv = sys.argv
+        old = sys.argv
         sys.argv = ["sign_pades"] + sys.argv[1:]
         try:
             sys.exit(cli_main())
         finally:
-            sys.argv = old_argv
+            sys.argv = old
 
     app = QApplication(sys.argv)
     app.setApplicationName("PDFSignPro Signer")
     app.setStyle("Fusion")
+
+    # Linear dark theme
+    app.setStyleSheet(LINEAR_DARK)
+    font = QFont("Segoe UI", 10)
+    app.setFont(font)
 
     deep_link_params = None
     if len(sys.argv) >= 2:

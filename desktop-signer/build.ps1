@@ -40,7 +40,7 @@ if (Test-Path "dist") { Remove-Item -Recurse -Force dist }
 if (Test-Path "build") { Remove-Item -Recurse -Force build }
 
 # Build (include pkcs11 submodules for PKCS#11 / USB token support)
-# GUI app: --noconsole, PySide6, entry point signer_gui.py
+# GUI app: --noconsole, PySide6, entry point gui_main.py
 $PyInstallerArgs = @(
     "--onefile",
     "--noconsole",
@@ -55,7 +55,7 @@ $PyInstallerArgs = @(
     "--hidden-import", "PySide6.QtCore",
     "--hidden-import", "PySide6.QtGui",
     "--hidden-import", "PySide6.QtWidgets",
-    "signer_gui.py"
+    "gui_main.py"
 ) + $AddDataArgs
 
 Write-Host "Running PyInstaller..."

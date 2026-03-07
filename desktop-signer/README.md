@@ -34,7 +34,7 @@ mkdir -p assets/fonts
 .\build.ps1
 ```
 
-Output: `dist/PDFSignProSigner.exe` (onefile, GUI, --noconsole). Upload lên R2 tại key `signer/PDFSignProSigner.exe` để dùng với PDFSignPro Cloud.
+Output: `dist/PDFSignProSigner.exe` (onefile, GUI, --noconsole). Build từ `gui_main.py`. Upload lên R2 tại key `signer/PDFSignProSigner.exe` để dùng với PDFSignPro Cloud.
 
 ## Windows Installer (Inno Setup)
 
@@ -56,19 +56,24 @@ cd desktop-signer
 3. Optionally create desktop shortcut
 4. Optionally launch the app after install
 
-### Verify pdfsignpro:// protocol
+### Chạy GUI qua deep link
 
-1. After install, open a browser and go to:
-   ```
-   pdfsignpro://sign?jobId=test&token=x&apiBaseUrl=https://example.com
-   ```
-2. Windows should prompt to open with PDFSignPro Signer (or open it directly)
-3. The app should launch and receive the URL parameters
+**Cách 1: Từ web** – Trên PDFSignPro Cloud, bấm "Ký số" → "Mở PDFSignPro Signer". Ứng dụng mở qua `pdfsignpro://` với jobId, token, apiBaseUrl thật.
 
-To test from PowerShell:
+**Cách 2: Test không cần web** – Dùng deep link mẫu (sẽ lỗi fetch job nhưng đủ để kiểm tra GUI mở):
+
 ```powershell
-Start-Process "pdfsignpro://sign?jobId=test&token=x&apiBaseUrl=https://example.com"
+# PowerShell
+Start-Process "pdfsignpro://sign?jobId=job_test123&token=abc&apiBaseUrl=https://localhost:3000"
 ```
+
+Hoặc chạy trực tiếp với tham số:
+
+```powershell
+python gui_main.py "pdfsignpro://sign?jobId=job_test&token=x&apiBaseUrl=http://localhost:3000"
+```
+
+Nếu PDFSignPro Cloud chạy local tại `http://localhost:3000`, tạo job thật trên web rồi copy `jobId` và `token` từ response `POST /api/jobs` vào deep link.
 
 ## Sử dụng
 
@@ -88,18 +93,18 @@ Start-Process "pdfsignpro://sign?jobId=test&token=x&apiBaseUrl=https://example.c
 ### 2. Chạy GUI trực tiếp (không deep link)
 
 ```bash
-python signer_gui.py
+python gui_main.py
 ```
 
 Hiển thị màn hình chờ: "Mở ứng dụng từ PDFSignPro Cloud".
 
-### 3. Từ dòng lệnh (CLI)
+### 3. Từ dòng lệnh (CLI) – debug
 
 ```bash
-# Ký với exe (delegate tới sign_pades)
+# Exe với --in/--out → delegate tới sign_pades
 PDFSignProSigner.exe --in input.pdf --out signed.pdf
 
-# Hoặc dùng Python
+# Chạy sign_pades trực tiếp
 python sign_pades.py --in input.pdf --out signed.pdf
 ```
 
