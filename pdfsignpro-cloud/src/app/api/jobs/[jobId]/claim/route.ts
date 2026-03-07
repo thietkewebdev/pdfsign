@@ -48,6 +48,12 @@ export async function POST(
       );
     }
 
+    if (!job.claimCodeHash) {
+      return NextResponse.json(
+        { error: "Job was created before claim flow" },
+        { status: 400 }
+      );
+    }
     if (!verifyClaimCode(code, job.claimCodeHash)) {
       return NextResponse.json(
         { error: "Invalid claim code" },
