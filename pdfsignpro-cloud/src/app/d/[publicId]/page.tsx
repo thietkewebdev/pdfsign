@@ -3,7 +3,7 @@
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Download, RefreshCw, X, ZoomIn, ZoomOut, PenLine } from "lucide-react";
+import { Download, RefreshCw, X, ZoomIn, ZoomOut, PenLine, Monitor } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -95,7 +95,18 @@ export default function SigningViewerPage() {
             v{currentVersion.version}
           </span>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
+          <Button variant="outline" size="sm" asChild>
+            <a href="/api/signer/download">
+              <Monitor className="size-4" />
+              Tải PDFSignPro Signer (Windows)
+            </a>
+          </Button>
+          <span className="text-xs text-muted-foreground">
+            <Link href="/signer" className="underline hover:text-foreground">
+              Hướng dẫn cài đặt
+            </Link>
+          </span>
           <Button variant="outline" size="sm" asChild>
             <a href={presignedUrl} download={doc.title ?? "document.pdf"}>
               <Download className="size-4" />

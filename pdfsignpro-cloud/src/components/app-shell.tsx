@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useTheme } from "next-themes";
-import { Moon, Sun, Github } from "lucide-react";
+import { Moon, Sun, Github, Monitor } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -25,6 +25,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             PDFSignPro Cloud
           </Link>
           <div className="flex items-center gap-2">
+            <a
+              href="/api/signer/download"
+              className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground"
+            >
+              <Monitor className="size-4" />
+              Tải PDFSignPro Signer (Windows)
+            </a>
+            <Link
+              href="/signer"
+              className="text-xs text-muted-foreground underline hover:text-foreground"
+            >
+              Hướng dẫn cài đặt
+            </Link>
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>

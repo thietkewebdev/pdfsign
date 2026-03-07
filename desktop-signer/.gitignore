@@ -1,5 +1,7 @@
 __pycache__/
 *.pyc
+build/
+dist/
 *.pyo
 .env
 venv/

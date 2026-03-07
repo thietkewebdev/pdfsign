@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Upload, Loader2 } from "lucide-react";
+import Link from "next/link";
+import { Upload, Loader2, Monitor } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -56,6 +57,20 @@ export default function HomePage() {
           <p className="text-lg text-muted-foreground">
             Send documents for signature in minutes. No friction, no complexity.
           </p>
+          <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
+            <Button variant="outline" size="sm" asChild>
+              <a href="/api/signer/download">
+                <Monitor className="mr-2 size-4" />
+                Tải PDFSignPro Signer (Windows)
+              </a>
+            </Button>
+            <Link
+              href="/signer"
+              className="text-sm text-muted-foreground underline hover:text-foreground"
+            >
+              Hướng dẫn cài đặt
+            </Link>
+          </div>
         </header>
 
         <Card className="border-border shadow-sm">
