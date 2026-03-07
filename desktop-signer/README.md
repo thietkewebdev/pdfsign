@@ -36,6 +36,19 @@ mkdir -p assets/fonts
 
 Output: `dist/PDFSignProSigner.exe` (onefile, GUI, --noconsole). Build từ `gui_main.py`. Upload lên R2 tại key `signer/PDFSignProSigner.exe` để dùng với PDFSignPro Cloud.
 
+### Rebuild after code changes
+
+```powershell
+.\build.ps1
+.\installer\build-installer.ps1
+```
+
+### Debug (deep link not working)
+
+- **Log file**: `%LOCALAPPDATA%\PDFSignProSigner\logs\app.log` – ghi `sys.argv` và các sự kiện khi khởi động
+- **Test từ CLI**: `PDFSignProSigner.exe "pdfsignpro://sign?p=TEST"` – phải chuyển khỏi idle và log "Detected deeplink"
+- **Menu Edit → Paste deep link…** – dán URL thủ công để test parse
+
 ## Windows Installer (Inno Setup)
 
 ### Build installer

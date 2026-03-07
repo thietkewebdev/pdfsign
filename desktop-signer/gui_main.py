@@ -8,6 +8,7 @@ CLI (--in/--out) delegates to sign_pades.py.
 from __future__ import annotations
 
 import json
+import logging
 import os
 import sys
 import tempfile
@@ -33,10 +34,37 @@ from PySide6.QtWidgets import (
     QFrame,
     QMessageBox,
     QScrollArea,
+    QMenuBar,
+    QMenu,
+    QInputDialog,
 )
 from PySide6.QtGui import QFont, QPalette, QColor
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+# Log to %LOCALAPPDATA%\PDFSignProSigner\logs\app.log
+def _setup_logging() -> None:
+    base = os.environ.get("LOCALAPPDATA") or os.path.expanduser("~")
+    log_dir = Path(base) / "PDFSignProSigner" / "logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log_file = log_dir / "app.log"
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format="%(asctime)s [%(levelname)s] %(message)s",
+        handlers=[
+            logging.FileHandler(log_file, encoding="utf-8"),
+        ],
+        force=True,
+    )
+
+
+def extract_deeplink(argv: list) -> str | None:
+    """Scan argv for any string starting with pdfsignpro://. Return it if found."""
+    for arg in argv:
+        if isinstance(arg, str) and arg.strip().lower().startswith("pdfsignpro://"):
+            return arg.strip()
+    return None
+
 
 from signer.pkcs11_discovery import get_pkcs11_dll
 from signer.cert_selector import list_certs_from_token, CertInfo, get_signer_name
@@ -327,9 +355,14 @@ class FetchJobWorker(QThread):
 
 
 class MainWindow(QMainWindow):
-    def __init__(self, deep_link_params: dict | None = None):
+    def __init__(
+        self,
+        deep_link_params: dict | None = None,
+        argv_debug: list | None = None,
+    ):
         super().__init__()
         self.deep_link_params = deep_link_params
+        self._argv_debug = argv_debug
         self.job_data: dict | None = None
         self.cert_infos: list[CertInfo] = []
         self.slot_no = 0
@@ -354,13 +387,65 @@ class MainWindow(QMainWindow):
         self._build_signing_page()
         self._build_success_page()
 
+        # Debug: show sys.argv in log panel and write to file
+        if argv_debug is not None:
+            argv_str = repr(argv_debug)
+            self._append_loading_log(f"Startup argv: {argv_str}")
+            log = logging.getLogger("pdfsignpro")
+            log.info("Startup argv: %s", argv_str)
+
         if deep_link_params:
             self.stack.setCurrentIndex(0)
-            self._append_loading_log("Parsed URL: pdfsignpro://sign?p=...")
+            self._append_loading_log("Detected deeplink, parsed successfully.")
             self._append_loading_log("Claiming job...")
             self._start_fetch_job()
         else:
             self._show_idle_page()
+
+        self._build_menu_bar()
+
+    def _build_menu_bar(self):
+        menubar = self.menuBar()
+        edit_menu = menubar.addMenu("&Edit")
+        paste_action = edit_menu.addAction("Paste deep link…")
+        paste_action.triggered.connect(self._on_paste_deeplink)
+
+    def _on_paste_deeplink(self):
+        """Open dialog for user to paste deeplink, then start job flow."""
+        deeplink, ok = QInputDialog.getText(
+            self,
+            "Paste deep link",
+            "Paste pdfsignpro:// URL:",
+            QLineEdit.EchoMode.Normal,
+            "",
+        )
+        if ok and deeplink and deeplink.strip().startswith("pdfsignpro://"):
+            self.start_from_deeplink(deeplink.strip())
+        elif ok and deeplink and deeplink.strip():
+            QMessageBox.warning(
+                self,
+                "Invalid",
+                "URL must start with pdfsignpro://",
+            )
+
+    def start_from_deeplink(self, deeplink: str):
+        """Parse deeplink and start job flow. Switches from idle to job mode."""
+        log = logging.getLogger("pdfsignpro")
+        log.info("start_from_deeplink: %s", deeplink[:80] + "..." if len(deeplink) > 80 else deeplink)
+        self.stack.setCurrentIndex(0)
+        self._append_loading_log(f"Detected deeplink: {deeplink[:60]}{'...' if len(deeplink) > 60 else ''}")
+        params = _parse_deep_link(deeplink)
+        if not params:
+            self._append_loading_log("Parse failed: invalid or unsupported URL format.")
+            QMessageBox.warning(
+                self,
+                "Invalid deep link",
+                "Could not parse the URL. Ensure it is pdfsignpro://sign?p=<base64url>.",
+            )
+            return
+        self.deep_link_params = params
+        self._append_loading_log("Parsed successfully. Claiming job...")
+        self._start_fetch_job()
 
     def _build_loading_page(self):
         page = QWidget()
@@ -533,6 +618,13 @@ class MainWindow(QMainWindow):
         label.setObjectName("muted")
         label.setStyleSheet("font-size: 13px; line-height: 1.5;")
         v.addWidget(label)
+        if hasattr(self, "_argv_debug") and self._argv_debug:
+            dbg = QLabel(f"Debug: argv={repr(self._argv_debug)}")
+            dbg.setWordWrap(True)
+            dbg.setObjectName("muted")
+            dbg.setStyleSheet("font-size: 10px; max-width: 400px;")
+            dbg.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            v.addWidget(dbg)
         self.stack.addWidget(page)
         self.stack.setCurrentWidget(page)
 
@@ -659,14 +751,6 @@ class MainWindow(QMainWindow):
             webbrowser.open(url)
 
 
-def _extract_deep_link_from_argv() -> dict | None:
-    """Scan sys.argv for any pdfsignpro:// URL."""
-    for arg in sys.argv[1:]:
-        if isinstance(arg, str) and arg.strip().lower().startswith("pdfsignpro://"):
-            return _parse_deep_link(arg)
-    return None
-
-
 def main():
     # CLI: --in, --out -> delegate to sign_pades
     if "--in" in sys.argv or "--help" in sys.argv or "-h" in sys.argv:
@@ -678,6 +762,10 @@ def main():
         finally:
             sys.argv = old
 
+    _setup_logging()
+    log = logging.getLogger("pdfsignpro")
+    log.info("Starting PDFSignPro Signer, argv=%s", sys.argv)
+
     app = QApplication(sys.argv)
     app.setApplicationName("PDFSignPro Signer")
     app.setStyle("Fusion")
@@ -687,9 +775,17 @@ def main():
     font = QFont("Segoe UI", 10)
     app.setFont(font)
 
-    deep_link_params = _extract_deep_link_from_argv()
+    deeplink = extract_deeplink(sys.argv)
+    params = _parse_deep_link(deeplink) if deeplink else None
 
-    win = MainWindow(deep_link_params=deep_link_params)
+    if deeplink:
+        log.info("Detected deeplink: %s", deeplink[:80] + ("..." if len(deeplink) > 80 else ""))
+
+    win = MainWindow(deep_link_params=params, argv_debug=sys.argv)
+
+    if deeplink and not params:
+        win.start_from_deeplink(deeplink)
+
     win.show()
     win.raise_()
     win.activateWindow()
