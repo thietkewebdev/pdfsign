@@ -135,6 +135,26 @@ Response:
 }
 ```
 
+### Get job status (public, no auth)
+
+```bash
+curl http://localhost:3000/api/jobs/job_abc123/status
+```
+
+Response:
+
+```json
+{
+  "status": "COMPLETED",
+  "expiresAt": "2025-03-07T12:30:00.000Z",
+  "completedAt": "2025-03-07T12:15:00.000Z",
+  "outputVersionId": "clxx...",
+  "signedDownloadUrl": "https://...presigned..."
+}
+```
+
+When `status === "COMPLETED"`, `signedDownloadUrl` is a presigned URL to the signed PDF.
+
 ### Complete job (upload signed PDF)
 
 ```bash
@@ -172,6 +192,22 @@ Response:
    ```
 
 If the file is missing, the API returns 404 with a hint.
+
+## How signing works
+
+1. **Upload** – User uploads a PDF and is redirected to `/d/[publicId]`.
+2. **Place** – On the document page, user adds a signature box (drag to position) and clicks **Ký số**.
+3. **Create job** – Frontend calls `POST /api/jobs` with `documentId` and `placement`. Backend creates a `SigningJob` and returns `jobId`, `deepLink`, `expiresAt`.
+4. **Deep link** – User clicks **Mở PDFSignPro Signer** (or copies the deep link). The `pdfsignpro://` URL opens the desktop app with `jobId`, `token`, and `apiBaseUrl`.
+5. **Desktop app** – Signer fetches job via `GET /api/jobs/:jobId` (with `x-job-token`), downloads the PDF, signs it with USB token, and uploads via `POST /api/jobs/:jobId/complete`.
+6. **Polling** – Frontend polls `GET /api/jobs/:jobId/status` every 2 seconds (public, no auth). When `status === "COMPLETED"`, it receives `signedDownloadUrl` (presigned URL to the signed PDF).
+7. **Done** – Viewer refreshes to show the signed PDF. User sees **Tải PDF đã ký** to download.
+
+**Error handling:**
+
+- **Expired** – Job expires after 30 minutes. User sees "Job hết hạn, tạo lại".
+- **Timeout** – Polling stops after 5 minutes. User sees "Hết thời gian chờ (5 phút)".
+- **CREATED too long** – After ~60 seconds without completion, hint: "Chưa thấy app ký – kiểm tra đã cài Signer chưa".
 
 ## Architecture
 

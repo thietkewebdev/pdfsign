@@ -1,6 +1,6 @@
 # PDFSignPro Desktop Signer
 
-Ký số PDF bằng USB token (PKCS#11) trên Windows. Output PAdES chuẩn, xem được certificate trong Adobe Reader.
+Ký số PDF bằng USB token (PKCS#11) trên Windows. Ứng dụng GUI PySide6, output PAdES chuẩn, xem được certificate trong Adobe Reader.
 
 ## Yêu cầu
 
@@ -34,23 +34,73 @@ mkdir -p assets/fonts
 .\build.ps1
 ```
 
-Output: `dist/PDFSignProSigner.exe` (onefile). Upload lên R2 tại key `signer/PDFSignProSigner.exe` để dùng với PDFSignPro Cloud.
+Output: `dist/PDFSignProSigner.exe` (onefile, GUI, --noconsole). Upload lên R2 tại key `signer/PDFSignProSigner.exe` để dùng với PDFSignPro Cloud.
+
+## Windows Installer (Inno Setup)
+
+### Build installer
+
+```powershell
+cd desktop-signer
+.\installer\build-installer.ps1
+```
+
+- Builds PyInstaller exe if `dist/PDFSignProSigner.exe` is missing
+- Runs Inno Setup (ISCC) to produce `dist-installer/PDFSignProSignerSetup.exe`
+- Inno Setup path: `C:\Program Files (x86)\Inno Setup 6\ISCC.exe` (override with `$env:INNO_SETUP_ISCC`)
+
+### Install steps
+
+1. Run `PDFSignProSignerSetup.exe`
+2. Follow the wizard (install path: `%LOCALAPPDATA%\PDFSignProSigner`)
+3. Optionally create desktop shortcut
+4. Optionally launch the app after install
+
+### Verify pdfsignpro:// protocol
+
+1. After install, open a browser and go to:
+   ```
+   pdfsignpro://sign?jobId=test&token=x&apiBaseUrl=https://example.com
+   ```
+2. Windows should prompt to open with PDFSignPro Signer (or open it directly)
+3. The app should launch and receive the URL parameters
+
+To test from PowerShell:
+```powershell
+Start-Process "pdfsignpro://sign?jobId=test&token=x&apiBaseUrl=https://example.com"
+```
 
 ## Sử dụng
 
-### 1. Từ web (deep link)
+### 1. Từ web (deep link) – GUI
 
-1. Trên PDFSignPro Cloud, bấm "Ký số" → chọn "Open PDFSignPro Desktop"
-2. Đăng ký protocol: Sửa `register-protocol.reg` (đường dẫn exe) → double-click để chạy
-3. Lần sau khi bấm deep link, exe sẽ mở và hướng dẫn ký
+1. Cài đặt qua `PDFSignProSignerSetup.exe` (Inno Setup) để đăng ký `pdfsignpro://`
+2. Trên PDFSignPro Cloud, bấm "Ký số" → "Mở PDFSignPro Signer"
+3. Ứng dụng mở qua deep link, hiển thị:
+   - Màn hình tải job
+   - Màn hình chính: thông tin tài liệu, danh sách chứng thư, ô nhập PIN, nút "Ký"
+   - Màn hình thành công: "Mở tài liệu đã ký trong trình duyệt"
 
-### 2. Từ dòng lệnh
+**Luồng GUI:**
+- Nhập PIN → "Tải chứng thư" → chọn chứng thư → "Ký"
+- Lỗi rõ ràng: sai PIN, token không tìm thấy, lỗi mạng
+
+### 2. Chạy GUI trực tiếp (không deep link)
 
 ```bash
-# Lệnh mẫu: ký trang cuối, ô chữ ký góc phải dưới
-python sign_from_web.py --in input.pdf --out signed.pdf --page LAST --rectPct 0.64,0.06,0.32,0.10
-# Hoặc dùng exe:
+python signer_gui.py
+```
+
+Hiển thị màn hình chờ: "Mở ứng dụng từ PDFSignPro Cloud".
+
+### 3. Từ dòng lệnh (CLI)
+
+```bash
+# Ký với exe (delegate tới sign_pades)
 PDFSignProSigner.exe --in input.pdf --out signed.pdf
+
+# Hoặc dùng Python
+python sign_pades.py --in input.pdf --out signed.pdf
 ```
 
 ### Tham số
@@ -76,15 +126,16 @@ set PKCS11_DLL=C:\Path\To\viettel_pkcs11.dll
 python sign_pades.py --in input.pdf --out signed.pdf
 ```
 
-## Quy trình
+## Quy trình (GUI)
 
-1. **Sanitize PDF** (pikepdf): Mở input PDF và save lại thành bản cleaned trong memory để tránh lỗi parse (incorrect startxref, Object Streams, Dictionary read error).
-2. **Auto-scan PKCS#11 DLL**: Quét `C:\Windows\System32`, `C:\Program Files`, `C:\Program Files (x86)` tìm file chứa `pkcs11`, `viettel`, `vnpt`, `easyca`, `bkav`, `fpt`, v.v.
-3. **Nhập PIN**: Prompt ẩn (không hiển thị khi gõ)
-4. **Chọn chứng thư**: Liệt kê cert trên token, chọn theo index
-5. **Ký**: Tạo chữ ký PAdES, appearance text-only:
-   - Ký bởi: \<O fallback CN\>
-   - Ngày ký: \<Asia/Ho_Chi_Minh\>
+1. **Deep link**: Parse `pdfsignpro://sign?jobId=...&token=...&apiBaseUrl=...` từ `argv[1]`
+2. **Fetch job**: `GET {apiBaseUrl}/api/jobs/{jobId}` với header `x-job-token`
+3. **Tải chứng thư**: Nhập PIN → "Tải chứng thư" → liệt kê O/CN, serial, validity
+4. **Ký**: Chọn cert → "Ký" → tải PDF, ký PAdES (pikepdf sanitize + pyHanko), upload
+5. **Upload**: `POST /api/jobs/{jobId}/complete` multipart (file + certMeta JSON)
+6. **Hoàn tất**: Hiển thị nút "Mở tài liệu đã ký trong trình duyệt"
+
+**certMeta JSON:** `subjectO`, `subjectCN`, `serial`, `signingTime`
 
 ## Hệ tọa độ rectPct
 
@@ -100,8 +151,9 @@ python sign_pades.py --in input.pdf --out signed.pdf
 | PDF sanitization failed | PDF bị lỗi cấu trúc. Thử: (1) Mở bằng Adobe Reader → Save As, (2) Print to PDF, hoặc (3) `qpdf --linearize input.pdf output.pdf` |
 | No PKCS#11 DLL found | Chưa cài driver token hoặc set `PKCS11_DLL` |
 | No token found | Token chưa cắm |
-| Wrong PIN | Sai mật khẩu |
+| Wrong PIN | Sai mật khẩu (hiển thị khi bấm "Tải chứng thư") |
 | No certificates found | Token không có chứng thư |
+| Không lấy được job / Lỗi mạng | Kiểm tra kết nối, URL API, token job còn hạn |
 
 ## Kiểm tra
 

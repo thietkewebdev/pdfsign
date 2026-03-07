@@ -40,8 +40,10 @@ if (Test-Path "dist") { Remove-Item -Recurse -Force dist }
 if (Test-Path "build") { Remove-Item -Recurse -Force build }
 
 # Build (include pkcs11 submodules for PKCS#11 / USB token support)
+# GUI app: --noconsole, PySide6, entry point signer_gui.py
 $PyInstallerArgs = @(
     "--onefile",
+    "--noconsole",
     "--name", "PDFSignProSigner",
     "--distpath", "dist",
     "--specpath", "build",
@@ -50,7 +52,10 @@ $PyInstallerArgs = @(
     "--collect-submodules", "pkcs11",
     "--hidden-import", "pkcs11.attributes",
     "--hidden-import", "requests",
-    "sign_from_web.py"
+    "--hidden-import", "PySide6.QtCore",
+    "--hidden-import", "PySide6.QtGui",
+    "--hidden-import", "PySide6.QtWidgets",
+    "signer_gui.py"
 ) + $AddDataArgs
 
 Write-Host "Running PyInstaller..."
