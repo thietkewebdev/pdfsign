@@ -49,7 +49,8 @@ $PyInstallerArgs = @(
     "--clean",
     "--collect-submodules", "pkcs11",
     "--hidden-import", "pkcs11.attributes",
-    "sign_pades.py"
+    "--hidden-import", "requests",
+    "sign_from_web.py"
 ) + $AddDataArgs
 
 Write-Host "Running PyInstaller..."

@@ -28,11 +28,29 @@ mkdir -p assets/fonts
 # Sau khi tải, copy NotoSans-Regular.ttf vào assets/fonts/
 ```
 
+## Build EXE (Windows)
+
+```powershell
+.\build.ps1
+```
+
+Output: `dist/PDFSignProSigner.exe` (onefile). Upload lên R2 tại key `signer/PDFSignProSigner.exe` để dùng với PDFSignPro Cloud.
+
 ## Sử dụng
+
+### 1. Từ web (deep link)
+
+1. Trên PDFSignPro Cloud, bấm "Ký số" → chọn "Open PDFSignPro Desktop"
+2. Đăng ký protocol: Sửa `register-protocol.reg` (đường dẫn exe) → double-click để chạy
+3. Lần sau khi bấm deep link, exe sẽ mở và hướng dẫn ký
+
+### 2. Từ dòng lệnh
 
 ```bash
 # Lệnh mẫu: ký trang cuối, ô chữ ký góc phải dưới
-python sign_pades.py --in input.pdf --out signed.pdf --page LAST --rectPct 0.64,0.06,0.32,0.10
+python sign_from_web.py --in input.pdf --out signed.pdf --page LAST --rectPct 0.64,0.06,0.32,0.10
+# Hoặc dùng exe:
+PDFSignProSigner.exe --in input.pdf --out signed.pdf
 ```
 
 ### Tham số
