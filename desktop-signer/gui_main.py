@@ -267,10 +267,16 @@ class FetchJobWorker(QThread):
 
     def run(self):
         try:
-            self.finished_ok.emit(_fetch_job(self.api_base, self.job_id, self.token))
+            job = _fetch_job(self.api_base, self.job_id, self.token)
+            self.finished_ok.emit(job)
         except requests.RequestException as e:
             resp = getattr(e, "response", None)
-            self.finished_err.emit(resp.text if resp else str(e))
+            msg = resp.text if resp else str(e)
+            if resp and resp.status_code == 401:
+                msg = "Invalid or expired token. Create a new signing job on the web."
+            elif resp and resp.status_code == 410:
+                msg = "Job expired. Create a new signing job on the web."
+            self.finished_err.emit(msg)
         except Exception as e:
             self.finished_err.emit(str(e))
 
@@ -300,10 +306,13 @@ class MainWindow(QMainWindow):
 
         self._build_loading_page()
         self._build_main_page()
+        self._build_signing_page()
         self._build_success_page()
 
         if deep_link_params:
             self.stack.setCurrentIndex(0)
+            self._append_loading_log("Parsed URL: pdfsignpro://sign?...")
+            self._append_loading_log("Fetching job...")
             self._start_fetch_job()
         else:
             self._show_idle_page()
@@ -311,17 +320,28 @@ class MainWindow(QMainWindow):
     def _build_loading_page(self):
         page = QWidget()
         v = QVBoxLayout(page)
-        v.setAlignment(Qt.AlignmentFlag.AlignCenter)
         v.setSpacing(16)
-        self.loading_label = QLabel("Đang tải thông tin job...")
+        self.loading_label = QLabel("Job loading…")
         self.loading_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.loading_label.setObjectName("muted")
+        self.loading_label.setStyleSheet("font-size: 14px; font-weight: 500;")
         v.addWidget(self.loading_label)
         self.loading_spinner = QProgressBar()
         self.loading_spinner.setRange(0, 0)
-        self.loading_spinner.setFixedWidth(220)
-        v.addWidget(self.loading_spinner, alignment=Qt.AlignmentFlag.AlignCenter)
+        self.loading_spinner.setFixedHeight(6)
+        v.addWidget(self.loading_spinner)
+        self.loading_log = QTextEdit()
+        self.loading_log.setReadOnly(True)
+        self.loading_log.setMaximumHeight(120)
+        self.loading_log.setStyleSheet(
+            "background-color: #18181b; color: #a1a1aa; border: 1px solid rgba(255,255,255,0.06); "
+            "border-radius: 6px; padding: 8px; font-size: 12px;"
+        )
+        v.addWidget(self.loading_log)
         self.stack.addWidget(page)
+
+    def _append_loading_log(self, msg: str):
+        if hasattr(self, "loading_log"):
+            self.loading_log.append(msg)
 
     def _build_main_page(self):
         page = QWidget()
@@ -396,9 +416,32 @@ class MainWindow(QMainWindow):
         self.log_area = QTextEdit()
         self.log_area.setReadOnly(True)
         self.log_area.setMaximumHeight(100)
-        self.log_area.setPlaceholderText("...")
+        self.log_area.setPlaceholderText("parse url → fetch job → download pdf → scan token → sign → upload complete")
         v.addWidget(self.log_area)
 
+        self.stack.addWidget(page)
+
+    def _build_signing_page(self):
+        """Screen 3: Signing in progress (disable inputs)."""
+        page = QWidget()
+        v = QVBoxLayout(page)
+        v.setSpacing(16)
+        self.signing_label = QLabel("Đang ký...")
+        self.signing_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.signing_label.setStyleSheet("font-size: 14px; font-weight: 500;")
+        v.addWidget(self.signing_label)
+        self.signing_progress = QProgressBar()
+        self.signing_progress.setRange(0, 5)
+        self.signing_progress.setValue(0)
+        self.signing_progress.setFixedHeight(8)
+        v.addWidget(self.signing_progress)
+        self.signing_log = QTextEdit()
+        self.signing_log.setReadOnly(True)
+        self.signing_log.setStyleSheet(
+            "background-color: #18181b; color: #a1a1aa; border: 1px solid rgba(255,255,255,0.06); "
+            "border-radius: 6px; padding: 8px; font-size: 12px;"
+        )
+        v.addWidget(self.signing_log)
         self.stack.addWidget(page)
 
     def _build_success_page(self):
@@ -458,6 +501,7 @@ class MainWindow(QMainWindow):
         worker.start()
 
     def _on_job_fetched(self, job: dict):
+        self._append_loading_log("Job fetched.")
         self.job_data = job
         doc = job.get("document", {})
         placement = job.get("placement", {})
@@ -468,6 +512,7 @@ class MainWindow(QMainWindow):
 
         try:
             self.dll_path = get_pkcs11_dll(os.environ.get("PKCS11_DLL"))
+            self._append_loading_log("PKCS#11 driver found.")
         except FileNotFoundError as e:
             QMessageBox.critical(self, "Lỗi", str(e))
             return
@@ -515,10 +560,9 @@ class MainWindow(QMainWindow):
 
         self.sign_btn.setEnabled(False)
         self.load_certs_btn.setEnabled(False)
-        self.progress_bar.setVisible(True)
-        self.progress_bar.setRange(0, 5)
-        self.progress_bar.setValue(0)
-        self.log_area.clear()
+        self.stack.setCurrentIndex(2)
+        self.signing_log.clear()
+        self.signing_progress.setValue(0)
 
         p = self.deep_link_params
         self.sign_worker = SignWorker(
@@ -530,13 +574,14 @@ class MainWindow(QMainWindow):
             cert_index=idx,
             slot_no=self.slot_no,
         )
-        self.sign_worker.log.connect(self._append_log)
-        self.sign_worker.progress.connect(self.progress_bar.setValue)
+        self.sign_worker.log.connect(self._append_signing_log)
+        self.sign_worker.progress.connect(self.signing_progress.setValue)
         self.sign_worker.finished_ok.connect(self._on_sign_ok)
         self.sign_worker.finished_err.connect(self._on_sign_err)
         self.sign_worker.start()
 
-    def _append_log(self, msg: str):
+    def _append_signing_log(self, msg: str):
+        self.signing_log.append(msg)
         self.log_area.append(msg)
 
     def _on_sign_ok(self, result: dict):
@@ -551,14 +596,22 @@ class MainWindow(QMainWindow):
         self.sign_worker = None
         self.sign_btn.setEnabled(True)
         self.load_certs_btn.setEnabled(True)
-        self.progress_bar.setVisible(False)
+        self.stack.setCurrentIndex(1)
         QMessageBox.critical(self, "Lỗi ký", msg)
 
     def _on_open_browser(self):
-        url = getattr(self, "signed_public_url", "")
+        import webbrowser
+        url = getattr(self, "signed_public_url", "") or getattr(self, "signed_api_base", "")
         if url:
-            import webbrowser
             webbrowser.open(url)
+
+
+def _extract_deep_link_from_argv() -> dict | None:
+    """Scan sys.argv for any pdfsignpro:// URL."""
+    for arg in sys.argv[1:]:
+        if isinstance(arg, str) and arg.strip().lower().startswith("pdfsignpro://"):
+            return _parse_deep_link(arg)
+    return None
 
 
 def main():
@@ -581,9 +634,7 @@ def main():
     font = QFont("Segoe UI", 10)
     app.setFont(font)
 
-    deep_link_params = None
-    if len(sys.argv) >= 2:
-        deep_link_params = _parse_deep_link(sys.argv[1])
+    deep_link_params = _extract_deep_link_from_argv()
 
     win = MainWindow(deep_link_params=deep_link_params)
     win.show()

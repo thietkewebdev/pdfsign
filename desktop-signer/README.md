@@ -75,6 +75,20 @@ python gui_main.py "pdfsignpro://sign?jobId=job_test&token=x&apiBaseUrl=http://l
 
 Nếu PDFSignPro Cloud chạy local tại `http://localhost:3000`, tạo job thật trên web rồi copy `jobId` và `token` từ response `POST /api/jobs` vào deep link.
 
+### Test deep link locally
+
+Chạy với deep link đầy đủ (thay `jobId`, `token`, `apiBaseUrl` bằng giá trị thật):
+
+```powershell
+# Python
+python gui_main.py "pdfsignpro://sign?jobId=job_abc123&token=YOUR_TOKEN&apiBaseUrl=https://your-app.onrender.com"
+
+# Exe (sau khi build)
+PDFSignProSigner.exe "pdfsignpro://sign?jobId=job_abc123&token=YOUR_TOKEN&apiBaseUrl=https://your-app.onrender.com"
+```
+
+Lấy `jobId` và `token` từ response `POST /api/jobs` khi bấm "Ký số" trên web.
+
 ## Sử dụng
 
 ### 1. Từ web (deep link) – GUI
