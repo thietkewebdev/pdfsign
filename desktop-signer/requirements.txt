@@ -1,0 +1,6 @@
+pyHanko[opentype]>=0.25.0
+reportlab>=4.0.0
+python-pkcs11>=0.7.0
+cryptography>=42.0.0
+asn1crypto>=1.5.0
+pikepdf>=8.0.0

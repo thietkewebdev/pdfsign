@@ -11,7 +11,8 @@ if (typeof window !== "undefined") {
 }
 
 interface PdfViewerProps {
-  file: File | null;
+  file?: File | null;
+  pdfUrl?: string | null;
   currentPage: number;
   onPageChange: (page: number) => void;
   scale: number;
@@ -32,7 +33,8 @@ interface PdfViewerProps {
 }
 
 export function PdfViewer({
-  file,
+  file = null,
+  pdfUrl = null,
   currentPage,
   onPageChange,
   scale,
@@ -53,17 +55,29 @@ export function PdfViewer({
   } | null>(null);
 
   useEffect(() => {
-    if (!file) return;
-    const loadPdf = async () => {
-      const arrayBuffer = await file.arrayBuffer();
-      const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
-      const pdf = await loadingTask.promise;
-      setPdfDoc(pdf);
-      onTotalPagesChange(pdf.numPages);
-    };
-    loadPdf();
-    return () => setPdfDoc(null);
-  }, [file, onTotalPagesChange]);
+    if (file) {
+      const loadPdf = async () => {
+        const arrayBuffer = await file.arrayBuffer();
+        const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+        const pdf = await loadingTask.promise;
+        setPdfDoc(pdf);
+        onTotalPagesChange(pdf.numPages);
+      };
+      loadPdf();
+      return () => setPdfDoc(null);
+    } else if (pdfUrl) {
+      const loadPdf = async () => {
+        const res = await fetch(pdfUrl);
+        const arrayBuffer = await res.arrayBuffer();
+        const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+        const pdf = await loadingTask.promise;
+        setPdfDoc(pdf);
+        onTotalPagesChange(pdf.numPages);
+      };
+      loadPdf();
+      return () => setPdfDoc(null);
+    }
+  }, [file, pdfUrl, onTotalPagesChange]);
 
   const renderPage = useCallback(
     async (pageNum: number) => {
@@ -148,7 +162,7 @@ export function PdfViewer({
     [pageWidth, pageHeight, onPlacementUpdate]
   );
 
-  if (!file) {
+  if (!file && !pdfUrl) {
     return (
       <div className="flex size-full items-center justify-center rounded-lg border border-border bg-muted/20">
         <p className="text-muted-foreground">Chọn file PDF để xem</p>

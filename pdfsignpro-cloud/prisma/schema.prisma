@@ -1,0 +1,55 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Document {
+  id        String   @id @default(cuid())
+  publicId  String   @unique
+  title     String?  // nullable
+  status    String   @default("ACTIVE") // ACTIVE, ARCHIVED
+  createdAt DateTime @default(now())
+  versions  DocumentVersion[]
+  jobs      SigningJob[]
+}
+
+model DocumentVersion {
+  id             String   @id @default(cuid())
+  documentId     String
+  document       Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  version        Int      // 1, 2, 3...
+  storageKey     String
+  storageDriver String   @default("r2")
+  sizeBytes      Int
+  createdAt      DateTime @default(now())
+  jobsAsInput    SigningJob[] @relation("InputVersion")
+  jobsAsOutput   SigningJob[] @relation("OutputVersion")
+
+  @@unique([documentId, version])
+  @@index([documentId])
+}
+
+model SigningJob {
+  id                  String    @id @default(cuid())
+  documentVersionId   String    // input version being signed
+  documentVersion     DocumentVersion @relation("InputVersion", fields: [documentVersionId], references: [id], onDelete: Cascade)
+  documentId          String
+  document            Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  jobTokenHash        String    // sha256 of jobToken, never store raw
+  status              String    @default("CREATED") // CREATED, COMPLETED, EXPIRED, CANCELED
+  placementJson       String    // JSON: { page, rectPct: { x, y, w, h } }
+  certMetaJson        String?   // JSON: subject O/CN, serial, signingTime...
+  outputVersionId     String?   // new DocumentVersion when completed
+  outputVersion       DocumentVersion? @relation("OutputVersion", fields: [outputVersionId], references: [id])
+  createdAt           DateTime  @default(now())
+  completedAt         DateTime?
+  expiresAt           DateTime  // job expires after 30m
+
+  @@index([documentVersionId])
+  @@index([documentId])
+  @@index([jobTokenHash])
+}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import Link from "next/link";
 import {
   Download,
@@ -23,23 +23,20 @@ import { useUpload } from "@/contexts/upload-context";
 import { useSignaturePlacement } from "@/hooks/use-signature-placement";
 import type { SignaturePlacement } from "@/lib/types";
 
+interface DocumentData {
+  document: { id: string; publicId: string; title: string };
+  currentVersion: { version: number };
+  presignedUrl: string;
+}
+
 export default function SignPage() {
   const params = useParams();
+  const publicId = params.id as string;
   const { theme, setTheme } = useTheme();
-  const { file, fileName } = useUpload();
+  const { file } = useUpload();
 
-  if (!file) {
-    return (
-      <div className="flex min-h-[50vh] flex-col items-center justify-center gap-4 p-8">
-        <p className="text-muted-foreground">
-          Chưa có file PDF. Vui lòng upload file trước.
-        </p>
-        <Button asChild>
-          <Link href="/">Upload PDF</Link>
-        </Button>
-      </div>
-    );
-  }
+  const [docData, setDocData] = useState<DocumentData | null>(null);
+  const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [scale, setScale] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
@@ -55,8 +52,22 @@ export default function SignPage() {
     toggleDefaultPlacement,
     addSignatureBox,
     updatePlacementFromPixels,
-    setPlacements,
   } = useSignaturePlacement(totalPages);
+
+  useEffect(() => {
+    if (!publicId) {
+      setLoading(false);
+      return;
+    }
+    fetch(`/api/documents/${publicId}`)
+      .then((res) => {
+        if (!res.ok) throw new Error("Document not found");
+        return res.json();
+      })
+      .then(setDocData)
+      .catch(() => setDocData(null))
+      .finally(() => setLoading(false));
+  }, [publicId]);
 
   const handleTotalPagesChange = useCallback((n: number) => {
     setTotalPages(n);
@@ -78,21 +89,22 @@ export default function SignPage() {
   );
 
   const handleSign = async () => {
-    if (placements.length === 0) return;
+    if (placements.length === 0 || !docData) return;
     const placement = placements[0];
-    const fileId = (params.id as string) ?? "demo";
 
     const res = await fetch("/api/jobs", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        fileId,
+        documentId: docData.document.id,
         placement: {
           page: placement.page,
-          xPct: placement.xPct,
-          yPct: placement.yPct,
-          wPct: placement.wPct,
-          hPct: placement.hPct,
+          rectPct: {
+            x: placement.xPct,
+            y: placement.yPct,
+            w: placement.wPct,
+            h: placement.hPct,
+          },
         },
       }),
     });
@@ -116,6 +128,35 @@ export default function SignPage() {
 
   const activePlacement = placements[0];
   const activePage = activePlacement?.page ?? currentPage;
+
+  const pdfSource = docData
+    ? { pdfUrl: docData.presignedUrl }
+    : file
+      ? { file }
+      : null;
+
+  const fileName = docData?.document.title ?? file?.name ?? "document.pdf";
+
+  if (loading) {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center">
+        <p className="text-muted-foreground">Loading…</p>
+      </div>
+    );
+  }
+
+  if (!docData && !file) {
+    return (
+      <div className="flex min-h-[50vh] flex-col items-center justify-center gap-4 p-8">
+        <p className="text-muted-foreground">
+          Chưa có file PDF. Vui lòng upload file trước.
+        </p>
+        <Button asChild>
+          <Link href="/">Upload PDF</Link>
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen flex-col">
@@ -153,7 +194,7 @@ export default function SignPage() {
       </div>
 
       <div className="flex-1 overflow-hidden">
-        <div className="hidden lg:grid lg:grid-cols-[320px_1fr_280px] lg:h-full">
+        <div className="hidden lg:grid lg:grid-cols-[320px_1fr_280px]">
           <div className="border-r border-border p-4 overflow-hidden flex flex-col">
             <div className="space-y-4">
               <h3 className="text-sm font-semibold text-foreground">
@@ -245,7 +286,7 @@ export default function SignPage() {
           </div>
           <div className="overflow-hidden">
             <PdfViewer
-              file={file}
+              {...pdfSource}
               currentPage={currentPage}
               onPageChange={setCurrentPage}
               scale={scale}
@@ -358,7 +399,7 @@ export default function SignPage() {
               <TabsContent value="document" className="m-0 p-0 h-full">
                 <div className="h-full">
                   <PdfViewer
-                    file={file}
+                    {...pdfSource}
                     currentPage={currentPage}
                     onPageChange={setCurrentPage}
                     scale={scale}

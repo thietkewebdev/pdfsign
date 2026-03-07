@@ -2,25 +2,48 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Upload } from "lucide-react";
+import { Upload, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useUpload } from "@/contexts/upload-context";
 
 export default function HomePage() {
   const router = useRouter();
-  const { setFile } = useUpload();
   const [title, setTitle] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleUpload = (e: React.FormEvent) => {
+  const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (selectedFile) {
-      setFile(selectedFile);
+    if (!selectedFile) return;
+
+    setIsSubmitting(true);
+    setError(null);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", selectedFile);
+      formData.append("title", title || selectedFile.name || "Untitled");
+
+      const res = await fetch("/api/documents", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error ?? "Upload failed");
+      }
+
+      const data = await res.json();
+      router.push(`/d/${data.publicId}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setIsSubmitting(false);
     }
-    router.push("/sign/demo");
   };
 
   return (
@@ -60,20 +83,27 @@ export default function HomePage() {
                   <Input
                     id="file"
                     type="file"
-                    accept=".pdf"
+                    accept=".pdf,application/pdf"
                     onChange={(e) => setSelectedFile(e.target.files?.[0] ?? null)}
                     className="rounded-xl file:mr-4 file:rounded-lg file:border-0 file:bg-primary file:px-4 file:py-2 file:text-sm file:font-medium file:text-primary-foreground file:hover:bg-primary/90"
                   />
                 </div>
               </div>
+              {error && (
+                <p className="text-sm text-destructive">{error}</p>
+              )}
               <Button
                 type="submit"
                 size="lg"
                 className="w-full rounded-xl"
-                disabled={!selectedFile}
+                disabled={!selectedFile || isSubmitting}
               >
-                <Upload className="size-4" />
-                Upload
+                {isSubmitting ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Upload className="size-4" />
+                )}
+                {isSubmitting ? "Uploading…" : "Upload"}
               </Button>
             </form>
           </CardContent>
