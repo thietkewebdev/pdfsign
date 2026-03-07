@@ -4,6 +4,7 @@ import { randomBytes } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { generateJobToken, hashJobToken } from "@/lib/job-token";
 import { generateClaimCode, hashClaimCode } from "@/lib/claim-code";
+import { base64urlEncode } from "@/lib/base64url";
 
 const rectPctSchema = z.object({
   x: z.number().min(0).max(1),
@@ -97,7 +98,9 @@ export async function POST(request: Request) {
 
     const apiBaseUrl =
       process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-    const deepLink = `pdfsignpro://sign?jobId=${jobId}&code=${claimCode}&u=${new URL(apiBaseUrl).hostname}`;
+    const hostname = new URL(apiBaseUrl).hostname;
+    const payload = { j: jobId, c: claimCode, h: hostname };
+    const deepLink = `pdfsignpro://sign?p=${base64urlEncode(payload)}`;
 
     return NextResponse.json({
       jobId,

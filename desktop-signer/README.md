@@ -63,36 +63,34 @@ cd desktop-signer
 
 ### Chạy GUI qua deep link
 
-**Cách 1: Từ web** – Trên PDFSignPro Cloud, bấm "Ký số" → "Mở PDFSignPro Signer". Ứng dụng mở qua `pdfsignpro://sign?jobId=...&code=...&u=...` (URL ngắn, Windows launch ổn định).
+**Cách 1: Từ web** – Trên PDFSignPro Cloud, bấm "Ký số" → "Mở PDFSignPro Signer". Ứng dụng mở qua `pdfsignpro://sign?p=<base64url>` (URL ngắn, một param duy nhất, Windows launch ổn định).
 
 **Cách 2: Test không cần web** – Dùng deep link mẫu (sẽ lỗi claim nhưng đủ để kiểm tra GUI mở):
 
 ```powershell
-# PowerShell
-Start-Process "pdfsignpro://sign?jobId=job_test123&code=abc12345&u=localhost"
+# PowerShell (p = base64url của {"j":"job_test","c":"abc12345","h":"localhost"})
+Start-Process "pdfsignpro://sign?p=eyJqIjoiam9iX3Rlc3QiLCJjIjoiYWJjMTIzNDUiLCJoIjoibG9jYWxob3N0In0"
 ```
 
 Hoặc chạy trực tiếp với tham số:
 
 ```powershell
-python gui_main.py "pdfsignpro://sign?jobId=job_test&code=abc12345&u=localhost"
+python gui_main.py "pdfsignpro://sign?p=eyJqIjoiam9iX3Rlc3QiLCJjIjoiYWJjMTIzNDUiLCJoIjoibG9jYWxob3N0In0"
 ```
 
-Nếu PDFSignPro Cloud chạy local tại `http://localhost:3000`, tạo job thật trên web rồi copy `jobId` và `code` từ deep link trong response `POST /api/jobs`.
+Nếu PDFSignPro Cloud chạy local tại `http://localhost:3000`, tạo job thật trên web rồi copy deep link từ response `POST /api/jobs`.
 
 ### Test deep link locally
 
-Chạy với deep link đầy đủ (thay `jobId`, `code`, `u` bằng giá trị thật):
+Lấy deep link từ response `POST /api/jobs` khi bấm "Ký số" trên web, rồi chạy:
 
 ```powershell
 # Python
-python gui_main.py "pdfsignpro://sign?jobId=job_abc123&code=a1b2c3d4&u=myapp.onrender.com"
+python gui_main.py "pdfsignpro://sign?p=eyJqIjoiam9iX2FiYzEyMyIsImMiOiJhMWIyYzNkNCIsImgiOiJteWFwcC5vbnJlbmRlci5jb20ifQ"
 
 # Exe (sau khi build)
-PDFSignProSigner.exe "pdfsignpro://sign?jobId=job_abc123&code=a1b2c3d4&u=myapp.onrender.com"
+PDFSignProSigner.exe "pdfsignpro://sign?p=..."
 ```
-
-Lấy `jobId` và `code` từ deep link trong response `POST /api/jobs` khi bấm "Ký số" trên web.
 
 ## Sử dụng
 
@@ -152,8 +150,9 @@ python sign_pades.py --in input.pdf --out signed.pdf
 
 ## Quy trình (GUI)
 
-1. **Deep link**: Parse `pdfsignpro://sign?jobId=...&token=...&apiBaseUrl=...` từ `argv[1]`
-2. **Fetch job**: `GET {apiBaseUrl}/api/jobs/{jobId}` với header `x-job-token`
+1. **Deep link**: Parse `pdfsignpro://sign?p=<base64url>` từ `argv[1]`, decode JSON `{j,c,h}`
+2. **Claim job**: `POST {apiBaseUrl}/api/jobs/{jobId}/claim` với body `{code}` → nhận `jobToken`, `apiBaseUrl`
+3. **Fetch job**: `GET {apiBaseUrl}/api/jobs/{jobId}` với header `x-job-token`
 4. **Tải chứng thư**: Nhập PIN → "Tải chứng thư" → liệt kê O/CN, serial, validity
 5. **Ký**: Chọn cert → "Ký" → tải PDF, ký PAdES (pikepdf sanitize + pyHanko), upload
 6. **Upload**: `POST /api/jobs/{jobId}/complete` multipart (file + certMeta JSON)

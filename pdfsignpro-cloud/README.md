@@ -109,14 +109,14 @@ Response:
 ```json
 {
   "jobId": "job_abc123",
-  "deepLink": "pdfsignpro://sign?jobId=job_abc123&code=a1b2c3d4&u=myapp.onrender.com",
+  "deepLink": "pdfsignpro://sign?p=eyJqIjoiam9iX2FiYzEyMyIsImMiOiJhMWIyYzNkNCIsImgiOiJteWFwcC5vbnJlbmRlci5jb20ifQ",
   "placement": { "page": "LAST", "rectPct": { ... } },
   "documentId": "clxx...",
   "expiresAt": "2025-03-07T12:30:00.000Z"
 }
 ```
 
-The deep link is short (jobId + 8-char code + hostname) so Windows can launch it reliably. The signer app claims the job with the code to obtain the token.
+The deep link uses a single `p` param (base64url-encoded JSON: `{j:jobId,c:code,h:hostname}`) so Windows can launch it reliably. The signer app decodes `p`, claims the job with the code, and obtains the token.
 
 ### Claim job (exchange code for token)
 
@@ -217,8 +217,8 @@ If the file is missing, the API returns 404 with a hint.
 
 1. **Upload** – User uploads a PDF and is redirected to `/d/[publicId]`.
 2. **Place** – On the document page, user adds a signature box (drag to position) and clicks **Ký số**.
-3. **Create job** – Frontend calls `POST /api/jobs` with `documentId` and `placement`. Backend creates a `SigningJob` and returns `jobId`, `deepLink` (short URL with `jobId`, `code`, `u`), `expiresAt`.
-4. **Deep link** – User clicks **Mở PDFSignPro Signer** (or copies the deep link). The `pdfsignpro://sign?jobId=...&code=...&u=...` URL opens the desktop app. The app calls `POST /api/jobs/:jobId/claim` with the code to obtain `jobToken` and `apiBaseUrl`, then fetches the job and signs.
+3. **Create job** – Frontend calls `POST /api/jobs` with `documentId` and `placement`. Backend creates a `SigningJob` and returns `jobId`, `deepLink` (`pdfsignpro://sign?p=<base64url>`), `expiresAt`.
+4. **Deep link** – User clicks **Mở PDFSignPro Signer** (or copies the deep link). The `pdfsignpro://sign?p=...` URL opens the desktop app. The app decodes `p`, calls `POST /api/jobs/:jobId/claim` with the code to obtain `jobToken` and `apiBaseUrl`, then fetches the job and signs.
 5. **Desktop app** – Signer fetches job via `GET /api/jobs/:jobId` (with `x-job-token`), downloads the PDF, signs it with USB token, and uploads via `POST /api/jobs/:jobId/complete`.
 6. **Polling** – Frontend polls `GET /api/jobs/:jobId/status` every 2 seconds (public, no auth). When `status === "COMPLETED"`, it receives `signedDownloadUrl` (presigned URL to the signed PDF).
 7. **Done** – Viewer refreshes to show the signed PDF. User sees **Tải PDF đã ký** to download.

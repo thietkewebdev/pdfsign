@@ -2,7 +2,7 @@
 """
 PDFSignPro Signer - PySide6 GUI (Linear dark theme).
 
-Entry point for deep link: pdfsignpro://sign?jobId=...&code=...&u=...
+Entry point for deep link: pdfsignpro://sign?p=<base64url(JSON)>
 CLI (--in/--out) delegates to sign_pades.py.
 """
 from __future__ import annotations
@@ -96,27 +96,44 @@ LINEAR_DARK = """
 
 
 def _parse_deep_link(url: str) -> dict | None:
-    """Parse pdfsignpro://sign?jobId=...&code=...&u=hostname (short URL)"""
+    """Parse pdfsignpro://sign?p=<payload>. Base64url-decode payload, parse JSON {j,c,h}.
+    Then: POST https://{h}/api/jobs/{j}/claim with {code:c}."""
     if not url or not url.strip().lower().startswith("pdfsignpro://"):
         return None
     parsed = urlparse(url)
     if parsed.scheme.lower() != "pdfsignpro" or parsed.netloc.lower() != "sign":
         return None
     qs = parse_qs(parsed.query)
+    p_b64 = (qs.get("p") or [None])[0]
+    if p_b64:
+        try:
+            import base64
+            import json
+            pad = 4 - len(p_b64) % 4
+            if pad != 4:
+                p_b64 += "=" * pad
+            raw = base64.urlsafe_b64decode(p_b64)
+            data = json.loads(raw.decode("utf-8"))
+            j = data.get("j")
+            c = data.get("c")
+            h = data.get("h")
+            if j and c and h:
+                scheme = "http" if h == "localhost" or str(h).startswith("localhost:") else "https"
+                port = ":3000" if h == "localhost" else ""
+                api_base = f"{scheme}://{h}{port}".rstrip("/")
+                return {"jobId": j, "code": c, "apiBaseUrl": api_base}
+        except (ValueError, json.JSONDecodeError, KeyError):
+            pass
+    # Legacy: jobId, code, u
     job_id = (qs.get("jobId") or qs.get("jobid") or [None])[0]
     code = (qs.get("code") or [None])[0]
     host = (qs.get("u") or [None])[0]
-    if not job_id or not code:
-        return None
-    if host:
-        is_local = host == "localhost" or host.startswith("localhost:")
-        scheme = "http" if is_local else "https"
+    if job_id and code and host:
+        scheme = "http" if host == "localhost" or host.startswith("localhost:") else "https"
         port = ":3000" if host == "localhost" else ""
-        api_base = f"{scheme}://{host}{port}"
-    else:
-        api_base = os.environ.get("PDFSIGNPRO_API_URL", "http://localhost:3000")
-    api_base = api_base.rstrip("/")
-    return {"jobId": job_id, "code": code, "apiBaseUrl": api_base}
+        api_base = f"{scheme}://{host}{port}".rstrip("/")
+        return {"jobId": job_id, "code": code, "apiBaseUrl": api_base}
+    return None
 
 
 def _fetch_job(api_base: str, job_id: str, token: str) -> dict:
@@ -339,7 +356,7 @@ class MainWindow(QMainWindow):
 
         if deep_link_params:
             self.stack.setCurrentIndex(0)
-            self._append_loading_log("Parsed URL: pdfsignpro://sign?jobId=...&code=...")
+            self._append_loading_log("Parsed URL: pdfsignpro://sign?p=...")
             self._append_loading_log("Claiming job...")
             self._start_fetch_job()
         else:
