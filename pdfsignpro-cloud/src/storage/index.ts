@@ -19,17 +19,21 @@ class R2StorageDriver implements StorageDriver {
   }
 }
 
+const ALLOWED_DRIVERS = ["r2", "s3", "local"] as const;
+
 let _driver: StorageDriver | null = null;
 
 export function getStorageDriver(): StorageDriver {
   if (!_driver) {
-    const driver = process.env.STORAGE_DRIVER ?? "r2";
-    if (driver === "r2") {
+    const driver = (process.env.STORAGE_DRIVER ?? "r2").toLowerCase();
+    if (driver === "r2" || driver === "s3") {
       _driver = new R2StorageDriver();
     } else if (driver === "local") {
       _driver = createLocalStorageDriver();
     } else {
-      throw new Error(`Unknown STORAGE_DRIVER: ${driver}`);
+      throw new Error(
+        `Unknown STORAGE_DRIVER: "${driver}". Allowed values: ${ALLOWED_DRIVERS.join(", ")}`
+      );
     }
   }
   return _driver;
