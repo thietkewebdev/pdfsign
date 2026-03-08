@@ -15,7 +15,6 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Label } from "@/components/ui/label";
 import { PdfViewer } from "@/components/pdf/PdfViewer";
 import { JobStatusCard } from "@/components/upload";
@@ -395,6 +394,7 @@ export default function SigningViewerPage() {
       onReset={resetJobState}
       documentTitle={doc.title ?? "signed.pdf"}
       showCreatedHint={showCreatedHint}
+      signInfo={jobState.status === "COMPLETED" ? data.signInfo : undefined}
     />
   ) : null;
 
@@ -444,15 +444,21 @@ export default function SigningViewerPage() {
 
       <div className="flex-1 overflow-hidden">
         <div className="hidden lg:grid lg:grid-cols-[320px_1fr_280px] lg:h-full">
-          <div className="border-r border-border p-4 overflow-hidden">
-            <ScrollArea className="h-[calc(100vh-8rem)]">
-              <div className="space-y-4 pr-4">
-                {data.signInfo && (
-                  <SignatureInfoPanel signInfo={data.signInfo} />
-                )}
-                <SigningPanel />
-              </div>
-            </ScrollArea>
+          <div className="border-r border-border p-4 flex flex-col min-h-0 overflow-y-auto">
+            <div className="space-y-4 pr-4">
+              {JobStatusCardContent && (
+                <div className="sticky top-4 z-10 -mt-1 pt-1 bg-background/95 backdrop-blur-sm rounded-lg">
+                  <h3 className="text-sm font-semibold text-foreground mb-3">
+                    Trạng thái ký
+                  </h3>
+                  {JobStatusCardContent}
+                </div>
+              )}
+              {data.signInfo && (
+                <SignatureInfoPanel signInfo={data.signInfo} />
+              )}
+              <SigningPanel />
+            </div>
           </div>
           <div className="overflow-hidden">
             <PdfViewer
@@ -469,43 +475,33 @@ export default function SigningViewerPage() {
               activePageForPlacement={activePage}
             />
           </div>
-          <div className="border-l border-border p-4 overflow-hidden flex flex-col min-h-0">
-            <ScrollArea className="flex-1 min-h-0">
-              <div className="space-y-4 pr-2">
-                <div>
-                  <h3 className="text-sm font-semibold text-foreground mb-3">
-                    Trang
-                  </h3>
-                  <div className="space-y-2">
-                    {Array.from({ length: Math.max(totalPages, 1) }, (_, i) => (
-                      <button
-                        key={i}
-                        type="button"
-                        onClick={() => setCurrentPage(i + 1)}
-                        className={`flex w-full items-center gap-3 rounded-md border p-2 text-left transition-all duration-150 ${
-                          currentPage === i + 1
-                            ? "border-primary bg-primary/10 ring-1 ring-primary/20"
-                            : "border-border hover:border-muted-foreground/30 hover:bg-accent/50"
-                        }`}
-                      >
-                        <div className="size-12 shrink-0 rounded-md bg-muted flex items-center justify-center text-xs font-medium text-muted-foreground">
-                          {i + 1}
-                        </div>
-                        <span className="text-sm">Trang {i + 1}</span>
-                      </button>
-                    ))}
-                  </div>
+          <div className="border-l border-border p-4 overflow-y-auto flex flex-col min-h-0">
+            <div className="space-y-4 pr-2">
+              <div>
+                <h3 className="text-sm font-semibold text-foreground mb-3">
+                  Trang
+                </h3>
+                <div className="space-y-2">
+                  {Array.from({ length: Math.max(totalPages, 1) }, (_, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => setCurrentPage(i + 1)}
+                      className={`flex w-full items-center gap-3 rounded-md border p-2 text-left transition-all duration-150 ${
+                        currentPage === i + 1
+                          ? "border-primary bg-primary/10 ring-1 ring-primary/20"
+                          : "border-border hover:border-muted-foreground/30 hover:bg-accent/50"
+                      }`}
+                    >
+                      <div className="size-12 shrink-0 rounded-md bg-muted flex items-center justify-center text-xs font-medium text-muted-foreground">
+                        {i + 1}
+                      </div>
+                      <span className="text-sm">Trang {i + 1}</span>
+                    </button>
+                  ))}
                 </div>
-                {JobStatusCardContent && (
-                  <div>
-                    <h3 className="text-sm font-semibold text-foreground mb-3">
-                      Trạng thái ký
-                    </h3>
-                    {JobStatusCardContent}
-                  </div>
-                )}
               </div>
-            </ScrollArea>
+            </div>
           </div>
         </div>
 
@@ -519,8 +515,16 @@ export default function SigningViewerPage() {
               </TabsList>
             </div>
             <div className="flex-1 overflow-auto">
-              <TabsContent value="timeline" className="m-0 p-4 h-full">
+              <TabsContent value="timeline" className="m-0 p-4 h-full overflow-y-auto">
                 <div className="space-y-4">
+                  {JobStatusCardContent && (
+                    <div className="sticky top-0 z-10 -mt-1 pt-1 pb-4 bg-background/95 backdrop-blur-sm">
+                      <h3 className="text-sm font-semibold text-foreground mb-3">
+                        Trạng thái ký
+                      </h3>
+                      {JobStatusCardContent}
+                    </div>
+                  )}
                   {data.signInfo && (
                     <SignatureInfoPanel signInfo={data.signInfo} />
                   )}
@@ -568,14 +572,6 @@ export default function SigningViewerPage() {
                       ))}
                     </div>
                   </div>
-                  {JobStatusCardContent && (
-                    <div>
-                      <h3 className="text-sm font-semibold text-foreground mb-3">
-                        Trạng thái ký
-                      </h3>
-                      {JobStatusCardContent}
-                    </div>
-                  )}
                 </div>
               </TabsContent>
             </div>

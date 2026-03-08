@@ -11,7 +11,39 @@ import {
   Download,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+
 export type JobStatus = "CREATED" | "COMPLETED" | "EXPIRED" | "CANCELED";
+
+export interface SignInfo {
+  signedBy?: string;
+  issuerCN?: string;
+  signingTime?: string;
+}
+
+/** Format ISO time to HH:mm dd/MM/yyyy (VN timezone) */
+function formatSigningTime(iso?: string): string {
+  if (!iso) return "";
+  try {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return iso;
+    const h = d.toLocaleString("en-GB", {
+      timeZone: "Asia/Ho_Chi_Minh",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
+    const date = d.toLocaleString("en-GB", {
+      timeZone: "Asia/Ho_Chi_Minh",
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
+    return `${h} ${date}`;
+  } catch {
+    return iso;
+  }
+}
 
 interface JobStatusCardProps {
   status: JobStatus;
@@ -32,6 +64,8 @@ interface JobStatusCardProps {
   onReset?: () => void;
   documentTitle?: string;
   showCreatedHint?: boolean;
+  /** Cert meta for COMPLETED audit display (signedBy, issuerCN, signingTime) */
+  signInfo?: SignInfo | null;
 }
 
 export function JobStatusCard({
@@ -49,6 +83,7 @@ export function JobStatusCard({
   onReset,
   documentTitle = "document.pdf",
   showCreatedHint = false,
+  signInfo,
 }: JobStatusCardProps) {
   return (
     <div className="rounded-lg border border-border bg-card p-4 space-y-3 shadow-sm">
@@ -56,7 +91,7 @@ export function JobStatusCard({
         <>
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="size-4 animate-spin shrink-0" />
-            <span>Đang chờ ứng dụng ký…</span>
+            <span>Đang chờ ký…</span>
           </div>
           {showCreatedHint && (
             <div className="space-y-1.5">
@@ -108,51 +143,74 @@ export function JobStatusCard({
 
       {status === "COMPLETED" && (downloadLink ?? signedDownloadUrl) && (
         <div className="space-y-3">
-          <p className="flex items-center gap-2 text-sm font-medium text-emerald-600 dark:text-emerald-400">
-            <CheckCircle2 className="size-4" />
-            Đã ký xong
-          </p>
-          <Button size="sm" className="w-full" asChild>
-            <a href={downloadLink ?? signedDownloadUrl ?? "#"}>
-              <Download className="size-4" />
-              Tải PDF đã ký
-            </a>
-          </Button>
-          {shareLink && (
-            <div className="space-y-1.5">
-              <p className="text-xs font-medium text-foreground">
-                Chia sẻ liên kết đã ký
-              </p>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  readOnly
-                  value={shareLink}
-                  className="flex-1 min-w-0 rounded-md border border-input bg-muted/50 px-2.5 py-1.5 text-xs font-mono"
-                />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={onCopyShareLink}
-                  className="shrink-0"
-                >
-                  {shareLinkCopied ? (
-                    <Check className="size-4" />
-                  ) : (
-                    <Copy className="size-4" />
-                  )}
-                  {shareLinkCopied ? "Đã copy" : "Copy"}
-                </Button>
+          <div className="flex items-center gap-2">
+            <Badge variant="success" className="text-xs font-medium">
+              <CheckCircle2 className="size-3.5 mr-1" />
+              Đã ký
+            </Badge>
+          </div>
+          <dl className="space-y-1.5 text-xs">
+            {signInfo?.signingTime && (
+              <div>
+                <dt className="text-muted-foreground">Ký lúc</dt>
+                <dd className="font-medium text-foreground">
+                  {formatSigningTime(signInfo.signingTime)}
+                </dd>
               </div>
-              {viewLink && (
-                <p className="text-xs text-muted-foreground">
-                  <a href={viewLink} className="underline hover:text-foreground">
-                    Link tải
-                  </a>
+            )}
+            {signInfo?.signedBy && (
+              <div>
+                <dt className="text-muted-foreground">Ký bởi</dt>
+                <dd className="font-medium text-foreground">
+                  {signInfo.signedBy}
+                </dd>
+              </div>
+            )}
+            {signInfo?.issuerCN && (
+              <div>
+                <dt className="text-muted-foreground">CA</dt>
+                <dd className="font-medium text-foreground">
+                  {signInfo.issuerCN}
+                </dd>
+              </div>
+            )}
+          </dl>
+          <div className="space-y-2 pt-1 border-t border-border">
+            <Button size="sm" className="w-full" asChild>
+              <a href={downloadLink ?? signedDownloadUrl ?? "#"}>
+                <Download className="size-4" />
+                Tải PDF đã ký
+              </a>
+            </Button>
+            {shareLink && (
+              <div className="space-y-1.5">
+                <p className="text-xs font-medium text-foreground">
+                  Chia sẻ link
                 </p>
-              )}
-            </div>
-          )}
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    readOnly
+                    value={shareLink}
+                    className="flex-1 min-w-0 rounded-md border border-input bg-muted/50 px-2.5 py-1.5 text-xs font-mono"
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={onCopyShareLink}
+                    className="shrink-0"
+                  >
+                    {shareLinkCopied ? (
+                      <Check className="size-4" />
+                    ) : (
+                      <Copy className="size-4" />
+                    )}
+                    {shareLinkCopied ? "Đã copy" : "Copy"}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
