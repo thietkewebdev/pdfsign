@@ -1,6 +1,6 @@
 "use client";
 
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { useEffect, useState, useRef, useCallback } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -83,7 +83,9 @@ export default function SigningViewerPage() {
     error: "expired" | "timeout" | null;
   } | null>(null);
   const [copied, setCopied] = useState(false);
+  const [shareLinkCopied, setShareLinkCopied] = useState(false);
   const pollStartRef = useRef<number | null>(null);
+  const searchParams = useSearchParams();
 
   const {
     placements,
@@ -93,27 +95,36 @@ export default function SigningViewerPage() {
     updatePlacementFromPixels,
   } = useSignaturePlacement(totalPages);
 
-  const fetchDocument = useCallback(async () => {
-    if (!publicId) return null;
-    const res = await fetch(`/api/documents/${publicId}`);
-    if (!res.ok) throw new Error("Document not found");
-    const json = await res.json();
-    setData(json);
-    return json;
-  }, [publicId]);
+  const versionParam = searchParams.get("v");
+  const fetchDocument = useCallback(
+    async (version?: number) => {
+      if (!publicId) return null;
+      const url =
+        version != null
+          ? `/api/documents/${publicId}?v=${version}`
+          : `/api/documents/${publicId}`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("Document not found");
+      const json = await res.json();
+      setData(json);
+      return json;
+    },
+    [publicId]
+  );
 
   useEffect(() => {
     if (!publicId) {
       setLoading(false);
       return;
     }
-    fetchDocument()
+    const v = versionParam ? parseInt(versionParam, 10) : undefined;
+    fetchDocument(Number.isNaN(v) ? undefined : v)
       .catch((err) => {
         setError(err.message);
         toast.error(err.message ?? "Không tìm thấy tài liệu");
       })
       .finally(() => setLoading(false));
-  }, [publicId, fetchDocument]);
+  }, [publicId, versionParam, fetchDocument]);
 
   const handleTotalPagesChange = useCallback((n: number) => {
     setTotalPages(n);
@@ -140,6 +151,8 @@ export default function SigningViewerPage() {
     const page =
       placement.page === totalPages ? ("LAST" as const) : placement.page;
 
+    // Convert UI coords (top-left origin) to PDF rectPct (bottom-left origin)
+    const pdfY = 1 - placement.yPct - placement.hPct;
     const res = await fetch("/api/jobs", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -149,7 +162,7 @@ export default function SigningViewerPage() {
           page,
           rectPct: {
             x: placement.xPct,
-            y: placement.yPct,
+            y: Math.max(0, Math.min(1, pdfY)),
             w: placement.wPct,
             h: placement.hPct,
           },
@@ -180,6 +193,7 @@ export default function SigningViewerPage() {
     });
     pollStartRef.current = Date.now();
     toast.success("Đã tạo phiên ký. Mở Signer để ký số.");
+    window.location.href = deepLink;
   };
 
   const copyDeepLink = () => {
@@ -187,6 +201,16 @@ export default function SigningViewerPage() {
     navigator.clipboard.writeText(jobState.deepLink);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const copyShareLink = () => {
+    if (typeof window === "undefined" || !publicId || !data) return;
+    const v = data.currentVersion.version;
+    const link = `${window.location.origin}/d/${publicId}?v=${v}`;
+    navigator.clipboard.writeText(link);
+    setShareLinkCopied(true);
+    toast.success("Đã copy liên kết");
+    setTimeout(() => setShareLinkCopied(false), 2000);
   };
 
   const resetJobState = () => {
@@ -267,10 +291,11 @@ export default function SigningViewerPage() {
     jobState?.status === "COMPLETED" && jobState.signedDownloadUrl
       ? jobState.signedDownloadUrl
       : basePdfUrl;
+  // Download URL: use viewUrl (includes ?v=) for currently viewed version; signedDownloadUrl when just completed
   const downloadUrl =
     jobState?.status === "COMPLETED" && jobState.signedDownloadUrl
       ? jobState.signedDownloadUrl
-      : presignedUrl;
+      : viewUrl ?? presignedUrl;
 
   const SigningPanel = () => (
     <div className="space-y-4">
@@ -328,7 +353,14 @@ export default function SigningViewerPage() {
           signedDownloadUrl={jobState.signedDownloadUrl}
           error={jobState.error}
           onCopyDeepLink={copyDeepLink}
+          onCopyShareLink={copyShareLink}
           copied={copied}
+          shareLinkCopied={shareLinkCopied}
+          shareLink={
+            jobState.status === "COMPLETED" && typeof window !== "undefined"
+              ? `${window.location.origin}/d/${publicId}?v=${currentVersion.version}`
+              : undefined
+          }
           onReset={resetJobState}
           documentTitle={doc.title ?? "signed.pdf"}
           showCreatedHint={showCreatedHint}
@@ -378,7 +410,7 @@ export default function SigningViewerPage() {
           <Button variant="outline" size="sm" asChild>
             <a href={downloadUrl} download={doc.title ?? "document.pdf"}>
               <Download className="size-4" />
-              {jobState?.status === "COMPLETED" ? "Tải PDF đã ký" : "Tải xuống"}
+              Tải PDF
             </a>
           </Button>
           <Button variant="ghost" size="icon" asChild aria-label="Đóng">
@@ -402,7 +434,7 @@ export default function SigningViewerPage() {
             </ol>
             <Separator className="my-3" />
             <h3 className="text-sm font-semibold text-foreground mb-3">
-              Tiến trình ký
+              Trạng thái
             </h3>
             <ScrollArea className="h-[calc(100vh-14rem)]">
               <div className="space-y-2 pr-4 text-sm text-muted-foreground">

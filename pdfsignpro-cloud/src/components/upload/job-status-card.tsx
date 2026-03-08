@@ -19,7 +19,10 @@ interface JobStatusCardProps {
   signedDownloadUrl?: string | null;
   error?: "expired" | "timeout" | null;
   onCopyDeepLink?: () => void;
+  onCopyShareLink?: () => void;
   copied?: boolean;
+  shareLinkCopied?: boolean;
+  shareLink?: string;
   onReset?: () => void;
   documentTitle?: string;
   showCreatedHint?: boolean;
@@ -31,7 +34,10 @@ export function JobStatusCard({
   signedDownloadUrl,
   error,
   onCopyDeepLink,
+  onCopyShareLink,
   copied = false,
+  shareLinkCopied = false,
+  shareLink,
   onReset,
   documentTitle = "document.pdf",
   showCreatedHint = false,
@@ -63,8 +69,8 @@ export function JobStatusCard({
           )}
           {deepLink && (
             <>
-              <p className="break-all font-mono text-xs text-muted-foreground">
-                {deepLink}
+              <p className="text-xs text-muted-foreground">
+                Nếu không tự mở, bấm để mở Signer
               </p>
               <div className="flex gap-2">
                 <Button
@@ -78,12 +84,12 @@ export function JobStatusCard({
                   ) : (
                     <Copy className="size-4" />
                   )}
-                  {copied ? "Đã copy" : "Sao chép"}
+                  {copied ? "Đã copy" : "Sao chép liên kết"}
                 </Button>
                 <Button size="sm" asChild className="flex-1">
                   <a href={deepLink}>
                     <ExternalLink className="size-4" />
-                    Mở PDFSignPro Signer
+                    Mở Signer
                   </a>
                 </Button>
               </div>
@@ -93,7 +99,7 @@ export function JobStatusCard({
       )}
 
       {status === "COMPLETED" && signedDownloadUrl && (
-        <div className="space-y-2">
+        <div className="space-y-3">
           <p className="flex items-center gap-2 text-sm font-medium text-emerald-600 dark:text-emerald-400">
             <CheckCircle2 className="size-4" />
             Đã ký xong
@@ -104,6 +110,34 @@ export function JobStatusCard({
               Tải PDF đã ký
             </a>
           </Button>
+          {shareLink && (
+            <div className="space-y-1.5">
+              <p className="text-xs font-medium text-foreground">
+                Chia sẻ liên kết đã ký
+              </p>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  readOnly
+                  value={shareLink}
+                  className="flex-1 min-w-0 rounded-md border border-input bg-muted px-2 py-1.5 text-xs font-mono"
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={onCopyShareLink}
+                  className="shrink-0"
+                >
+                  {shareLinkCopied ? (
+                    <Check className="size-4" />
+                  ) : (
+                    <Copy className="size-4" />
+                  )}
+                  {shareLinkCopied ? "Đã copy" : "Copy"}
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

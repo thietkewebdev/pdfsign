@@ -3,11 +3,13 @@ import { prisma } from "@/lib/prisma";
 import { getStorageDriver } from "@/storage";
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ publicId: string }> }
 ) {
   try {
     const { publicId } = await params;
+    const { searchParams } = new URL(request.url);
+    const versionParam = searchParams.get("v");
 
     const document = await prisma.document.findUnique({
       where: { publicId },
@@ -20,7 +22,16 @@ export async function GET(
       return NextResponse.json({ error: "Document not found" }, { status: 404 });
     }
 
-    const currentVersion = document.versions[0];
+    let currentVersion = document.versions[0];
+    if (versionParam != null && versionParam !== "") {
+      const v = parseInt(versionParam, 10);
+      if (!Number.isNaN(v)) {
+        const specific = await prisma.documentVersion.findFirst({
+          where: { documentId: document.id, version: v },
+        });
+        if (specific) currentVersion = specific;
+      }
+    }
     if (!currentVersion) {
       return NextResponse.json(
         { error: "No version found" },
