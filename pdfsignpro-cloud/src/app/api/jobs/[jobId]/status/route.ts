@@ -8,6 +8,10 @@ const JobStatusSchema = z.object({
   expiresAt: z.string().datetime(),
   completedAt: z.string().datetime().nullable().optional(),
   outputVersionId: z.string().nullable().optional(),
+  outputVersion: z
+    .object({ version: z.number(), storageKey: z.string() })
+    .nullable()
+    .optional(),
   signedDownloadUrl: z.string().nullable().optional(),
 });
 
@@ -53,6 +57,13 @@ export async function GET(
       expiresAt: job.expiresAt.toISOString(),
       completedAt: job.completedAt?.toISOString() ?? null,
       outputVersionId: job.outputVersionId ?? null,
+      outputVersion:
+        job.status === "COMPLETED" && job.outputVersion
+          ? {
+              version: job.outputVersion.version,
+              storageKey: job.outputVersion.storageKey,
+            }
+          : null,
       signedDownloadUrl,
     };
 

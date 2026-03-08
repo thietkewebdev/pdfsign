@@ -400,7 +400,7 @@ export default function SigningViewerPage() {
           </h2>
           <StatusBadge status={doc.status} />
           <span className="text-xs text-muted-foreground">
-            v{currentVersion.version}
+            Version v{currentVersion.version}
           </span>
         </div>
         <div className="flex flex-wrap items-center gap-2 shrink-0">

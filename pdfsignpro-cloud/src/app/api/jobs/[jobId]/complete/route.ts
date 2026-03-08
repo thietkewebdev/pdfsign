@@ -177,12 +177,21 @@ export async function POST(
       process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
     const signedPublicUrl = `${appUrl}/d/${job.document.publicId}`;
 
+    let signedDownloadUrl: string | null = null;
+    try {
+      signedDownloadUrl = await storage.getPresignedUrl(
+        outputVersion.storageKey,
+        3600
+      );
+    } catch (e) {
+      console.warn("Could not generate signedDownloadUrl:", e);
+    }
+
     return NextResponse.json({
       signedPublicUrl,
-      versionNumber: nextVersion,
-      jobId,
-      documentId: job.documentId,
+      signedDownloadUrl,
       publicId: job.document.publicId,
+      versionNumber: nextVersion,
     });
   } catch (err) {
     console.error("POST /api/jobs/[jobId]/complete error:", err);
