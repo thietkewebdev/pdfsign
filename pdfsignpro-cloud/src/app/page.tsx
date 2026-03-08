@@ -1,261 +1,244 @@
 "use client";
 
-import { useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useRef } from "react";
 import Link from "next/link";
-import { toast } from "sonner";
-import { Upload, Loader2, Monitor, X, FileUp, MousePointer, Shield } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import * as m from "motion/react-m";
+import { useInView, useReducedMotion } from "motion/react";
 import {
-  UploadDropzoneCard,
-  UploadProgress,
-} from "@/components/upload";
+  Upload,
+  Monitor,
+  FileUp,
+  MousePointer,
+  Shield,
+  Check,
+  FileCheck,
+  Usb,
+  BadgeCheck,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { UploadModal } from "@/components/upload";
+import { HeroDemoCard } from "@/components/home/hero-demo-card";
 
-export default function HomePage() {
-  const router = useRouter();
-  const [title, setTitle] = useState("");
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
+const MOTION = { duration: 0.2, ease: [0, 0, 0.2, 1] as const };
 
-  const handleFileSelect = useCallback((file: File) => {
-    setSelectedFile(file);
-    setTitle((prev) => prev || file.name.replace(/\.pdf$/i, "") || "Tài liệu");
-  }, []);
+const STEPS = [
+  {
+    icon: FileUp,
+    title: "Tải lên PDF",
+    copy: "Kéo thả hoặc chọn file. Tối đa 50MB.",
+  },
+  {
+    icon: MousePointer,
+    title: "Đặt vị trí chữ ký",
+    copy: "Chọn vị trí ô ký trên tài liệu.",
+  },
+  {
+    icon: Shield,
+    title: "Ký số USB Token",
+    copy: "Cắm Token, mở Signer và ký. PDF lưu tự động.",
+  },
+] as const;
 
-  const handleUpload = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedFile) return;
+const FEATURES = [
+  "Ký số PDF chuẩn PKCS#7 với USB Token (Viettel, EasyCA, FastCA…)",
+  "Signer chạy trên Windows, kết nối trực tiếp trình duyệt",
+  "Xem trước chữ ký, thông tin chứng thư, thời gian ký",
+  "Chia sẻ liên kết đã ký, tải PDF đã ký",
+] as const;
 
-    setIsSubmitting(true);
-    setUploadProgress(0);
+const TRUST_ITEMS = [
+  { icon: FileCheck, label: "PAdES" },
+  { icon: Usb, label: "USB Token" },
+  { icon: BadgeCheck, label: "Adobe Verify" },
+] as const;
 
-    return new Promise<void>((resolve, reject) => {
-      const formData = new FormData();
-      formData.append("file", selectedFile);
-      formData.append("title", title || selectedFile.name || "Tài liệu");
-
-      const xhr = new XMLHttpRequest();
-
-      xhr.upload.addEventListener("progress", (e) => {
-        if (e.lengthComputable) {
-          const pct = Math.round((e.loaded / e.total) * 100);
-          setUploadProgress(pct);
-        }
-      });
-
-      xhr.addEventListener("load", () => {
-        if (xhr.status >= 200 && xhr.status < 300) {
-          try {
-            const data = JSON.parse(xhr.responseText);
-            setUploadProgress(100);
-            toast.success("Đã tải lên thành công");
-            router.push(`/d/${data.publicId}`);
-            resolve();
-          } catch {
-            toast.error("Lỗi xử lý phản hồi");
-            reject();
-          }
-        } else {
-          try {
-            const data = JSON.parse(xhr.responseText);
-            toast.error(data.error ?? "Tải lên thất bại");
-          } catch {
-            toast.error("Tải lên thất bại");
-          }
-          reject();
-        }
-      });
-
-      xhr.addEventListener("error", () => {
-        toast.error("Lỗi kết nối. Vui lòng thử lại.");
-        reject();
-      });
-
-      xhr.open("POST", "/api/documents");
-      xhr.send(formData);
-    }).finally(() => {
-      setIsSubmitting(false);
-      setUploadProgress(0);
-    });
-  };
-
-  const handleClear = () => {
-    setSelectedFile(null);
-    setTitle("");
-    setUploadProgress(0);
-  };
+function StepCard({
+  icon: Icon,
+  title,
+  copy,
+  index,
+  isInView,
+  reduceMotion,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  title: string;
+  copy: string;
+  index: number;
+  isInView: boolean;
+  reduceMotion: boolean;
+}) {
+  const y = reduceMotion ? 0 : 12;
+  const opacity = isInView ? 1 : 0.5;
 
   return (
-    <div className="container mx-auto max-w-2xl px-6 py-16 sm:py-20">
-      <div className="space-y-12">
-        <header className="space-y-4 text-center">
-          <h1 className="text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
-            Ký số PDF — nhanh, chuẩn, an toàn
-          </h1>
-          <p className="text-lg text-muted-foreground">
-            Tải PDF lên, đặt vị trí chữ ký, ký số bằng USB Token trên Windows.
-          </p>
-          <div className="flex flex-wrap items-center justify-center gap-2">
-            <Button variant="outline" size="sm" asChild>
-              <a href="/api/signer/download">
-                <Monitor className="size-4" />
-                Tải PDFSignPro Signer (Windows)
-              </a>
-            </Button>
-            <Link
-              href="/signer"
-              className="text-sm text-muted-foreground underline hover:text-foreground transition-colors duration-150"
-            >
-              Hướng dẫn cài đặt
-            </Link>
-          </div>
-        </header>
-
-        <div className="space-y-6">
-          {!selectedFile ? (
-            <UploadDropzoneCard
-              onFileSelect={handleFileSelect}
-              disabled={isSubmitting}
-            />
-          ) : (
-            <div className="space-y-4">
-              {isSubmitting ? (
-                <UploadProgress
-                  fileName={selectedFile.name}
-                  progress={uploadProgress}
-                  status={uploadProgress >= 100 ? "done" : "uploading"}
-                />
-              ) : (
-                <div className="flex items-center gap-4 rounded-xl border border-border bg-card p-4 transition-colors duration-150">
-                  <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted">
-                    <span className="text-xs font-medium text-muted-foreground">
-                      PDF
-                    </span>
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-foreground">
-                      {selectedFile.name}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {(selectedFile.size / 1024).toFixed(1)} KB
-                    </p>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={handleClear}
-                    disabled={isSubmitting}
-                    className="shrink-0"
-                    aria-label="Xóa file"
-                  >
-                    <X className="size-4" />
-                  </Button>
-                </div>
-              )}
-
-              <form onSubmit={handleUpload} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="title">Tiêu đề tài liệu</Label>
-                  <Input
-                    id="title"
-                    placeholder="VD: Hợp đồng 2024"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    className="rounded-lg"
-                    disabled={isSubmitting}
-                  />
-                </div>
-                <Button
-                  type="submit"
-                  size="lg"
-                  className="w-full rounded-lg"
-                  disabled={isSubmitting}
-                >
-                  {isSubmitting ? (
-                    <Loader2 className="size-4 animate-spin" />
-                  ) : (
-                    <Upload className="size-4" />
-                  )}
-                  {isSubmitting
-                    ? uploadProgress >= 100
-                      ? "Hoàn tất"
-                      : "Đang tải lên…"
-                    : "Tải lên & tạo liên kết"}
-                </Button>
-              </form>
-            </div>
-          )}
-        </div>
-
-        <section className="space-y-6 pt-8 border-t border-border">
-          <h2 className="text-xl font-semibold text-foreground">
-            Cách hoạt động
-          </h2>
-          <div className="grid gap-6 sm:grid-cols-3">
-            <div className="flex gap-4 rounded-lg border border-border bg-card p-4">
-              <div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-primary/10">
-                <FileUp className="size-5 text-primary" />
-              </div>
-              <div className="space-y-1">
-                <p className="font-medium text-foreground">1. Tải lên PDF</p>
-                <p className="text-sm text-muted-foreground">
-                  Kéo thả file hoặc chọn file PDF từ máy. Hỗ trợ tối đa 50MB.
-                </p>
-              </div>
-            </div>
-            <div className="flex gap-4 rounded-lg border border-border bg-card p-4">
-              <div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-primary/10">
-                <MousePointer className="size-5 text-primary" />
-              </div>
-              <div className="space-y-1">
-                <p className="font-medium text-foreground">2. Đặt vị trí chữ ký</p>
-                <p className="text-sm text-muted-foreground">
-                  Chọn vị trí ô chữ ký trên tài liệu. Mở Signer để ký số.
-                </p>
-              </div>
-            </div>
-            <div className="flex gap-4 rounded-lg border border-border bg-card p-4">
-              <div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-primary/10">
-                <Shield className="size-5 text-primary" />
-              </div>
-              <div className="space-y-1">
-                <p className="font-medium text-foreground">3. Ký số bằng USB Token</p>
-                <p className="text-sm text-muted-foreground">
-                  Cắm USB Token, mở Signer và ký. PDF đã ký được lưu tự động.
-                </p>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section className="space-y-4 pt-8 border-t border-border">
-          <h2 className="text-xl font-semibold text-foreground">
-            Tính năng
-          </h2>
-          <ul className="space-y-2 text-sm text-muted-foreground">
-            <li className="flex items-start gap-2">
-              <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-primary" />
-              Ký số PDF chuẩn PKCS#7 với USB Token (Viettel, Viettel CA, EasyCA, FastCA…)
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-primary" />
-              Ứng dụng Signer chạy trên Windows, kết nối trực tiếp với trình duyệt
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-primary" />
-              Xem trước chữ ký, thông tin chứng thư số, thời gian ký
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-primary" />
-              Chia sẻ liên kết đã ký, tải PDF đã ký
-            </li>
-          </ul>
-        </section>
+    <m.div
+      className="group relative overflow-hidden rounded-xl border border-white/10 bg-white/5 p-6 backdrop-blur-sm transition-colors duration-200 hover:border-white/20 hover:bg-white/[0.07]"
+      initial={false}
+      animate={{
+        opacity,
+        y: isInView ? 0 : y,
+      }}
+      transition={{ ...MOTION, delay: index * 0.06 }}
+      whileHover={
+        reduceMotion ? undefined : { y: -2, transition: MOTION }
+      }
+    >
+      <div className="mb-5 flex size-12 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500/20 to-blue-500/10">
+        <Icon className="size-6 text-violet-300" />
       </div>
+      <h3 className="mb-2 text-lg font-semibold text-white">{title}</h3>
+      <p className="text-sm text-zinc-400">{copy}</p>
+    </m.div>
+  );
+}
+
+export default function HomePage() {
+  const [uploadModalOpen, setUploadModalOpen] = useState(false);
+  const stepsRef = useRef<HTMLDivElement>(null);
+  const stepsInView = useInView(stepsRef, { once: true, margin: "0px 0px -80px 0px" });
+  const reduceMotion = useReducedMotion();
+
+  return (
+    <div className="relative min-h-screen linear-home-bg">
+      {/* Layered background */}
+      <div className="linear-glow-1" />
+      <div className="linear-glow-2" />
+      <div className="linear-glow-3" />
+      <div className="linear-grid" />
+      <div className="linear-noise" />
+
+      {/* Hero */}
+      <section className="relative px-6 pb-24 pt-16 sm:pb-32 sm:pt-24 md:pb-40 md:pt-28">
+        <div className="container relative mx-auto max-w-6xl">
+          <div className="grid gap-16 lg:grid-cols-[1fr,minmax(280px,360px)] lg:items-center lg:gap-24">
+            <div className="space-y-10 text-left">
+              <m.div
+                className="space-y-5"
+                initial={{ opacity: 0, y: reduceMotion ? 0 : 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ ...MOTION, delay: 0.05 }}
+              >
+                <h1 className="text-4xl font-semibold tracking-tight text-white sm:text-5xl md:text-6xl md:leading-[1.1]">
+                  Ký số PDF — nhanh, chuẩn, an toàn
+                </h1>
+                <p className="max-w-lg text-lg text-zinc-400 sm:text-xl">
+                  Tải PDF lên, đặt vị trí chữ ký, ký số bằng USB Token trên Windows.
+                </p>
+              </m.div>
+              <m.div
+                className="flex flex-wrap items-center gap-3"
+                initial={{ opacity: 0, y: reduceMotion ? 0 : 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ ...MOTION, delay: 0.1 }}
+              >
+                <Button
+                  size="lg"
+                  className="rounded-lg bg-white px-6 text-zinc-900 hover:bg-zinc-100"
+                  onClick={() => setUploadModalOpen(true)}
+                >
+                  <Upload className="size-4" />
+                  Tải PDF lên
+                </Button>
+                <Button
+                  variant="outline"
+                  size="lg"
+                  asChild
+                  className="rounded-lg border-white/20 bg-white/5 text-white hover:bg-white/10 hover:text-white"
+                >
+                  <a href="/api/signer/download">
+                    <Monitor className="size-4" />
+                    Tải Signer
+                  </a>
+                </Button>
+              </m.div>
+              <m.p
+                className="text-sm text-zinc-500"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ ...MOTION, delay: 0.15 }}
+              >
+                <Link
+                  href="/signer"
+                  className="underline-offset-4 hover:underline hover:text-zinc-400"
+                >
+                  Hướng dẫn cài đặt
+                </Link>
+              </m.p>
+            </div>
+            <div className="flex justify-center lg:justify-end">
+              <HeroDemoCard />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Cách hoạt động */}
+      <section className="relative border-t border-white/5 px-6 py-20 sm:py-28">
+        <div className="container mx-auto max-w-6xl">
+          <m.h2
+            className="mb-14 text-left text-2xl font-semibold text-white sm:text-3xl"
+            ref={stepsRef}
+          >
+            Cách hoạt động
+          </m.h2>
+          <div className="grid gap-6 sm:grid-cols-3">
+            {STEPS.map((step, i) => (
+              <StepCard
+                key={step.title}
+                {...step}
+                index={i}
+                isInView={!!stepsInView}
+                reduceMotion={!!reduceMotion}
+              />
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Tính năng */}
+      <section className="relative border-t border-white/5 px-6 py-20 sm:py-28">
+        <div className="container mx-auto max-w-6xl">
+          <div className="grid gap-16 lg:grid-cols-2 lg:items-start lg:gap-24">
+            <div>
+              <h2 className="mb-10 text-2xl font-semibold text-white sm:text-3xl">
+                Tính năng
+              </h2>
+              <ul className="space-y-5">
+                {FEATURES.map((text, i) => (
+                  <li key={i} className="flex items-start gap-3">
+                    <span className="mt-1.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-violet-500/20">
+                      <Check className="size-3 text-violet-400" />
+                    </span>
+                    <span className="text-zinc-400">{text}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <m.div
+              className="rounded-xl border border-white/10 bg-white/5 p-6 backdrop-blur-sm sm:p-8"
+              initial={{ opacity: 0, y: reduceMotion ? 0 : 12 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "-50px" }}
+              transition={MOTION}
+            >
+              <h3 className="mb-6 text-lg font-semibold text-white">Đáng tin cậy</h3>
+              <div className="flex flex-wrap gap-3">
+                {TRUST_ITEMS.map(({ icon: Icon, label }) => (
+                  <div
+                    key={label}
+                    className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-4 py-2.5"
+                  >
+                    <Icon className="size-4 text-violet-400" />
+                    <span className="text-sm font-medium text-white">{label}</span>
+                  </div>
+                ))}
+              </div>
+            </m.div>
+          </div>
+        </div>
+      </section>
+
+      <UploadModal open={uploadModalOpen} onOpenChange={setUploadModalOpen} />
     </div>
   );
 }

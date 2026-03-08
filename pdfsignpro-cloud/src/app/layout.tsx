@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { Toaster } from "sonner";
+import { LazyMotion, domAnimation } from "motion/react";
 import { ThemeProvider } from "@/components/theme-provider";
 import { UploadProvider } from "@/contexts/upload-context";
 import { ConditionalShell } from "@/components/conditional-shell";
@@ -26,14 +27,16 @@ export default function RootLayout({
       <body className={`${inter.variable} font-sans antialiased text-[15px] leading-normal`}>
         <ThemeProvider
           attribute="class"
-          defaultTheme="system"
+          defaultTheme="dark"
           enableSystem
           disableTransitionOnChange
         >
-          <UploadProvider>
-            <ConditionalShell>{children}</ConditionalShell>
-            <Toaster richColors position="top-right" />
-          </UploadProvider>
+          <LazyMotion features={domAnimation}>
+            <UploadProvider>
+              <ConditionalShell>{children}</ConditionalShell>
+              <Toaster richColors position="top-right" />
+            </UploadProvider>
+          </LazyMotion>
         </ThemeProvider>
       </body>
     </html>
