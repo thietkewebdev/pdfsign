@@ -1,7 +1,9 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import * as m from "motion/react-m";
 import { useInView, useReducedMotion } from "motion/react";
 import {
@@ -14,9 +16,16 @@ import {
   FileCheck,
   Usb,
   BadgeCheck,
+  X,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { UploadModal } from "@/components/upload";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  UploadDropzoneCard,
+  UploadProgress,
+} from "@/components/upload";
 import { HeroDemoCard } from "@/components/home/hero-demo-card";
 
 const MOTION = { duration: 0.2, ease: [0, 0, 0.2, 1] as const };
@@ -93,14 +102,86 @@ function StepCard({
 }
 
 export default function HomePage() {
-  const [uploadModalOpen, setUploadModalOpen] = useState(false);
+  const router = useRouter();
+  const [title, setTitle] = useState("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const stepsRef = useRef<HTMLDivElement>(null);
   const stepsInView = useInView(stepsRef, { once: true, margin: "0px 0px -80px 0px" });
   const reduceMotion = useReducedMotion();
 
+  const handleFileSelect = useCallback((file: File) => {
+    setSelectedFile(file);
+    setTitle((prev) => prev || file.name.replace(/\.pdf$/i, "") || "Tài liệu");
+  }, []);
+
+  const handleUpload = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedFile) return;
+
+    setIsSubmitting(true);
+    setUploadProgress(0);
+
+    return new Promise<void>((resolve, reject) => {
+      const formData = new FormData();
+      formData.append("file", selectedFile);
+      formData.append("title", title || selectedFile.name || "Tài liệu");
+
+      const xhr = new XMLHttpRequest();
+
+      xhr.upload.addEventListener("progress", (e) => {
+        if (e.lengthComputable) {
+          const pct = Math.round((e.loaded / e.total) * 100);
+          setUploadProgress(pct);
+        }
+      });
+
+      xhr.addEventListener("load", () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            const data = JSON.parse(xhr.responseText);
+            setUploadProgress(100);
+            toast.success("Đã tải lên thành công");
+            router.push(`/d/${data.publicId}`);
+            resolve();
+          } catch {
+            toast.error("Lỗi xử lý phản hồi");
+            reject();
+          }
+        } else {
+          try {
+            const res = JSON.parse(xhr.responseText);
+            toast.error(res.error ?? "Tải lên thất bại");
+          } catch {
+            toast.error("Tải lên thất bại");
+          }
+          reject();
+        }
+      });
+
+      xhr.addEventListener("error", () => {
+        toast.error("Lỗi kết nối. Vui lòng thử lại.");
+        reject();
+      });
+
+      xhr.open("POST", "/api/documents");
+      xhr.send(formData);
+    }).finally(() => {
+      setIsSubmitting(false);
+      setUploadProgress(0);
+    });
+  };
+
+  const handleClear = useCallback(() => {
+    setSelectedFile(null);
+    setTitle("");
+    setUploadProgress(0);
+  }, []);
+
   return (
     <div className="relative min-h-screen linear-home-bg">
-      {/* Layered background */}
+      {/* Layered background — subtle glow + faint grid, minimal noise */}
       <div className="linear-glow-1" />
       <div className="linear-glow-2" />
       <div className="linear-glow-3" />
@@ -110,10 +191,10 @@ export default function HomePage() {
       {/* Hero */}
       <section className="relative px-6 pb-24 pt-16 sm:pb-32 sm:pt-24 md:pb-40 md:pt-28">
         <div className="container relative mx-auto max-w-6xl">
-          <div className="grid gap-16 lg:grid-cols-[1fr,minmax(280px,360px)] lg:items-center lg:gap-24">
-            <div className="space-y-10 text-left">
+          <div className="grid gap-12 lg:grid-cols-[1fr,minmax(280px,360px)] lg:items-start lg:gap-16">
+            <div className="space-y-8">
               <m.div
-                className="space-y-5"
+                className="space-y-4"
                 initial={{ opacity: 0, y: reduceMotion ? 0 : 16 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ ...MOTION, delay: 0.05 }}
@@ -125,45 +206,118 @@ export default function HomePage() {
                   Tải PDF lên, đặt vị trí chữ ký, ký số bằng USB Token trên Windows.
                 </p>
               </m.div>
+
+              {/* Upload card — pops with lighter bg, border, shadow */}
               <m.div
-                className="flex flex-wrap items-center gap-3"
+                className="rounded-xl border border-white/15 bg-white/[0.08] p-1 shadow-xl shadow-black/30 backdrop-blur-sm"
                 initial={{ opacity: 0, y: reduceMotion ? 0 : 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ ...MOTION, delay: 0.1 }}
               >
-                <Button
-                  size="lg"
-                  className="rounded-lg bg-white px-6 text-zinc-900 hover:bg-zinc-100"
-                  onClick={() => setUploadModalOpen(true)}
-                >
-                  <Upload className="size-4" />
-                  Tải PDF lên
-                </Button>
+                {!selectedFile ? (
+                  <UploadDropzoneCard
+                    onFileSelect={handleFileSelect}
+                    disabled={isSubmitting}
+                    variant="dark"
+                    className="min-h-[200px]"
+                  />
+                ) : (
+                  <div className="space-y-4 p-4">
+                    {isSubmitting ? (
+                      <UploadProgress
+                        fileName={selectedFile.name}
+                        progress={uploadProgress}
+                        status={uploadProgress >= 100 ? "done" : "uploading"}
+                        className="border-white/10 bg-white/5 [&_p]:text-zinc-300"
+                      />
+                    ) : (
+                      <>
+                        <div className="flex items-center gap-4 rounded-lg border border-white/10 bg-white/5 p-4">
+                          <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-white/10">
+                            <span className="text-xs font-medium text-zinc-400">PDF</span>
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-medium text-white">
+                              {selectedFile.name}
+                            </p>
+                            <p className="text-xs text-zinc-500">
+                              {(selectedFile.size / 1024).toFixed(1)} KB
+                            </p>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={handleClear}
+                            disabled={isSubmitting}
+                            className="shrink-0 text-zinc-400 hover:bg-white/10 hover:text-white"
+                            aria-label="Xóa file"
+                          >
+                            <X className="size-4" />
+                          </Button>
+                        </div>
+                        <form onSubmit={handleUpload} className="space-y-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="title" className="text-zinc-300">
+                              Tiêu đề tài liệu
+                            </Label>
+                            <Input
+                              id="title"
+                              placeholder="VD: Hợp đồng 2024"
+                              value={title}
+                              onChange={(e) => setTitle(e.target.value)}
+                              className="rounded-lg border-white/20 bg-white/5 text-white placeholder:text-zinc-500 focus-visible:ring-white/30"
+                              disabled={isSubmitting}
+                            />
+                          </div>
+                          <Button
+                            type="submit"
+                            size="lg"
+                            className="w-full rounded-lg bg-white text-zinc-900 hover:bg-zinc-100"
+                            disabled={isSubmitting}
+                          >
+                            {isSubmitting ? (
+                              <Loader2 className="size-4 animate-spin" />
+                            ) : (
+                              <Upload className="size-4" />
+                            )}
+                            {isSubmitting
+                              ? uploadProgress >= 100
+                                ? "Hoàn tất"
+                                : "Đang tải lên…"
+                              : "Tải lên & tạo liên kết"}
+                          </Button>
+                        </form>
+                      </>
+                    )}
+                  </div>
+                )}
+              </m.div>
+
+              <m.div
+                className="flex flex-wrap items-center gap-3"
+                initial={{ opacity: 0, y: reduceMotion ? 0 : 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ ...MOTION, delay: 0.15 }}
+              >
                 <Button
                   variant="outline"
-                  size="lg"
+                  size="sm"
                   asChild
-                  className="rounded-lg border-white/20 bg-white/5 text-white hover:bg-white/10 hover:text-white"
+                  className="rounded-lg border-white/20 bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-white"
                 >
                   <a href="/api/signer/download">
                     <Monitor className="size-4" />
                     Tải Signer
                   </a>
                 </Button>
-              </m.div>
-              <m.p
-                className="text-sm text-zinc-500"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ ...MOTION, delay: 0.15 }}
-              >
                 <Link
                   href="/signer"
-                  className="underline-offset-4 hover:underline hover:text-zinc-400"
+                  className="text-sm text-zinc-500 underline-offset-4 hover:underline hover:text-zinc-400"
                 >
                   Hướng dẫn cài đặt
                 </Link>
-              </m.p>
+              </m.div>
             </div>
             <div className="flex justify-center lg:justify-end">
               <HeroDemoCard />
@@ -237,8 +391,6 @@ export default function HomePage() {
           </div>
         </div>
       </section>
-
-      <UploadModal open={uploadModalOpen} onOpenChange={setUploadModalOpen} />
     </div>
   );
 }
