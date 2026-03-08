@@ -13,6 +13,11 @@ function sanitizeFilename(title: string): string {
   return base || "document";
 }
 
+/** ASCII-only fallback for legacy filename param (headers must be ByteString) */
+function asciiFallback(filename: string): string {
+  return filename.replace(/[^\x00-\x7F]/g, "_") || "document";
+}
+
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ publicId: string }> }
@@ -62,13 +67,14 @@ export async function GET(
     const buffer = await getBuffer(currentVersion.storageKey);
     const safeTitle = sanitizeFilename(document.title ?? "document");
     const filename = `${safeTitle}-v${currentVersion.version}.pdf`;
+    const filenameAscii = asciiFallback(filename);
     const encodedFilename = encodeURIComponent(filename);
 
     return new NextResponse(new Uint8Array(buffer), {
       headers: {
         "Content-Type": "application/pdf",
         "Content-Length": String(buffer.length),
-        "Content-Disposition": `attachment; filename="${filename}"; filename*=UTF-8''${encodedFilename}`,
+        "Content-Disposition": `attachment; filename="${filenameAscii}"; filename*=UTF-8''${encodedFilename}`,
         "Cache-Control": "private, max-age=300",
       },
     });
