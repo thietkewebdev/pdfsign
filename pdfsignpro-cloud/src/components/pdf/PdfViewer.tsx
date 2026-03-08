@@ -214,8 +214,8 @@ export function PdfViewer({
           </button>
         </div>
       </div>
-      <div className="flex-1 overflow-auto p-4">
-        <div className="relative inline-block" ref={containerRef}>
+      <div className="flex-1 overflow-auto p-4 flex justify-center items-start min-h-0">
+        <div className="relative inline-block min-w-fit" ref={containerRef}>
           <canvas ref={canvasRef} className="block" />
           {pageWidth > 0 && pageHeight > 0 && (
             <div

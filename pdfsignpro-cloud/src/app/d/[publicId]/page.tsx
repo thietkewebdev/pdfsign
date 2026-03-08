@@ -206,10 +206,10 @@ export default function SigningViewerPage() {
   const copyShareLink = () => {
     if (typeof window === "undefined" || !publicId || !data) return;
     const v = data.currentVersion.version;
-    const link = `${window.location.origin}/d/${publicId}?v=${v}`;
+    const link = `${window.location.origin}/api/documents/${publicId}/download?v=${v}`;
     navigator.clipboard.writeText(link);
     setShareLinkCopied(true);
-    toast.success("Đã copy liên kết");
+    toast.success("Đã copy liên kết tải");
     setTimeout(() => setShareLinkCopied(false), 2000);
   };
 
@@ -291,11 +291,8 @@ export default function SigningViewerPage() {
     jobState?.status === "COMPLETED" && jobState.signedDownloadUrl
       ? jobState.signedDownloadUrl
       : basePdfUrl;
-  // Download URL: use viewUrl (includes ?v=) for currently viewed version; signedDownloadUrl when just completed
-  const downloadUrl =
-    jobState?.status === "COMPLETED" && jobState.signedDownloadUrl
-      ? jobState.signedDownloadUrl
-      : viewUrl ?? presignedUrl;
+  // Download URL: use download endpoint to force download (Chrome/Edge)
+  const downloadUrl = `/api/documents/${publicId}/download?v=${currentVersion.version}`;
 
   const SigningPanel = () => (
     <div className="space-y-4">
@@ -351,12 +348,22 @@ export default function SigningViewerPage() {
           status={jobState.status}
           deepLink={jobState.deepLink}
           signedDownloadUrl={jobState.signedDownloadUrl}
+          downloadLink={
+            jobState.status === "COMPLETED" && typeof window !== "undefined"
+              ? `${window.location.origin}/api/documents/${publicId}/download?v=${currentVersion.version}`
+              : undefined
+          }
           error={jobState.error}
           onCopyDeepLink={copyDeepLink}
           onCopyShareLink={copyShareLink}
           copied={copied}
           shareLinkCopied={shareLinkCopied}
           shareLink={
+            jobState.status === "COMPLETED" && typeof window !== "undefined"
+              ? `${window.location.origin}/api/documents/${publicId}/download?v=${currentVersion.version}`
+              : undefined
+          }
+          viewLink={
             jobState.status === "COMPLETED" && typeof window !== "undefined"
               ? `${window.location.origin}/d/${publicId}?v=${currentVersion.version}`
               : undefined

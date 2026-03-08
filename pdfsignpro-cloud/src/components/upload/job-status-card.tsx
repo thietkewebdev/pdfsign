@@ -16,13 +16,19 @@ export type JobStatus = "CREATED" | "COMPLETED" | "EXPIRED" | "CANCELED";
 interface JobStatusCardProps {
   status: JobStatus;
   deepLink?: string;
+  /** @deprecated Use downloadLink for COMPLETED state */
   signedDownloadUrl?: string | null;
+  /** Download endpoint URL for "Tải PDF đã ký" (e.g. /api/documents/[id]/download?v=2) */
+  downloadLink?: string;
   error?: "expired" | "timeout" | null;
   onCopyDeepLink?: () => void;
   onCopyShareLink?: () => void;
   copied?: boolean;
   shareLinkCopied?: boolean;
+  /** Share link (download URL) for copy - shown in "Chia sẻ liên kết đã ký" */
   shareLink?: string;
+  /** Optional viewer link for "Link xem" */
+  viewLink?: string;
   onReset?: () => void;
   documentTitle?: string;
   showCreatedHint?: boolean;
@@ -32,12 +38,14 @@ export function JobStatusCard({
   status,
   deepLink,
   signedDownloadUrl,
+  downloadLink,
   error,
   onCopyDeepLink,
   onCopyShareLink,
   copied = false,
   shareLinkCopied = false,
   shareLink,
+  viewLink,
   onReset,
   documentTitle = "document.pdf",
   showCreatedHint = false,
@@ -98,14 +106,14 @@ export function JobStatusCard({
         </>
       )}
 
-      {status === "COMPLETED" && signedDownloadUrl && (
+      {status === "COMPLETED" && (downloadLink ?? signedDownloadUrl) && (
         <div className="space-y-3">
           <p className="flex items-center gap-2 text-sm font-medium text-emerald-600 dark:text-emerald-400">
             <CheckCircle2 className="size-4" />
             Đã ký xong
           </p>
           <Button size="sm" className="w-full" asChild>
-            <a href={signedDownloadUrl} download={documentTitle}>
+            <a href={downloadLink ?? signedDownloadUrl ?? "#"}>
               <Download className="size-4" />
               Tải PDF đã ký
             </a>
@@ -136,6 +144,13 @@ export function JobStatusCard({
                   {shareLinkCopied ? "Đã copy" : "Copy"}
                 </Button>
               </div>
+              {viewLink && (
+                <p className="text-xs text-muted-foreground">
+                  <a href={viewLink} className="underline hover:text-foreground">
+                    Link xem
+                  </a>
+                </p>
+              )}
             </div>
           )}
         </div>
