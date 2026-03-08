@@ -1,12 +1,11 @@
 "use client";
 
-import { Shield, AlertCircle } from "lucide-react";
+import { Shield } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 export interface SignInfo {
   signedBy?: string;
   issuerCN?: string;
-  serial?: string;
   signingTime?: string;
 }
 
@@ -37,15 +36,12 @@ export function SignatureInfoPanel({
 }: SignatureInfoPanelProps) {
   const hasAny =
     signInfo &&
-    (signInfo.signedBy ||
-      signInfo.issuerCN ||
-      signInfo.serial ||
-      signInfo.signingTime);
+    (signInfo.signedBy || signInfo.issuerCN || signInfo.signingTime);
   if (!hasAny) return null;
 
   return (
     <div
-      className={`rounded-xl border border-border bg-card p-4 space-y-3 ${className}`}
+      className={`rounded-lg border border-border bg-card p-4 space-y-3 shadow-sm ${className}`}
     >
       <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
         <Shield className="size-4 text-muted-foreground" />
@@ -74,14 +70,6 @@ export function SignatureInfoPanel({
             </dd>
           </div>
         )}
-        {signInfo.serial && (
-          <div>
-            <dt className="text-xs text-muted-foreground mb-0.5">Serial</dt>
-            <dd className="font-mono text-xs text-foreground">
-              {signInfo.serial}
-            </dd>
-          </div>
-        )}
         {signInfo.signingTime && (
           <div>
             <dt className="text-xs text-muted-foreground mb-0.5">
@@ -93,13 +81,6 @@ export function SignatureInfoPanel({
           </div>
         )}
       </dl>
-      <p className="flex items-start gap-2 text-xs text-muted-foreground pt-1 border-t border-border">
-        <AlertCircle className="size-3.5 shrink-0 mt-0.5" />
-        <span>
-          Xem trước trên trình duyệt không xác thực chữ ký đầy đủ. Mở bằng
-          Adobe Reader hoặc Foxit để kiểm tra chữ ký.
-        </span>
-      </p>
     </div>
   );
 }

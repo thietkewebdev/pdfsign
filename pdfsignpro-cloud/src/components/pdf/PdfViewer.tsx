@@ -164,59 +164,61 @@ export function PdfViewer({
 
   if (!file && !pdfUrl) {
     return (
-      <div className="flex size-full items-center justify-center rounded-lg border border-border bg-muted/20">
-        <p className="text-muted-foreground">Chọn file PDF để xem</p>
+      <div className="flex size-full items-center justify-center rounded-md border border-border bg-muted/30">
+        <p className="text-sm text-muted-foreground">Chọn file PDF để xem</p>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col size-full">
-      <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-2">
+    <div className="flex flex-col size-full bg-muted/30">
+      <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-2 bg-background/80">
         <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={() => onPageChange(Math.max(1, currentPage - 1))}
             disabled={currentPage <= 1}
-            className="rounded border border-border px-2 py-1 text-sm hover:bg-accent disabled:opacity-50"
+            className="rounded-md border border-border px-2.5 py-1.5 text-sm hover:bg-accent disabled:opacity-50 transition-colors"
           >
             ←
           </button>
-          <span className="text-sm text-muted-foreground">
+          <span className="text-sm text-muted-foreground tabular-nums">
             Trang {currentPage} / {totalPages}
           </span>
           <button
             type="button"
             onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
             disabled={currentPage >= totalPages}
-            className="rounded border border-border px-2 py-1 text-sm hover:bg-accent disabled:opacity-50"
+            className="rounded-md border border-border px-2.5 py-1.5 text-sm hover:bg-accent disabled:opacity-50 transition-colors"
           >
             →
           </button>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-0.5 rounded-full border border-border bg-muted/50 p-0.5">
           <button
             type="button"
             onClick={() => onScaleChange(Math.max(0.5, scale - 0.25))}
-            className="rounded border border-border px-2 py-1 text-sm hover:bg-accent"
+            className="rounded-full px-2.5 py-1 text-sm hover:bg-accent transition-colors"
+            aria-label="Thu nhỏ"
           >
             −
           </button>
-          <span className="text-sm text-muted-foreground">
+          <span className="min-w-[3rem] text-center text-sm text-muted-foreground tabular-nums">
             {Math.round(scale * 100)}%
           </span>
           <button
             type="button"
             onClick={() => onScaleChange(Math.min(2, scale + 0.25))}
-            className="rounded border border-border px-2 py-1 text-sm hover:bg-accent"
+            className="rounded-full px-2.5 py-1 text-sm hover:bg-accent transition-colors"
+            aria-label="Phóng to"
           >
             +
           </button>
         </div>
       </div>
-      <div className="flex-1 overflow-auto p-4 flex justify-center items-start min-h-0">
-        <div className="relative inline-block min-w-fit" ref={containerRef}>
-          <canvas ref={canvasRef} className="block" />
+      <div className="flex-1 overflow-auto p-6 flex justify-center items-start min-h-0">
+        <div className="relative inline-block min-w-fit rounded-md border border-border bg-white dark:bg-zinc-900 shadow-lg" ref={containerRef}>
+          <canvas ref={canvasRef} className="block rounded-md" />
           {pageWidth > 0 && pageHeight > 0 && (
             <div
               className="absolute left-0 top-0 size-full"

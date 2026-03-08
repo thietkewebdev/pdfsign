@@ -23,7 +23,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="vi" suppressHydrationWarning>
-      <body className={`${inter.variable} font-sans antialiased`}>
+      <body className={`${inter.variable} font-sans antialiased text-[15px] leading-normal`}>
         <ThemeProvider
           attribute="class"
           defaultTheme="system"

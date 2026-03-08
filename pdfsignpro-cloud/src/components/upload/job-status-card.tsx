@@ -51,7 +51,7 @@ export function JobStatusCard({
   showCreatedHint = false,
 }: JobStatusCardProps) {
   return (
-    <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+    <div className="rounded-lg border border-border bg-card p-4 space-y-3 shadow-sm">
       {status === "CREATED" && (
         <>
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -128,7 +128,7 @@ export function JobStatusCard({
                   type="text"
                   readOnly
                   value={shareLink}
-                  className="flex-1 min-w-0 rounded-md border border-input bg-muted px-2 py-1.5 text-xs font-mono"
+                  className="flex-1 min-w-0 rounded-md border border-input bg-muted/50 px-2.5 py-1.5 text-xs font-mono"
                 />
                 <Button
                   variant="outline"

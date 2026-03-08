@@ -9,14 +9,13 @@ import {
   X,
   PenLine,
   Monitor,
-  RefreshCw,
+  Share2,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
 import { Label } from "@/components/ui/label";
 import { PdfViewer } from "@/components/pdf/PdfViewer";
 import { JobStatusCard } from "@/components/upload";
@@ -85,6 +84,7 @@ export default function SigningViewerPage() {
     deepLink: string;
     status: "CREATED" | "COMPLETED" | "EXPIRED" | "CANCELED";
     signedDownloadUrl: string | null;
+    cacheBustAt?: number;
     error: "expired" | "timeout" | null;
   } | null>(null);
   const [copied, setCopied] = useState(false);
@@ -205,6 +205,7 @@ export default function SigningViewerPage() {
     if (!jobState) return;
     navigator.clipboard.writeText(jobState.deepLink);
     setCopied(true);
+    toast.success("Đã sao chép liên kết ký");
     setTimeout(() => setCopied(false), 2000);
   };
 
@@ -213,8 +214,15 @@ export default function SigningViewerPage() {
     const link = `${window.location.origin}/d/${publicId}`;
     navigator.clipboard.writeText(link);
     setShareLinkCopied(true);
-    toast.success("Đã copy liên kết");
+    toast.success("Đã sao chép liên kết chia sẻ");
     setTimeout(() => setShareLinkCopied(false), 2000);
+  };
+
+  const copyDocumentLink = () => {
+    if (typeof window === "undefined" || !publicId) return;
+    const link = `${window.location.origin}/d/${publicId}`;
+    navigator.clipboard.writeText(link);
+    toast.success("Đã sao chép liên kết");
   };
 
   const resetJobState = () => {
@@ -236,11 +244,19 @@ export default function SigningViewerPage() {
       const { status, signedDownloadUrl } = parsed.data;
 
       if (status === "COMPLETED" && signedDownloadUrl) {
+        await fetchDocument();
         setJobState((prev) =>
-          prev ? { ...prev, status, signedDownloadUrl, error: null } : null
+          prev
+            ? {
+                ...prev,
+                status,
+                signedDownloadUrl,
+                cacheBustAt: Date.now(),
+                error: null,
+              }
+            : null
         );
         toast.success("Đã ký xong. Có thể tải PDF đã ký.");
-        await fetchDocument();
         return;
       }
 
@@ -291,15 +307,16 @@ export default function SigningViewerPage() {
 
   const { document: doc, currentVersion, presignedUrl, viewUrl } = data;
   const basePdfUrl = viewUrl ?? presignedUrl;
-  const pdfUrl =
-    jobState?.status === "COMPLETED" && jobState.signedDownloadUrl
-      ? jobState.signedDownloadUrl
-      : basePdfUrl;
+  const cacheBust =
+    jobState?.status === "COMPLETED" && jobState.cacheBustAt
+      ? (basePdfUrl.includes("?") ? "&" : "?") + "t=" + jobState.cacheBustAt
+      : "";
+  const pdfUrl = basePdfUrl + cacheBust;
   // Download URL: use download endpoint to force download (Chrome/Edge)
   const downloadUrl = `/api/documents/${publicId}/download?v=${currentVersion.version}`;
 
   const SigningPanel = () => (
-    <div className="space-y-4">
+    <div className="rounded-lg border border-border bg-card p-4 space-y-4 shadow-sm">
       <h3 className="text-sm font-semibold text-foreground">
         Chữ ký số
       </h3>
@@ -307,7 +324,7 @@ export default function SigningViewerPage() {
         variant="outline"
         size="sm"
         onClick={addSignatureBox}
-        className="w-full"
+        className="w-full rounded-md"
       >
         Thêm ô chữ ký
       </Button>
@@ -342,89 +359,82 @@ export default function SigningViewerPage() {
       <Button
         onClick={handleSign}
         disabled={placements.length === 0 || !!jobState}
-        className="w-full"
+        className="w-full rounded-md"
       >
         <PenLine className="size-4" />
         Ký số
       </Button>
-      {jobState && (
-        <JobStatusCard
-          status={jobState.status}
-          deepLink={jobState.deepLink}
-          signedDownloadUrl={jobState.signedDownloadUrl}
-          downloadLink={
-            jobState.status === "COMPLETED" && typeof window !== "undefined"
-              ? `${window.location.origin}/api/documents/${publicId}/download?v=${currentVersion.version}`
-              : undefined
-          }
-          error={jobState.error}
-          onCopyDeepLink={copyDeepLink}
-          onCopyShareLink={copyShareLink}
-          copied={copied}
-          shareLinkCopied={shareLinkCopied}
-          shareLink={
-            jobState.status === "COMPLETED" && typeof window !== "undefined"
-              ? `${window.location.origin}/d/${publicId}`
-              : undefined
-          }
-          viewLink={
-            jobState.status === "COMPLETED" && typeof window !== "undefined"
-              ? `${window.location.origin}/api/documents/${publicId}/download?v=${currentVersion.version}`
-              : undefined
-          }
-          onReset={resetJobState}
-          documentTitle={doc.title ?? "signed.pdf"}
-          showCreatedHint={showCreatedHint}
-        />
-      )}
     </div>
   );
 
+  const JobStatusCardContent = jobState ? (
+    <JobStatusCard
+      status={jobState.status}
+      deepLink={jobState.deepLink}
+      signedDownloadUrl={jobState.signedDownloadUrl}
+      downloadLink={
+        jobState.status === "COMPLETED" && typeof window !== "undefined"
+          ? `${window.location.origin}/api/documents/${publicId}/download?v=${currentVersion.version}`
+          : undefined
+      }
+      error={jobState.error}
+      onCopyDeepLink={copyDeepLink}
+      onCopyShareLink={copyShareLink}
+      copied={copied}
+      shareLinkCopied={shareLinkCopied}
+      shareLink={
+        jobState.status === "COMPLETED" && typeof window !== "undefined"
+          ? `${window.location.origin}/d/${publicId}`
+          : undefined
+      }
+      viewLink={
+        jobState.status === "COMPLETED" && typeof window !== "undefined"
+          ? `${window.location.origin}/api/documents/${publicId}/download?v=${currentVersion.version}`
+          : undefined
+      }
+      onReset={resetJobState}
+      documentTitle={doc.title ?? "signed.pdf"}
+      showCreatedHint={showCreatedHint}
+    />
+  ) : null;
+
   return (
     <div className="flex h-[calc(100vh-3.5rem)] flex-col">
-      <div className="flex items-center justify-between gap-4 border-b border-border px-6 py-3">
+      <div className="flex items-center justify-between gap-4 border-b border-border px-5 py-2.5 bg-background/95">
         <div className="flex items-center gap-3 min-w-0">
-          <h2 className="truncate font-semibold text-foreground">
+          <h2 className="truncate text-[15px] font-medium text-foreground">
             {doc.title}
           </h2>
-          <StatusBadge status={doc.status} />
-          <Badge variant="outline" className="shrink-0">
+          <Badge variant="outline" className="shrink-0 text-[11px] font-medium px-2 py-0 rounded-md">
             v{currentVersion.version}
           </Badge>
+          <StatusBadge status={doc.status} />
         </div>
-        <div className="flex flex-wrap items-center gap-2 shrink-0">
+        <div className="flex items-center gap-1 shrink-0">
           <ThemeToggle />
-          <Button variant="outline" size="sm" asChild>
+          <Button variant="ghost" size="sm" asChild className="text-muted-foreground hover:text-foreground">
             <a href="/api/signer/download">
               <Monitor className="size-4" />
               Tải Signer
             </a>
           </Button>
           <Button
-            variant="outline"
+            variant="ghost"
             size="sm"
-            onClick={() =>
-              fetchDocument().catch((err) =>
-                toast.error(err?.message ?? "Không thể tải lại")
-              )
-            }
-            aria-label="Làm mới"
+            onClick={copyDocumentLink}
+            className="text-muted-foreground hover:text-foreground"
+            aria-label="Chia sẻ"
           >
-            <RefreshCw className="size-4" />
-            Làm mới
+            <Share2 className="size-4" />
+            Chia sẻ
           </Button>
-          <span className="text-xs text-muted-foreground">
-            <Link href="/signer" className="underline hover:text-foreground">
-              Hướng dẫn cài đặt
-            </Link>
-          </span>
-          <Button variant="outline" size="sm" asChild>
+          <Button variant="ghost" size="sm" asChild>
             <a href={downloadUrl} download={doc.title ?? "document.pdf"}>
               <Download className="size-4" />
               Tải PDF
             </a>
           </Button>
-          <Button variant="ghost" size="icon" asChild aria-label="Đóng">
+          <Button variant="ghost" size="icon" asChild aria-label="Đóng" className="text-muted-foreground hover:text-foreground">
             <Link href="/">
               <X className="size-4" />
             </Link>
@@ -435,34 +445,18 @@ export default function SigningViewerPage() {
       <div className="flex-1 overflow-hidden">
         <div className="hidden lg:grid lg:grid-cols-[320px_1fr_280px] lg:h-full">
           <div className="border-r border-border p-4 overflow-hidden">
-            <h3 className="text-sm font-semibold text-foreground mb-3">
-              Hướng dẫn
-            </h3>
-            <ol className="space-y-2 text-sm text-muted-foreground mb-4 list-decimal list-inside">
-              <li>Cắm USB Token</li>
-              <li>Bấm &quot;Ký số&quot; để tạo phiên ký</li>
-              <li>Bấm &quot;Mở PDFSignPro Signer&quot;</li>
-            </ol>
-            <Separator className="my-3" />
-            <h3 className="text-sm font-semibold text-foreground mb-3">
-              Trạng thái
-            </h3>
-            <ScrollArea className="h-[calc(100vh-14rem)]">
-              <div className="space-y-4 pr-4 text-sm text-muted-foreground">
-                <p>Đã tải lên</p>
-                <p className="text-xs">
-                  {new Date(doc.createdAt).toLocaleString("vi-VN")}
-                </p>
+            <ScrollArea className="h-[calc(100vh-8rem)]">
+              <div className="space-y-4 pr-4">
                 {data.signInfo && (
                   <SignatureInfoPanel signInfo={data.signInfo} />
                 )}
-                <Separator className="my-2" />
                 <SigningPanel />
               </div>
             </ScrollArea>
           </div>
           <div className="overflow-hidden">
             <PdfViewer
+              key={`pdf-v${currentVersion.version}`}
               pdfUrl={pdfUrl}
               currentPage={currentPage}
               onPageChange={setCurrentPage}
@@ -475,29 +469,41 @@ export default function SigningViewerPage() {
               activePageForPlacement={activePage}
             />
           </div>
-          <div className="border-l border-border p-4 overflow-hidden">
-            <h3 className="text-sm font-semibold text-foreground mb-3">
-              Trang
-            </h3>
-            <ScrollArea className="h-[calc(100vh-12rem)]">
-              <div className="space-y-2 pr-2">
-                {Array.from({ length: Math.max(totalPages, 1) }, (_, i) => (
-                  <button
-                    key={i}
-                    type="button"
-                    onClick={() => setCurrentPage(i + 1)}
-                    className={`flex w-full items-center gap-3 rounded-lg border p-2 text-left transition-colors ${
-                      currentPage === i + 1
-                        ? "border-primary bg-primary/10"
-                        : "border-border hover:bg-accent/50"
-                    }`}
-                  >
-                    <div className="size-12 shrink-0 rounded bg-muted flex items-center justify-center text-xs text-muted-foreground">
-                      {i + 1}
-                    </div>
-                    <span className="text-sm">Trang {i + 1}</span>
-                  </button>
-                ))}
+          <div className="border-l border-border p-4 overflow-hidden flex flex-col min-h-0">
+            <ScrollArea className="flex-1 min-h-0">
+              <div className="space-y-4 pr-2">
+                <div>
+                  <h3 className="text-sm font-semibold text-foreground mb-3">
+                    Trang
+                  </h3>
+                  <div className="space-y-2">
+                    {Array.from({ length: Math.max(totalPages, 1) }, (_, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => setCurrentPage(i + 1)}
+                        className={`flex w-full items-center gap-3 rounded-md border p-2 text-left transition-all duration-150 ${
+                          currentPage === i + 1
+                            ? "border-primary bg-primary/10 ring-1 ring-primary/20"
+                            : "border-border hover:border-muted-foreground/30 hover:bg-accent/50"
+                        }`}
+                      >
+                        <div className="size-12 shrink-0 rounded-md bg-muted flex items-center justify-center text-xs font-medium text-muted-foreground">
+                          {i + 1}
+                        </div>
+                        <span className="text-sm">Trang {i + 1}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {JobStatusCardContent && (
+                  <div>
+                    <h3 className="text-sm font-semibold text-foreground mb-3">
+                      Trạng thái ký
+                    </h3>
+                    {JobStatusCardContent}
+                  </div>
+                )}
               </div>
             </ScrollArea>
           </div>
@@ -514,22 +520,16 @@ export default function SigningViewerPage() {
             </div>
             <div className="flex-1 overflow-auto">
               <TabsContent value="timeline" className="m-0 p-4 h-full">
-                <h3 className="text-sm font-semibold text-foreground mb-3">
-                  Hướng dẫn ký số
-                </h3>
-                <ol className="space-y-2 text-sm text-muted-foreground mb-4 list-decimal list-inside">
-                  <li>Cắm USB Token</li>
-                  <li>Bấm &quot;Ký số&quot; để tạo phiên ký</li>
-                  <li>Bấm &quot;Mở PDFSignPro Signer&quot;</li>
-                </ol>
-                {data.signInfo && (
-                  <SignatureInfoPanel signInfo={data.signInfo} className="mb-4" />
-                )}
-                <Separator className="my-3" />
-                <SigningPanel />
+                <div className="space-y-4">
+                  {data.signInfo && (
+                    <SignatureInfoPanel signInfo={data.signInfo} />
+                  )}
+                  <SigningPanel />
+                </div>
               </TabsContent>
               <TabsContent value="document" className="m-0 p-0 h-full">
                 <PdfViewer
+                  key={`pdf-v${currentVersion.version}`}
                   pdfUrl={pdfUrl}
                   currentPage={currentPage}
                   onPageChange={setCurrentPage}
@@ -542,25 +542,40 @@ export default function SigningViewerPage() {
                   activePageForPlacement={activePage}
                 />
               </TabsContent>
-              <TabsContent value="pages" className="m-0 p-4 h-full">
-                <div className="space-y-2">
-                  {Array.from({ length: Math.max(totalPages, 1) }, (_, i) => (
-                    <button
-                      key={i}
-                      type="button"
-                      onClick={() => setCurrentPage(i + 1)}
-                      className={`flex w-full items-center gap-3 rounded-lg border p-2 text-left ${
-                        currentPage === i + 1
-                          ? "border-primary bg-primary/10"
-                          : "border-border"
-                      }`}
-                    >
-                      <div className="size-12 shrink-0 rounded bg-muted flex items-center justify-center text-xs">
-                        {i + 1}
-                      </div>
-                      <span className="text-sm">Trang {i + 1}</span>
-                    </button>
-                  ))}
+              <TabsContent value="pages" className="m-0 p-4 h-full overflow-auto">
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="text-sm font-semibold text-foreground mb-3">
+                      Trang
+                    </h3>
+                    <div className="space-y-2">
+                      {Array.from({ length: Math.max(totalPages, 1) }, (_, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => setCurrentPage(i + 1)}
+                          className={`flex w-full items-center gap-3 rounded-md border p-2 text-left transition-all duration-150 ${
+                            currentPage === i + 1
+                              ? "border-primary bg-primary/10 ring-1 ring-primary/20"
+                              : "border-border hover:border-muted-foreground/30 hover:bg-accent/50"
+                          }`}
+                        >
+                          <div className="size-12 shrink-0 rounded-md bg-muted flex items-center justify-center text-xs font-medium text-muted-foreground">
+                            {i + 1}
+                          </div>
+                          <span className="text-sm">Trang {i + 1}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  {JobStatusCardContent && (
+                    <div>
+                      <h3 className="text-sm font-semibold text-foreground mb-3">
+                        Trạng thái ký
+                      </h3>
+                      {JobStatusCardContent}
+                    </div>
+                  )}
                 </div>
               </TabsContent>
             </div>

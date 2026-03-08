@@ -1,6 +1,7 @@
 import { Readable } from "node:stream";
 import busboy from "busboy";
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getStorageDriver } from "@/storage";
 import { verifyJobToken } from "@/lib/job-token";
@@ -172,6 +173,8 @@ export async function POST(
         completedAt: new Date(),
       },
     });
+
+    revalidatePath("/d/" + job.document.publicId);
 
     const appUrl =
       process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";

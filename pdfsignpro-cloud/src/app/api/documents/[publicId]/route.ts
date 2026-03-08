@@ -60,23 +60,24 @@ export async function GET(
     let signInfo: {
       signedBy?: string;
       issuerCN?: string;
-      serial?: string;
       signingTime?: string;
     } | null = null;
     if (signJob?.certMetaJson) {
       try {
         const meta = JSON.parse(signJob.certMetaJson) as Record<string, unknown>;
-        const o = typeof meta.subjectO === "string" ? meta.subjectO : "";
-        const cn = typeof meta.subjectCN === "string" ? meta.subjectCN : "";
-        const signedBy = [o, cn].filter(Boolean).join(" / ") || undefined;
+        const o = typeof meta.subjectO === "string" ? meta.subjectO.trim().replace(/\s+/g, " ") : "";
+        const cn = typeof meta.subjectCN === "string" ? meta.subjectCN.trim().replace(/\s+/g, " ") : "";
+        const norm = (s: string) => s.toLowerCase();
+        const signedBy =
+          o && cn && norm(o) === norm(cn)
+            ? o
+            : [o, cn].filter(Boolean).join(" / ") || undefined;
         const issuerCN =
           typeof meta.issuerCN === "string" ? meta.issuerCN : undefined;
-        const serial =
-          typeof meta.serial === "string" ? meta.serial : undefined;
         const signingTime =
           typeof meta.signingTime === "string" ? meta.signingTime : undefined;
-        if (signedBy || issuerCN || serial || signingTime) {
-          signInfo = { signedBy, issuerCN, serial, signingTime };
+        if (signedBy || issuerCN || signingTime) {
+          signInfo = { signedBy, issuerCN, signingTime };
         }
       } catch {
         // ignore parse errors
