@@ -1,7 +1,62 @@
+import { Readable } from "node:stream";
+import busboy from "busboy";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getStorageDriver } from "@/storage";
 import { verifyJobToken } from "@/lib/job-token";
+
+function parseMultipart(request: Request): Promise<{
+  fileBuffer: Buffer;
+  fileMimeType: string;
+  certMetaRaw: string | null;
+}> {
+  return new Promise((resolve, reject) => {
+    const contentType = request.headers.get("content-type") ?? "";
+    const bb = busboy({
+      headers: { "content-type": contentType },
+    });
+
+    const fileChunks: Buffer[] = [];
+    let fileMimeType = "application/pdf";
+    let certMetaRaw: string | null = null;
+    let fileReceived = false;
+
+    bb.on("file", (name, stream, info) => {
+      if (name === "file" || name === "signedPdf") {
+        fileReceived = true;
+        fileMimeType = info.mimeType ?? "application/pdf";
+        stream.on("data", (chunk: Buffer) => fileChunks.push(chunk));
+      } else {
+        stream.resume();
+      }
+    });
+
+    bb.on("field", (name, value) => {
+      if (name === "certMeta") certMetaRaw = value;
+    });
+
+    bb.on("finish", () => {
+      if (!fileReceived || fileChunks.length === 0) {
+        reject(new Error("Missing or invalid file (signed PDF)"));
+        return;
+      }
+      resolve({
+        fileBuffer: Buffer.concat(fileChunks),
+        fileMimeType,
+        certMetaRaw,
+      });
+    });
+
+    bb.on("error", (err) => reject(err));
+
+    const body = request.body;
+    if (!body) {
+      reject(new Error("Request body is empty"));
+      return;
+    }
+    Readable.fromWeb(body as Parameters<typeof Readable.fromWeb>[0]).pipe(bb);
+  });
+}
 
 export async function POST(
   request: Request,
@@ -56,15 +111,19 @@ export async function POST(
       );
     }
 
-    const formData = await request.formData();
-    const file = (formData.get("file") ?? formData.get("signedPdf")) as File | null;
-    const certMetaRaw = formData.get("certMeta");
+    let fileBuffer: Buffer;
+    let fileMimeType: string;
+    let certMetaRaw: string | null;
 
-    if (!file || !(file instanceof File)) {
-      return NextResponse.json(
-        { error: "Missing or invalid file (signed PDF)" },
-        { status: 400 }
-      );
+    try {
+      const parsed = await parseMultipart(request);
+      fileBuffer = parsed.fileBuffer;
+      fileMimeType = parsed.fileMimeType;
+      certMetaRaw = parsed.certMetaRaw;
+    } catch (parseErr) {
+      const msg = parseErr instanceof Error ? parseErr.message : "Failed to parse multipart";
+      console.error("POST /api/jobs/[jobId]/complete parse error:", parseErr);
+      return NextResponse.json({ error: msg }, { status: 400 });
     }
 
     let certMetaJson: string | null = null;
@@ -80,14 +139,14 @@ export async function POST(
       }
     }
 
-    if (file.type !== "application/pdf") {
+    if (fileMimeType !== "application/pdf") {
       return NextResponse.json(
         { error: "File must be a PDF" },
         { status: 400 }
       );
     }
 
-    const buffer = Buffer.from(await file.arrayBuffer());
+    const buffer = fileBuffer;
     const nextVersion = job.documentVersion.version + 1;
     const storageKey = `documents/${job.document.publicId}/v${nextVersion}.pdf`;
 
