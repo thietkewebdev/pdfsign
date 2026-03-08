@@ -27,6 +27,7 @@ import {
   UploadProgress,
 } from "@/components/upload";
 import { HeroIllustration } from "@/components/home/HeroIllustration";
+import { FeatureMockStrip } from "@/components/home/FeatureMockStrip";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
 
@@ -350,6 +351,13 @@ export default function HomePage() {
               <HeroIllustration />
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* Mock cards strip */}
+      <section className="relative -mt-8 px-0 md:-mt-12">
+        <div className="container mx-auto max-w-6xl px-6">
+          <FeatureMockStrip />
         </div>
       </section>
 
