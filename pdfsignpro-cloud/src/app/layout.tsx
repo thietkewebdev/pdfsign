@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import Script from "next/script";
 import { Toaster } from "sonner";
 import { LazyMotion, domAnimation } from "motion/react";
 import { ThemeProvider } from "@/components/theme-provider";
 import { UploadProvider } from "@/contexts/upload-context";
 import { ConditionalShell } from "@/components/conditional-shell";
+import { GA4 } from "@/components/analytics/ga4";
 import "./globals.css";
 
 const inter = Inter({
@@ -14,6 +16,7 @@ const inter = Inter({
 
 const baseUrl =
   process.env.NEXT_PUBLIC_APP_URL ?? "https://pdfsign.vn";
+const ga4Id = process.env.NEXT_PUBLIC_GA4_ID;
 
 export const metadata: Metadata = {
   metadataBase: new URL(baseUrl),
@@ -74,6 +77,22 @@ export default function RootLayout({
             <UploadProvider>
               <ConditionalShell>{children}</ConditionalShell>
               <Toaster richColors position="top-right" />
+              {ga4Id && (
+                <>
+                  <Script
+                    src={`https://www.googletagmanager.com/gtag/js?id=${ga4Id}`}
+                    strategy="afterInteractive"
+                  />
+                  <Script id="ga4-init" strategy="afterInteractive">
+                    {`
+                      window.dataLayer = window.dataLayer || [];
+                      function gtag(){dataLayer.push(arguments);}
+                      gtag('js', new Date());
+                    `}
+                  </Script>
+                  <GA4 />
+                </>
+              )}
             </UploadProvider>
           </LazyMotion>
         </ThemeProvider>
