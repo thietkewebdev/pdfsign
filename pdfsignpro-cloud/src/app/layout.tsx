@@ -12,9 +12,48 @@ const inter = Inter({
   variable: "--font-inter",
 });
 
+const baseUrl =
+  process.env.NEXT_PUBLIC_APP_URL ?? "https://pdfsign.vn";
+
 export const metadata: Metadata = {
-  title: "PDFSignPro Cloud",
-  description: "Ký số PDF — nhanh, chuẩn, an toàn. Tải PDF lên, đặt vị trí chữ ký, ký số bằng USB Token trên Windows.",
+  metadataBase: new URL(baseUrl),
+  title: {
+    default: "PDFSignPro Cloud",
+    template: "%s | PDFSignPro Cloud",
+  },
+  description:
+    "Ký số PDF online miễn phí bằng USB Token. Tải PDF lên, đặt vị trí chữ ký, ký số chuẩn PAdES. Hỗ trợ Viettel, EasyCA, FastCA.",
+  keywords: [
+    "ký số PDF",
+    "chữ ký số PDF",
+    "USB Token",
+    "PAdES",
+    "PDF signing",
+    "Viettel",
+    "EasyCA",
+    "FastCA",
+  ],
+  openGraph: {
+    type: "website",
+    siteName: "PDFSignPro Cloud",
+    url: baseUrl,
+    images: [
+      {
+        url: "/opengraph-image",
+        width: 1200,
+        height: 630,
+        alt: "PDFSignPro Cloud — Ký số PDF online bằng USB Token",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    images: ["/opengraph-image"],
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
 };
 
 export default function RootLayout({
