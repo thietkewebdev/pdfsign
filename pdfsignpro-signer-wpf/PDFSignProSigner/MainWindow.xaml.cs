@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
 using System.Runtime.InteropServices;
+using Microsoft.Win32;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Interop;
@@ -18,9 +19,10 @@ public partial class MainWindow : Window
     private readonly CoreService _core = new();
     private JobInfo? _job;
     private string _signedPublicUrl = "";
+    private string? _signedDownloadUrl;
     private string _dllPath = "";
     private ObservableCollection<CertInfo> _certs = new();
-    private DispatcherTimer? _pinDebounceTimer;
+    private bool _pinVerified;
     private CancellationTokenSource? _loadCertsCts;
 
     public MainWindow()
@@ -101,13 +103,16 @@ public partial class MainWindow : Window
     {
         _certs.Clear();
         _dllPath = "";
+        _pinVerified = false;
+        _signedDownloadUrl = null;
         SignErrorText.Text = "";
         SignErrorText.Visibility = Visibility.Collapsed;
+        VerifyPinResultText.Text = "";
+        VerifyPinResultText.Visibility = Visibility.Collapsed;
         CertLoadingPanel.Visibility = Visibility.Collapsed;
         CertCombo.IsEnabled = false;
         SignBtn.IsEnabled = false;
         PinBox.Password = "";
-        _pinDebounceTimer?.Stop();
         _loadCertsCts?.Cancel();
     }
 
@@ -130,27 +135,30 @@ public partial class MainWindow : Window
     private void PinBox_PasswordChanged(object sender, RoutedEventArgs e)
     {
         SignErrorText.Visibility = Visibility.Collapsed;
-        _pinDebounceTimer?.Stop();
+        VerifyPinResultText.Visibility = Visibility.Collapsed;
         _loadCertsCts?.Cancel();
+        _pinVerified = false;
+        _certs.Clear();
+        _dllPath = "";
+        CertCombo.IsEnabled = false;
+        SignBtn.IsEnabled = false;
+        CertLoadingPanel.Visibility = Visibility.Collapsed;
+    }
+
+    private async void VerifyPin_Click(object sender, RoutedEventArgs e)
+    {
         var pin = PinBox.Password;
         if (string.IsNullOrEmpty(pin))
         {
-            CertCombo.IsEnabled = false;
-            SignBtn.IsEnabled = false;
-            _certs.Clear();
-            CertLoadingPanel.Visibility = Visibility.Collapsed;
+            VerifyPinResultText.Text = "Vui lòng nhập mã PIN.";
+            VerifyPinResultText.Foreground = (System.Windows.Media.Brush)this.FindResource("TextSecondaryBrush");
+            VerifyPinResultText.Visibility = Visibility.Visible;
             return;
         }
-        _pinDebounceTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
-        _pinDebounceTimer.Tick += (_, _) =>
-        {
-            _pinDebounceTimer?.Stop();
-            _ = LoadCertsAsync();
-        };
-        _pinDebounceTimer.Start();
+        await VerifyAndLoadCertsAsync();
     }
 
-    private async Task LoadCertsAsync()
+    private async Task VerifyAndLoadCertsAsync()
     {
         var pin = PinBox.Password;
         if (string.IsNullOrEmpty(pin)) return;
@@ -163,6 +171,7 @@ public partial class MainWindow : Window
         CertCombo.IsEnabled = false;
         SignBtn.IsEnabled = false;
         SignErrorText.Visibility = Visibility.Collapsed;
+        VerifyPinResultText.Visibility = Visibility.Collapsed;
         _certs.Clear();
 
         try
@@ -177,14 +186,20 @@ public partial class MainWindow : Window
 
             if (validCerts.Count > 0)
             {
+                _pinVerified = true;
                 CertCombo.SelectedIndex = 0;
                 CertCombo.IsEnabled = true;
                 SignBtn.IsEnabled = true;
+                VerifyPinResultText.Text = "✓ PIN đúng. Đã tải chứng thư số.";
+                VerifyPinResultText.Foreground = new System.Windows.Media.SolidColorBrush(
+                    (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#22C55E"));
+                VerifyPinResultText.Visibility = Visibility.Visible;
             }
             else if (certs.Count > 0)
             {
-                SignErrorText.Text = "Không có chứng chỉ còn hiệu lực.";
-                SignErrorText.Visibility = Visibility.Visible;
+                VerifyPinResultText.Text = "Không có chứng chỉ còn hiệu lực.";
+                VerifyPinResultText.Foreground = (System.Windows.Media.Brush)this.FindResource("TextSecondaryBrush");
+                VerifyPinResultText.Visibility = Visibility.Visible;
             }
             else if (!string.IsNullOrEmpty(stderr))
             {
@@ -192,36 +207,39 @@ public partial class MainWindow : Window
                 if (msg.Contains("CKR_PIN_INCORRECT", StringComparison.OrdinalIgnoreCase) ||
                     msg.Contains("incorrect", StringComparison.OrdinalIgnoreCase) ||
                     msg.Contains("sai", StringComparison.OrdinalIgnoreCase))
-                    SignErrorText.Text = "Mã PIN không đúng. Vui lòng thử lại.";
+                    msg = "Mã PIN không đúng. Sai nhiều lần có thể khóa token.";
                 else if (msg.Contains("No PKCS#11") || msg.Contains("not found") || msg.Contains("DLL"))
-                    SignErrorText.Text = "Không tìm thấy token/USB. Cắm token và thử lại.";
-                else
-                    SignErrorText.Text = msg;
-                SignErrorText.Visibility = Visibility.Visible;
+                    msg = "Không tìm thấy token/USB. Cắm token và thử lại.";
+                VerifyPinResultText.Text = msg;
+                VerifyPinResultText.Foreground = new System.Windows.Media.SolidColorBrush(
+                    (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#F87171"));
+                VerifyPinResultText.Visibility = Visibility.Visible;
                 PinBox.Focus();
             }
         }
         catch (FileNotFoundException)
         {
             if (ct.IsCancellationRequested) return;
-            SignErrorText.Text = "Không tìm thấy PDFSignProSignerCore.exe. Vui lòng cài đặt đầy đủ.";
-            SignErrorText.Visibility = Visibility.Visible;
+            VerifyPinResultText.Text = "Không tìm thấy PDFSignProSignerCore.exe. Vui lòng cài đặt đầy đủ.";
+            VerifyPinResultText.Foreground = new System.Windows.Media.SolidColorBrush(
+                (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#F87171"));
+            VerifyPinResultText.Visibility = Visibility.Visible;
             PinBox.Focus();
         }
         catch (OperationCanceledException) { /* ignore */ }
         catch (Exception ex)
         {
             if (ct.IsCancellationRequested) return;
-            SignErrorText.Text = ex.Message;
-            SignErrorText.Visibility = Visibility.Visible;
+            VerifyPinResultText.Text = ex.Message;
+            VerifyPinResultText.Foreground = new System.Windows.Media.SolidColorBrush(
+                (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#F87171"));
+            VerifyPinResultText.Visibility = Visibility.Visible;
             PinBox.Focus();
         }
         finally
         {
             if (!ct.IsCancellationRequested)
-            {
                 CertLoadingPanel.Visibility = Visibility.Collapsed;
-            }
         }
     }
 
@@ -230,6 +248,12 @@ public partial class MainWindow : Window
         if (_job == null) return;
 
         var pin = PinBox.Password;
+        if (!_pinVerified)
+        {
+            MessageBox.Show("Vui lòng nhấn \"Kiểm tra PIN\" trước khi ký.", "PDFSignPro Signer", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
         if (string.IsNullOrEmpty(pin))
         {
             MessageBox.Show("Vui lòng nhập mã PIN.", "PDFSignPro Signer", MessageBoxButton.OK, MessageBoxImage.Information);
@@ -244,7 +268,7 @@ public partial class MainWindow : Window
 
         if (string.IsNullOrEmpty(_dllPath))
         {
-            MessageBox.Show("Vui lòng nhấn \"Làm mới chứng chỉ\" trước khi ký.", "PDFSignPro Signer", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show("Vui lòng nhấn \"Kiểm tra PIN\" trước khi ký.", "PDFSignPro Signer", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
 
@@ -301,7 +325,7 @@ public partial class MainWindow : Window
 
             SigningText.Text = "Đang tải lên server...";
             var signingTime = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ");
-            _signedPublicUrl = await _api.CompleteAsync(
+            (_signedPublicUrl, _signedDownloadUrl) = await _api.CompleteAsync(
                 _job,
                 outputPath,
                 cert.SubjectO ?? "",
@@ -311,6 +335,7 @@ public partial class MainWindow : Window
             );
 
             ShowScreen(Screen.Success);
+            UpdateSuccessButtons();
         }
         catch (Exception ex)
         {
@@ -328,16 +353,88 @@ public partial class MainWindow : Window
         }
     }
 
-    private void OpenDoc_Click(object sender, RoutedEventArgs e)
+    private void UpdateSuccessButtons()
     {
-        if (string.IsNullOrEmpty(_signedPublicUrl)) return;
+        var hasDownload = !string.IsNullOrEmpty(_signedDownloadUrl);
+        DownloadPdfBtn.IsEnabled = hasDownload;
+        SuccessErrorText.Visibility = !hasDownload ? Visibility.Visible : Visibility.Collapsed;
+        if (!hasDownload)
+            SuccessErrorText.Text = "Không nhận được liên kết tải từ server. Bạn có thể tải PDF trực tiếp từ trang web.";
+    }
+
+    private static string SanitizeFileName(string title)
+    {
+        if (string.IsNullOrWhiteSpace(title)) return "document-signed.pdf";
+        var baseName = Path.GetFileNameWithoutExtension(title.Trim());
+        if (string.IsNullOrEmpty(baseName)) return "document-signed.pdf";
+        foreach (var c in Path.GetInvalidFileNameChars())
+            baseName = baseName.Replace(c, '_');
+        return baseName.Trim() + "-signed.pdf";
+    }
+
+    private async void DownloadPdf_Click(object sender, RoutedEventArgs e)
+    {
+        if (string.IsNullOrEmpty(_signedDownloadUrl)) return;
+
+        var defaultName = _job != null ? SanitizeFileName(_job.DocumentTitle) : "signed.pdf";
+        var dlg = new SaveFileDialog
+        {
+            Filter = "PDF files (*.pdf)|*.pdf|All files (*.*)|*.*",
+            DefaultExt = "pdf",
+            FileName = defaultName,
+        };
+        if (dlg.ShowDialog() != true) return;
+
+        DownloadPdfBtn.IsEnabled = false;
+        DownloadPdfBtn.Content = "Đang tải...";
+
         try
         {
-            Process.Start(new ProcessStartInfo(_signedPublicUrl) { UseShellExecute = true });
+            await _api.DownloadToFileAsync(_signedDownloadUrl, dlg.FileName);
+            DownloadPdfBtn.Content = "Tải PDF đã ký";
+            DownloadPdfBtn.IsEnabled = true;
+
+            var result = MessageBox.Show(
+                $"Đã lưu PDF thành công.\n\n{dlg.FileName}\n\nBạn có muốn mở thư mục chứa file?",
+                "PDFSignPro Signer",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Information);
+            if (result == MessageBoxResult.Yes)
+            {
+                var dir = Path.GetDirectoryName(dlg.FileName);
+                if (!string.IsNullOrEmpty(dir))
+                    Process.Start("explorer.exe", $"/select,\"{dlg.FileName}\"");
+            }
+        }
+        catch (HttpRequestException ex)
+        {
+            DownloadPdfBtn.Content = "Tải PDF đã ký";
+            DownloadPdfBtn.IsEnabled = true;
+            var isExpired = ex.Message.Contains("403", StringComparison.OrdinalIgnoreCase) ||
+                            ex.Message.Contains("Forbidden", StringComparison.OrdinalIgnoreCase);
+            var msg = isExpired
+                ? "Liên kết tải đã hết hạn.\n\n"
+                : "Không thể tải file (lỗi mạng).\n\n";
+            if (!string.IsNullOrEmpty(_signedPublicUrl))
+                msg += "Vui lòng mở trang web và tải PDF trực tiếp:\n" + _signedPublicUrl;
+            else
+                msg += "Vui lòng thử lại sau.";
+            MessageBox.Show(msg, "PDFSignPro Signer", MessageBoxButton.OK, MessageBoxImage.Warning);
+            LogService.Error("Download failed", ex);
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Không thể mở: {ex.Message}", "PDFSignPro Signer", MessageBoxButton.OK, MessageBoxImage.Warning);
+            DownloadPdfBtn.Content = "Tải PDF đã ký";
+            DownloadPdfBtn.IsEnabled = true;
+            var msg = ex.Message.Contains("403", StringComparison.OrdinalIgnoreCase) ||
+                      ex.Message.Contains("expired", StringComparison.OrdinalIgnoreCase) ||
+                      ex.Message.Contains("hết hạn", StringComparison.OrdinalIgnoreCase)
+                ? "Liên kết tải đã hết hạn.\n\nVui lòng mở trang web và tải PDF trực tiếp từ đó."
+                : $"Lỗi: {ex.Message}";
+            if (!string.IsNullOrEmpty(_signedPublicUrl))
+                msg += "\n\nTrang web: " + _signedPublicUrl;
+            MessageBox.Show(msg, "PDFSignPro Signer", MessageBoxButton.OK, MessageBoxImage.Warning);
+            LogService.Error("Download failed", ex);
         }
     }
 

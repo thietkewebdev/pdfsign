@@ -20,21 +20,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <div className="container mx-auto flex h-14 max-w-7xl items-center justify-between px-6">
           <Link
             href="/"
-            className="font-semibold text-foreground hover:text-foreground/90 transition-colors"
+            className="font-semibold text-foreground hover:text-foreground/90 transition-colors duration-150"
           >
             PDFSignPro Cloud
           </Link>
           <div className="flex items-center gap-2">
             <a
               href="/api/signer/download"
-              className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground"
+              className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors duration-150 hover:bg-muted/80 hover:text-foreground"
             >
               <Monitor className="size-4" />
               Tải PDFSignPro Signer (Windows)
             </a>
             <Link
               href="/signer"
-              className="text-xs text-muted-foreground underline hover:text-foreground"
+              className="text-xs text-muted-foreground underline hover:text-foreground transition-colors duration-150"
             >
               Hướng dẫn cài đặt
             </Link>
@@ -51,7 +51,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     <Moon className="absolute size-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>Toggle theme</TooltipContent>
+                <TooltipContent>Đổi giao diện</TooltipContent>
               </Tooltip>
             </TooltipProvider>
             <Button variant="ghost" size="icon" asChild aria-label="GitHub">

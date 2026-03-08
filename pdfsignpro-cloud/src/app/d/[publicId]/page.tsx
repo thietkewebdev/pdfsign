@@ -3,17 +3,15 @@
 import { useParams } from "next/navigation";
 import { useEffect, useState, useRef, useCallback } from "react";
 import Link from "next/link";
+import { toast } from "sonner";
 import {
   Download,
   X,
   PenLine,
   Monitor,
-  Copy,
-  Check,
-  Loader2,
-  ExternalLink,
-  AlertCircle,
+  RefreshCw,
 } from "lucide-react";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -21,6 +19,9 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Label } from "@/components/ui/label";
 import { PdfViewer } from "@/components/pdf/PdfViewer";
+import { JobStatusCard } from "@/components/upload";
+import { DocumentPageSkeleton } from "@/components/document/document-page-skeleton";
+import { DocumentEmptyState } from "@/components/document/document-empty-state";
 import { useSignaturePlacement } from "@/hooks/use-signature-placement";
 import {
   CreateJobResponseSchema,
@@ -55,7 +56,13 @@ function StatusBadge({ status }: { status: string }) {
       : status === "ACTIVE"
         ? "warning"
         : "secondary";
-  return <Badge variant={variant}>{status}</Badge>;
+  const label =
+    status === "SIGNED"
+      ? "Đã ký"
+      : status === "ACTIVE"
+        ? "Đang chờ"
+        : status;
+  return <Badge variant={variant}>{label}</Badge>;
 }
 
 export default function SigningViewerPage() {
@@ -101,7 +108,10 @@ export default function SigningViewerPage() {
       return;
     }
     fetchDocument()
-      .catch((err) => setError(err.message))
+      .catch((err) => {
+        setError(err.message);
+        toast.error(err.message ?? "Không tìm thấy tài liệu");
+      })
       .finally(() => setLoading(false));
   }, [publicId, fetchDocument]);
 
@@ -149,7 +159,7 @@ export default function SigningViewerPage() {
 
     if (!res.ok) {
       const err = await res.json();
-      console.error(err);
+      toast.error(err.error ?? "Tạo phiên ký thất bại");
       return;
     }
 
@@ -169,6 +179,7 @@ export default function SigningViewerPage() {
       error: null,
     });
     pollStartRef.current = Date.now();
+    toast.success("Đã tạo phiên ký. Mở Signer để ký số.");
   };
 
   const copyDeepLink = () => {
@@ -200,6 +211,7 @@ export default function SigningViewerPage() {
         setJobState((prev) =>
           prev ? { ...prev, status, signedDownloadUrl, error: null } : null
         );
+        toast.success("Đã ký xong. Có thể tải PDF đã ký.");
         await fetchDocument();
         return;
       }
@@ -237,21 +249,15 @@ export default function SigningViewerPage() {
     jobState?.status === "CREATED" && pollElapsed >= CREATED_HINT_AFTER_MS;
 
   if (loading) {
-    return (
-      <div className="flex h-[calc(100vh-3.5rem)] items-center justify-center">
-        <p className="text-muted-foreground">Loading…</p>
-      </div>
-    );
+    return <DocumentPageSkeleton />;
   }
 
   if (error || !data) {
     return (
-      <div className="flex h-[calc(100vh-3.5rem)] flex-col items-center justify-center gap-4 p-8">
-        <p className="text-muted-foreground">{error ?? "Document not found"}</p>
-        <Button asChild>
-          <Link href="/">Upload PDF</Link>
-        </Button>
-      </div>
+      <DocumentEmptyState
+        title="Không tìm thấy tài liệu"
+        description={error ?? "Tài liệu không tồn tại hoặc đã bị xóa."}
+      />
     );
   }
 
@@ -316,77 +322,17 @@ export default function SigningViewerPage() {
         Ký số
       </Button>
       {jobState && (
-        <div className="space-y-3 rounded-lg border border-border bg-card p-3">
-          {jobState.status === "CREATED" && (
-            <>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="size-4 animate-spin" />
-                <span>Đang chờ ứng dụng ký…</span>
-              </div>
-              {showCreatedHint && (
-                <p className="flex items-center gap-2 text-xs text-amber-600 dark:text-amber-400">
-                  <AlertCircle className="size-3.5 shrink-0" />
-                  Chưa thấy app ký – kiểm tra đã cài Signer chưa
-                </p>
-              )}
-              <p className="break-all text-xs font-mono text-muted-foreground">
-                {jobState.deepLink}
-              </p>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={copyDeepLink}
-                  className="flex-1"
-                >
-                  {copied ? (
-                    <Check className="size-4" />
-                  ) : (
-                    <Copy className="size-4" />
-                  )}
-                  {copied ? "Đã copy" : "Copy"}
-                </Button>
-                <Button size="sm" asChild className="flex-1">
-                  <a href={jobState.deepLink}>
-                    <ExternalLink className="size-4" />
-                    Mở PDFSignPro Signer
-                  </a>
-                </Button>
-              </div>
-            </>
-          )}
-          {jobState.status === "COMPLETED" && jobState.signedDownloadUrl && (
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-foreground">
-                Đã ký xong
-              </p>
-              <Button size="sm" className="w-full" asChild>
-                <a href={jobState.signedDownloadUrl} download={doc.title ?? "signed.pdf"}>
-                  <Download className="size-4" />
-                  Tải PDF đã ký
-                </a>
-              </Button>
-            </div>
-          )}
-          {jobState.error === "expired" && (
-            <div className="space-y-2">
-              <p className="text-sm text-destructive">Job hết hạn, tạo lại</p>
-              <Button size="sm" variant="outline" onClick={resetJobState}>
-                Tạo lại
-              </Button>
-            </div>
-          )}
-          {jobState.error === "timeout" && (
-            <div className="space-y-2">
-              <p className="text-sm text-destructive">
-                Hết thời gian chờ (5 phút)
-              </p>
-              <Button size="sm" variant="outline" onClick={resetJobState}>
-                Thử lại
-              </Button>
-            </div>
-          )}
-        </div>
+        <JobStatusCard
+          status={jobState.status}
+          deepLink={jobState.deepLink}
+          signedDownloadUrl={jobState.signedDownloadUrl}
+          error={jobState.error}
+          onCopyDeepLink={copyDeepLink}
+          copied={copied}
+          onReset={resetJobState}
+          documentTitle={doc.title ?? "signed.pdf"}
+          showCreatedHint={showCreatedHint}
+        />
       )}
     </div>
   );
@@ -399,16 +345,30 @@ export default function SigningViewerPage() {
             {doc.title}
           </h2>
           <StatusBadge status={doc.status} />
-          <span className="text-xs text-muted-foreground">
-            Version v{currentVersion.version}
-          </span>
+          <Badge variant="outline" className="shrink-0">
+            v{currentVersion.version}
+          </Badge>
         </div>
         <div className="flex flex-wrap items-center gap-2 shrink-0">
+          <ThemeToggle />
           <Button variant="outline" size="sm" asChild>
             <a href="/api/signer/download">
               <Monitor className="size-4" />
-              Tải PDFSignPro Signer
+              Tải Signer
             </a>
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() =>
+              fetchDocument().catch((err) =>
+                toast.error(err?.message ?? "Không thể tải lại")
+              )
+            }
+            aria-label="Làm mới"
+          >
+            <RefreshCw className="size-4" />
+            Làm mới
           </Button>
           <span className="text-xs text-muted-foreground">
             <Link href="/signer" className="underline hover:text-foreground">
@@ -418,10 +378,10 @@ export default function SigningViewerPage() {
           <Button variant="outline" size="sm" asChild>
             <a href={downloadUrl} download={doc.title ?? "document.pdf"}>
               <Download className="size-4" />
-              {jobState?.status === "COMPLETED" ? "Tải PDF đã ký" : "Download"}
+              {jobState?.status === "COMPLETED" ? "Tải PDF đã ký" : "Tải xuống"}
             </a>
           </Button>
-          <Button variant="ghost" size="icon" asChild aria-label="Close">
+          <Button variant="ghost" size="icon" asChild aria-label="Đóng">
             <Link href="/">
               <X className="size-4" />
             </Link>
@@ -433,13 +393,22 @@ export default function SigningViewerPage() {
         <div className="hidden lg:grid lg:grid-cols-[320px_1fr_280px] lg:h-full">
           <div className="border-r border-border p-4 overflow-hidden">
             <h3 className="text-sm font-semibold text-foreground mb-3">
-              Signing timeline
+              Hướng dẫn
             </h3>
-            <ScrollArea className="h-[calc(100vh-12rem)]">
+            <ol className="space-y-2 text-sm text-muted-foreground mb-4 list-decimal list-inside">
+              <li>Cắm USB Token</li>
+              <li>Bấm &quot;Ký số&quot; để tạo phiên ký</li>
+              <li>Bấm &quot;Mở PDFSignPro Signer&quot;</li>
+            </ol>
+            <Separator className="my-3" />
+            <h3 className="text-sm font-semibold text-foreground mb-3">
+              Tiến trình ký
+            </h3>
+            <ScrollArea className="h-[calc(100vh-14rem)]">
               <div className="space-y-2 pr-4 text-sm text-muted-foreground">
-                <p>Document uploaded</p>
+                <p>Đã tải lên</p>
                 <p className="text-xs">
-                  {new Date(doc.createdAt).toLocaleString()}
+                  {new Date(doc.createdAt).toLocaleString("vi-VN")}
                 </p>
                 <Separator className="my-2" />
                 <SigningPanel />
@@ -462,7 +431,7 @@ export default function SigningViewerPage() {
           </div>
           <div className="border-l border-border p-4 overflow-hidden">
             <h3 className="text-sm font-semibold text-foreground mb-3">
-              Pages
+              Trang
             </h3>
             <ScrollArea className="h-[calc(100vh-12rem)]">
               <div className="space-y-2 pr-2">
@@ -480,7 +449,7 @@ export default function SigningViewerPage() {
                     <div className="size-12 shrink-0 rounded bg-muted flex items-center justify-center text-xs text-muted-foreground">
                       {i + 1}
                     </div>
-                    <span className="text-sm">Page {i + 1}</span>
+                    <span className="text-sm">Trang {i + 1}</span>
                   </button>
                 ))}
               </div>
@@ -493,12 +462,21 @@ export default function SigningViewerPage() {
             <div className="border-b border-border px-4">
               <TabsList className="w-full grid grid-cols-3">
                 <TabsTrigger value="timeline">Chữ ký</TabsTrigger>
-                <TabsTrigger value="document">Document</TabsTrigger>
+                <TabsTrigger value="document">Tài liệu</TabsTrigger>
                 <TabsTrigger value="pages">Pages</TabsTrigger>
               </TabsList>
             </div>
             <div className="flex-1 overflow-auto">
               <TabsContent value="timeline" className="m-0 p-4 h-full">
+                <h3 className="text-sm font-semibold text-foreground mb-3">
+                  Hướng dẫn ký số
+                </h3>
+                <ol className="space-y-2 text-sm text-muted-foreground mb-4 list-decimal list-inside">
+                  <li>Cắm USB Token</li>
+                  <li>Bấm &quot;Ký số&quot; để tạo phiên ký</li>
+                  <li>Bấm &quot;Mở PDFSignPro Signer&quot;</li>
+                </ol>
+                <Separator className="my-3" />
                 <SigningPanel />
               </TabsContent>
               <TabsContent value="document" className="m-0 p-0 h-full">
@@ -531,7 +509,7 @@ export default function SigningViewerPage() {
                       <div className="size-12 shrink-0 rounded bg-muted flex items-center justify-center text-xs">
                         {i + 1}
                       </div>
-                      <span className="text-sm">Page {i + 1}</span>
+                      <span className="text-sm">Trang {i + 1}</span>
                     </button>
                   ))}
                 </div>

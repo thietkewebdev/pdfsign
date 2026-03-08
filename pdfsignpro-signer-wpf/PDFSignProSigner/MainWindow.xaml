@@ -59,6 +59,21 @@
                         <TextBlock Text="Mã PIN" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12" Margin="0,0,0,6"/>
                         <PasswordBox x:Name="PinBox" Height="36" Margin="0,0,0,8"
                                      FontSize="14" PasswordChanged="PinBox_PasswordChanged"/>
+                        <Button x:Name="VerifyPinBtn" Content="Kiểm tra PIN"
+                                Click="VerifyPin_Click"
+                                Background="{StaticResource BgTertiaryBrush}"
+                                Foreground="{StaticResource TextPrimaryBrush}"
+                                BorderBrush="{StaticResource BorderBrush}"
+                                BorderThickness="1"
+                                Padding="16,8" HorizontalAlignment="Left"
+                                Margin="0,0,0,8"/>
+                        <TextBlock x:Name="VerifyPinResultText" Text=""
+                                  Foreground="#22C55E" FontSize="12" Margin="0,0,0,4"
+                                  Visibility="Collapsed"/>
+                        <TextBlock x:Name="LockoutWarningText"
+                                  Text="⚠ Sai PIN nhiều lần có thể khiến token bị khóa vĩnh viễn."
+                                  Foreground="#F59E0B" FontSize="11"
+                                  TextWrapping="Wrap" Margin="0,0,0,12"/>
                         <!-- Cert loading state -->
                         <StackPanel x:Name="CertLoadingPanel" Visibility="Collapsed" Orientation="Horizontal" Margin="0,0,0,12">
                             <ProgressBar IsIndeterminate="True" Height="3" Width="120" VerticalAlignment="Center" Margin="0,0,8,0"/>
@@ -75,10 +90,10 @@
                             <ComboBox.ItemTemplate>
                                 <DataTemplate>
                                     <StackPanel>
-                                        <TextBlock Text="{Binding OrgCn}" FontWeight="SemiBold" FontSize="13"
+                                        <TextBlock Text="{Binding CompanyName}" FontWeight="SemiBold" FontSize="13"
                                                    TextWrapping="Wrap" MaxWidth="380"
-                                                   Foreground="{StaticResource TextPrimaryBrush}"/>
-                                        <TextBlock Text="{Binding SerialAndExpiry}" FontSize="11" Margin="0,2,0,0"
+                                                   Foreground="{StaticResource ComboBoxFgBrush}"/>
+                                        <TextBlock Text="{Binding ExpiryDisplay}" FontSize="11" Margin="0,2,0,0"
                                                    Foreground="{StaticResource TextSecondaryBrush}"/>
                                     </StackPanel>
                                 </DataTemplate>
@@ -110,11 +125,15 @@
                     <TextBlock Text="✓ Đã ký thành công"
                                FontSize="18" FontWeight="SemiBold" Foreground="#22C55E"
                                HorizontalAlignment="Center" Margin="0,0,0,16"/>
-                    <Button x:Name="OpenDocBtn" Content="Mở tài liệu trong trình duyệt"
-                            Click="OpenDoc_Click"
+                    <Button x:Name="DownloadPdfBtn" Content="Tải PDF đã ký"
+                            Click="DownloadPdf_Click"
                             Background="{StaticResource AccentBrush}"
                             Foreground="White" FontWeight="SemiBold"
                             Padding="24,12" HorizontalAlignment="Center"/>
+                    <TextBlock x:Name="SuccessErrorText" Text="Không nhận được liên kết từ server."
+                               Foreground="#F59E0B" FontSize="12" TextWrapping="Wrap"
+                               HorizontalAlignment="Center" Margin="0,12,0,0" MaxWidth="320"
+                               Visibility="Collapsed"/>
                 </StackPanel>
             </Grid>
         </Border>

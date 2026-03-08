@@ -54,7 +54,15 @@ public class ApiService
         return await _http.GetByteArrayAsync(url, ct);
     }
 
-    public async Task<string> CompleteAsync(JobInfo job, string signedPdfPath, string subjectO, string subjectCN, string serial, string signingTime, CancellationToken ct = default)
+    /// <summary>Stream download from URL to file. Throws on error.</summary>
+    public async Task DownloadToFileAsync(string url, string filePath, CancellationToken ct = default)
+    {
+        await using var stream = await _http.GetStreamAsync(url, ct);
+        await using var fileStream = new FileStream(filePath, FileMode.Create, FileAccess.Write, FileShare.None, 8192, useAsync: true);
+        await stream.CopyToAsync(fileStream, ct);
+    }
+
+    public async Task<(string SignedPublicUrl, string? SignedDownloadUrl)> CompleteAsync(JobInfo job, string signedPdfPath, string subjectO, string subjectCN, string serial, string signingTime, CancellationToken ct = default)
     {
         var url = $"{job.ApiBaseUrl}/api/jobs/{job.JobId}/complete";
 
@@ -82,7 +90,15 @@ public class ApiService
         }
 
         var json = await res.Content.ReadFromJsonAsync<JsonElement>(ct);
-        return json.GetProperty("signedPublicUrl").GetString() ?? "";
+        var signedPublicUrl = json.TryGetProperty("signedPublicUrl", out var urlEl) ? urlEl.GetString() : null;
+        if (string.IsNullOrEmpty(signedPublicUrl))
+        {
+            var publicId = json.TryGetProperty("publicId", out var pidEl) ? pidEl.GetString() : null;
+            var docId = !string.IsNullOrEmpty(publicId) ? publicId : job.PublicId;
+            signedPublicUrl = $"{job.ApiBaseUrl.TrimEnd('/')}/d/{docId}";
+        }
+        var signedDownloadUrl = json.TryGetProperty("signedDownloadUrl", out var dlEl) ? dlEl.GetString() : null;
+        return (signedPublicUrl, string.IsNullOrEmpty(signedDownloadUrl) ? null : signedDownloadUrl);
     }
 
     /// <summary>Parse placement object { page, rectPct: { x, y, w, h } }. Throws with clear message if invalid.</summary>

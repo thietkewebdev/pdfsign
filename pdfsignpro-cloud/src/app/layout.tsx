@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import { Toaster } from "sonner";
 import { ThemeProvider } from "@/components/theme-provider";
 import { UploadProvider } from "@/contexts/upload-context";
 import { ConditionalShell } from "@/components/conditional-shell";
@@ -12,7 +13,7 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: "PDFSignPro Cloud",
-  description: "Upload PDF. Route signers. Done.",
+  description: "Ký số PDF — nhanh, chuẩn, an toàn. Tải PDF lên, đặt vị trí chữ ký, ký số bằng USB Token trên Windows.",
 };
 
 export default function RootLayout({
@@ -21,16 +22,17 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="vi" suppressHydrationWarning>
       <body className={`${inter.variable} font-sans antialiased`}>
         <ThemeProvider
           attribute="class"
-          defaultTheme="dark"
+          defaultTheme="system"
           enableSystem
           disableTransitionOnChange
         >
           <UploadProvider>
             <ConditionalShell>{children}</ConditionalShell>
+            <Toaster richColors position="top-right" />
           </UploadProvider>
         </ThemeProvider>
       </body>

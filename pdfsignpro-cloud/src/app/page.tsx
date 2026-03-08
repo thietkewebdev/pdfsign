@@ -1,129 +1,195 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Upload, Loader2, Monitor } from "lucide-react";
+import { toast } from "sonner";
+import { Upload, Loader2, Monitor, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  UploadDropzoneCard,
+  UploadProgress,
+} from "@/components/upload";
 
 export default function HomePage() {
   const router = useRouter();
   const [title, setTitle] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+
+  const handleFileSelect = useCallback((file: File) => {
+    setSelectedFile(file);
+    setTitle((prev) => prev || file.name.replace(/\.pdf$/i, "") || "Tài liệu");
+  }, []);
 
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedFile) return;
 
     setIsSubmitting(true);
-    setError(null);
+    setUploadProgress(0);
 
-    try {
+    return new Promise<void>((resolve, reject) => {
       const formData = new FormData();
       formData.append("file", selectedFile);
-      formData.append("title", title || selectedFile.name || "Untitled");
+      formData.append("title", title || selectedFile.name || "Tài liệu");
 
-      const res = await fetch("/api/documents", {
-        method: "POST",
-        body: formData,
+      const xhr = new XMLHttpRequest();
+
+      xhr.upload.addEventListener("progress", (e) => {
+        if (e.lengthComputable) {
+          const pct = Math.round((e.loaded / e.total) * 100);
+          setUploadProgress(pct);
+        }
       });
 
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error ?? "Upload failed");
-      }
+      xhr.addEventListener("load", () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            const data = JSON.parse(xhr.responseText);
+            setUploadProgress(100);
+            toast.success("Đã tải lên thành công");
+            router.push(`/d/${data.publicId}`);
+            resolve();
+          } catch {
+            toast.error("Lỗi xử lý phản hồi");
+            reject();
+          }
+        } else {
+          try {
+            const data = JSON.parse(xhr.responseText);
+            toast.error(data.error ?? "Tải lên thất bại");
+          } catch {
+            toast.error("Tải lên thất bại");
+          }
+          reject();
+        }
+      });
 
-      const data = await res.json();
-      router.push(`/d/${data.publicId}`);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Upload failed");
-    } finally {
+      xhr.addEventListener("error", () => {
+        toast.error("Lỗi kết nối. Vui lòng thử lại.");
+        reject();
+      });
+
+      xhr.open("POST", "/api/documents");
+      xhr.send(formData);
+    }).finally(() => {
       setIsSubmitting(false);
-    }
+      setUploadProgress(0);
+    });
+  };
+
+  const handleClear = () => {
+    setSelectedFile(null);
+    setTitle("");
+    setUploadProgress(0);
   };
 
   return (
-    <div className="container mx-auto max-w-4xl px-6 py-16">
-      <div className="mx-auto max-w-2xl space-y-12">
+    <div className="container mx-auto max-w-2xl px-6 py-16 sm:py-20">
+      <div className="space-y-12">
         <header className="space-y-4 text-center">
           <h1 className="text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
-            Upload PDF. Route signers. Done.
+            Ký số PDF — nhanh, chuẩn, an toàn
           </h1>
           <p className="text-lg text-muted-foreground">
-            Send documents for signature in minutes. No friction, no complexity.
+            Tải PDF lên, đặt vị trí chữ ký, ký số bằng USB Token trên Windows.
           </p>
-          <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
+          <div className="flex flex-wrap items-center justify-center gap-2">
             <Button variant="outline" size="sm" asChild>
               <a href="/api/signer/download">
-                <Monitor className="mr-2 size-4" />
+                <Monitor className="size-4" />
                 Tải PDFSignPro Signer (Windows)
               </a>
             </Button>
             <Link
               href="/signer"
-              className="text-sm text-muted-foreground underline hover:text-foreground"
+              className="text-sm text-muted-foreground underline hover:text-foreground transition-colors duration-150"
             >
               Hướng dẫn cài đặt
             </Link>
           </div>
         </header>
 
-        <Card className="border-border shadow-sm">
-          <CardHeader>
-            <CardTitle>New document</CardTitle>
-            <CardDescription>
-              Add a title and select your PDF to get started.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleUpload} className="space-y-6">
-              <div className="space-y-2">
-                <Label htmlFor="title">Document title</Label>
-                <Input
-                  id="title"
-                  placeholder="e.g. Contract Agreement 2024"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  className="rounded-xl"
+        <div className="space-y-6">
+          {!selectedFile ? (
+            <UploadDropzoneCard
+              onFileSelect={handleFileSelect}
+              disabled={isSubmitting}
+            />
+          ) : (
+            <div className="space-y-4">
+              {isSubmitting ? (
+                <UploadProgress
+                  fileName={selectedFile.name}
+                  progress={uploadProgress}
+                  status={uploadProgress >= 100 ? "done" : "uploading"}
                 />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="file">PDF file</Label>
-                <div className="flex items-center gap-3">
+              ) : (
+                <div className="flex items-center gap-4 rounded-xl border border-border bg-card p-4 transition-colors duration-150">
+                  <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted">
+                    <span className="text-xs font-medium text-muted-foreground">
+                      PDF
+                    </span>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-foreground">
+                      {selectedFile.name}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {(selectedFile.size / 1024).toFixed(1)} KB
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={handleClear}
+                    disabled={isSubmitting}
+                    className="shrink-0"
+                    aria-label="Xóa file"
+                  >
+                    <X className="size-4" />
+                  </Button>
+                </div>
+              )}
+
+              <form onSubmit={handleUpload} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="title">Tiêu đề tài liệu</Label>
                   <Input
-                    id="file"
-                    type="file"
-                    accept=".pdf,application/pdf"
-                    onChange={(e) => setSelectedFile(e.target.files?.[0] ?? null)}
-                    className="rounded-xl file:mr-4 file:rounded-lg file:border-0 file:bg-primary file:px-4 file:py-2 file:text-sm file:font-medium file:text-primary-foreground file:hover:bg-primary/90"
+                    id="title"
+                    placeholder="VD: Hợp đồng 2024"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    className="rounded-lg"
+                    disabled={isSubmitting}
                   />
                 </div>
-              </div>
-              {error && (
-                <p className="text-sm text-destructive">{error}</p>
-              )}
-              <Button
-                type="submit"
-                size="lg"
-                className="w-full rounded-xl"
-                disabled={!selectedFile || isSubmitting}
-              >
-                {isSubmitting ? (
-                  <Loader2 className="size-4 animate-spin" />
-                ) : (
-                  <Upload className="size-4" />
-                )}
-                {isSubmitting ? "Uploading…" : "Upload"}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
-
+                <Button
+                  type="submit"
+                  size="lg"
+                  className="w-full rounded-lg"
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <Upload className="size-4" />
+                  )}
+                  {isSubmitting
+                    ? uploadProgress >= 100
+                      ? "Hoàn tất"
+                      : "Đang tải lên…"
+                    : "Tải lên & tạo liên kết"}
+                </Button>
+              </form>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
