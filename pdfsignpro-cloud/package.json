@@ -43,7 +43,6 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@types/busboy": "^1.5.4",
     "eslint": "^9",
     "eslint-config-next": "16.1.6"
   }
