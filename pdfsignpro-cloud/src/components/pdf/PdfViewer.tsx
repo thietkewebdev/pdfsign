@@ -1,8 +1,17 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
+import Link from "next/link";
 import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
+import { Download, Monitor, Share2, MoreHorizontal, X } from "lucide-react";
 import { SignatureBox } from "./SignatureBox";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import type { SignaturePlacement } from "@/lib/types";
 
 // Worker for pdf.js (self-hosted from public/pdfjs/)
@@ -30,6 +39,15 @@ interface PdfViewerProps {
     h: number
   ) => void;
   activePageForPlacement: number;
+  /** When true, hide signature overlays and disable placement editing (read-only for signed PDFs) */
+  readOnly?: boolean;
+  /** Toolbar actions - when provided, rendered in viewer toolbar */
+  toolbarActions?: {
+    downloadUrl: string;
+    documentTitle: string;
+    shareLink: string;
+    onCopyShare: () => void;
+  };
 }
 
 export function PdfViewer({
@@ -44,6 +62,8 @@ export function PdfViewer({
   placements,
   onPlacementUpdate,
   activePageForPlacement,
+  readOnly = false,
+  toolbarActions,
 }: PdfViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -173,53 +193,120 @@ export function PdfViewer({
   return (
     <div className="flex flex-col size-full bg-muted/30">
       <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-2 bg-background/80">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 min-w-0">
           <button
             type="button"
             onClick={() => onPageChange(Math.max(1, currentPage - 1))}
             disabled={currentPage <= 1}
-            className="rounded-md border border-border px-2.5 py-1.5 text-sm hover:bg-accent disabled:opacity-50 transition-colors"
+            className="rounded-md border border-border px-2.5 py-1.5 text-sm hover:bg-accent disabled:opacity-50 transition-colors shrink-0"
           >
             ←
           </button>
-          <span className="text-sm text-muted-foreground tabular-nums">
+          <span className="text-sm text-muted-foreground tabular-nums shrink-0">
             Trang {currentPage} / {totalPages}
           </span>
           <button
             type="button"
             onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
             disabled={currentPage >= totalPages}
-            className="rounded-md border border-border px-2.5 py-1.5 text-sm hover:bg-accent disabled:opacity-50 transition-colors"
+            className="rounded-md border border-border px-2.5 py-1.5 text-sm hover:bg-accent disabled:opacity-50 transition-colors shrink-0"
           >
             →
           </button>
         </div>
-        <div className="flex items-center gap-0.5 rounded-full border border-border bg-muted/50 p-0.5">
-          <button
-            type="button"
-            onClick={() => onScaleChange(Math.max(0.5, scale - 0.25))}
-            className="rounded-full px-2.5 py-1 text-sm hover:bg-accent transition-colors"
-            aria-label="Thu nhỏ"
-          >
-            −
-          </button>
-          <span className="min-w-[3rem] text-center text-sm text-muted-foreground tabular-nums">
-            {Math.round(scale * 100)}%
-          </span>
-          <button
-            type="button"
-            onClick={() => onScaleChange(Math.min(2, scale + 0.25))}
-            className="rounded-full px-2.5 py-1 text-sm hover:bg-accent transition-colors"
-            aria-label="Phóng to"
-          >
-            +
-          </button>
+        <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-0.5 rounded-full border border-border bg-muted/50 p-0.5">
+            <button
+              type="button"
+              onClick={() => onScaleChange(Math.max(0.5, scale - 0.25))}
+              className="rounded-full px-2.5 py-1 text-sm hover:bg-accent transition-colors"
+              aria-label="Thu nhỏ"
+            >
+              −
+            </button>
+            <span className="min-w-[3rem] text-center text-sm text-muted-foreground tabular-nums">
+              {Math.round(scale * 100)}%
+            </span>
+            <button
+              type="button"
+              onClick={() => onScaleChange(Math.min(2, scale + 0.25))}
+              className="rounded-full px-2.5 py-1 text-sm hover:bg-accent transition-colors"
+              aria-label="Phóng to"
+            >
+              +
+            </button>
+          </div>
+          {toolbarActions && (
+            <>
+              <div className="hidden sm:flex items-center gap-1">
+                <Button variant="ghost" size="sm" asChild className="text-muted-foreground hover:text-foreground h-8">
+                  <a href="/api/signer/download">
+                    <Monitor className="size-4" />
+                    Tải Signer
+                  </a>
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={toolbarActions.onCopyShare}
+                  className="text-muted-foreground hover:text-foreground h-8"
+                  aria-label="Chia sẻ"
+                >
+                  <Share2 className="size-4" />
+                  Chia sẻ
+                </Button>
+                <Button variant="ghost" size="sm" asChild className="h-8">
+                  <a href={toolbarActions.downloadUrl} download={toolbarActions.documentTitle}>
+                    <Download className="size-4" />
+                    Tải PDF
+                  </a>
+                </Button>
+                <Button variant="ghost" size="icon" asChild aria-label="Đóng" className="h-8 text-muted-foreground hover:text-foreground">
+                  <Link href="/">
+                    <X className="size-4" />
+                  </Link>
+                </Button>
+              </div>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="sm:hidden h-8">
+                    <MoreHorizontal className="size-4" />
+                    <span className="sr-only">Hành động</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem asChild>
+                    <a href="/api/signer/download">
+                      <Monitor className="size-4" />
+                      Tải Signer
+                    </a>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={toolbarActions.onCopyShare}>
+                    <Share2 className="size-4" />
+                    Chia sẻ
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <a href={toolbarActions.downloadUrl} download={toolbarActions.documentTitle}>
+                      <Download className="size-4" />
+                      Tải PDF
+                    </a>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/">
+                      <X className="size-4" />
+                      Đóng
+                    </Link>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </>
+          )}
         </div>
       </div>
-      <div className="flex-1 overflow-auto p-6 flex justify-center items-start min-h-0">
+      <div className="flex-1 overflow-auto p-6 flex justify-center items-start min-h-0 cursor-default">
         <div className="relative inline-block min-w-fit rounded-md border border-border bg-white dark:bg-zinc-900 shadow-lg" ref={containerRef}>
           <canvas ref={canvasRef} className="block rounded-md" />
-          {pageWidth > 0 && pageHeight > 0 && (
+          {!readOnly && pageWidth > 0 && pageHeight > 0 && (
             <div
               className="absolute left-0 top-0 size-full"
               style={{ width: pageWidth, height: pageHeight }}

@@ -86,7 +86,7 @@ export function JobStatusCard({
   signInfo,
 }: JobStatusCardProps) {
   return (
-    <div className="rounded-lg border border-border bg-card p-4 space-y-3 shadow-sm">
+    <div className="rounded-lg border border-border bg-card p-4 space-y-3 shadow-sm overflow-hidden min-w-0">
       {status === "CREATED" && (
         <>
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -94,7 +94,7 @@ export function JobStatusCard({
             <span>Đang chờ ký…</span>
           </div>
           {showCreatedHint && (
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 min-w-0 overflow-hidden">
               <p className="flex items-center gap-2 text-xs text-amber-600 dark:text-amber-400">
                 <AlertCircle className="size-3.5 shrink-0" />
                 Chưa thấy app ký – kiểm tra đã cài Signer chưa
@@ -115,12 +115,12 @@ export function JobStatusCard({
               <p className="text-xs text-muted-foreground">
                 Nếu không tự mở, bấm để mở Signer
               </p>
-              <div className="flex gap-2">
+              <div className="flex gap-2 min-w-0">
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={onCopyDeepLink}
-                  className="flex-1"
+                  className="flex-1 min-w-0"
                 >
                   {copied ? (
                     <Check className="size-4" />
@@ -129,7 +129,7 @@ export function JobStatusCard({
                   )}
                   {copied ? "Đã copy" : "Sao chép liên kết"}
                 </Button>
-                <Button size="sm" asChild className="flex-1">
+                <Button size="sm" asChild className="flex-1 min-w-0">
                   <a href={deepLink}>
                     <ExternalLink className="size-4" />
                     Mở Signer
@@ -142,57 +142,57 @@ export function JobStatusCard({
       )}
 
       {status === "COMPLETED" && (downloadLink ?? signedDownloadUrl) && (
-        <div className="space-y-3">
-          <div className="flex items-center gap-2">
-            <Badge variant="success" className="text-xs font-medium">
+        <div className="space-y-3 min-w-0">
+          <div className="flex items-center gap-2 min-w-0">
+            <Badge variant="success" className="text-xs font-medium shrink-0">
               <CheckCircle2 className="size-3.5 mr-1" />
               Đã ký
             </Badge>
           </div>
-          <dl className="space-y-1.5 text-xs">
+          <dl className="space-y-1.5 text-xs min-w-0">
             {signInfo?.signingTime && (
-              <div>
+              <div className="min-w-0 overflow-hidden">
                 <dt className="text-muted-foreground">Ký lúc</dt>
-                <dd className="font-medium text-foreground">
+                <dd className="font-medium text-foreground break-words line-clamp-2">
                   {formatSigningTime(signInfo.signingTime)}
                 </dd>
               </div>
             )}
             {signInfo?.signedBy && (
-              <div>
+              <div className="min-w-0 overflow-hidden">
                 <dt className="text-muted-foreground">Ký bởi</dt>
-                <dd className="font-medium text-foreground">
+                <dd className="font-medium text-foreground break-words line-clamp-2">
                   {signInfo.signedBy}
                 </dd>
               </div>
             )}
             {signInfo?.issuerCN && (
-              <div>
+              <div className="min-w-0 overflow-hidden">
                 <dt className="text-muted-foreground">CA</dt>
-                <dd className="font-medium text-foreground">
+                <dd className="font-medium text-foreground break-words line-clamp-2">
                   {signInfo.issuerCN}
                 </dd>
               </div>
             )}
           </dl>
-          <div className="space-y-2 pt-1 border-t border-border">
-            <Button size="sm" className="w-full" asChild>
+          <div className="space-y-2 pt-1 border-t border-border min-w-0">
+            <Button size="sm" className="w-full min-w-0" asChild>
               <a href={downloadLink ?? signedDownloadUrl ?? "#"}>
                 <Download className="size-4" />
                 Tải PDF đã ký
               </a>
             </Button>
             {shareLink && (
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 min-w-0 overflow-hidden">
                 <p className="text-xs font-medium text-foreground">
                   Chia sẻ link
                 </p>
-                <div className="flex gap-2">
+                <div className="flex gap-2 min-w-0">
                   <input
                     type="text"
                     readOnly
                     value={shareLink}
-                    className="flex-1 min-w-0 rounded-md border border-input bg-muted/50 px-2.5 py-1.5 text-xs font-mono"
+                    className="flex-1 min-w-0 rounded-md border border-input bg-muted/50 px-2.5 py-1.5 text-xs font-mono truncate"
                   />
                   <Button
                     variant="outline"

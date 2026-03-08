@@ -4,13 +4,7 @@ import { useParams, useSearchParams } from "next/navigation";
 import { useEffect, useState, useRef, useCallback } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
-import {
-  Download,
-  X,
-  PenLine,
-  Monitor,
-  Share2,
-} from "lucide-react";
+import { PenLine } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -52,20 +46,59 @@ interface DocumentData {
   signInfo?: SignInfo | null;
 }
 
-function StatusBadge({ status }: { status: string }) {
+/** Format ISO to HH:mm dd/MM/yyyy (VN timezone) */
+function formatSigningTime(iso?: string): string {
+  if (!iso) return "";
+  try {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return iso;
+    const h = d.toLocaleString("en-GB", {
+      timeZone: "Asia/Ho_Chi_Minh",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
+    const date = d.toLocaleString("en-GB", {
+      timeZone: "Asia/Ho_Chi_Minh",
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
+    return `${h} ${date}`;
+  } catch {
+    return iso;
+  }
+}
+
+function StatusBadge({
+  status,
+  signedAt,
+}: {
+  status: "pending" | "signed" | "unsigned";
+  signedAt?: string;
+}) {
   const variant =
-    status === "SIGNED"
+    status === "signed"
       ? "success"
-      : status === "ACTIVE"
+      : status === "pending"
         ? "warning"
         : "secondary";
   const label =
-    status === "SIGNED"
+    status === "signed"
       ? "Đã ký"
-      : status === "ACTIVE"
-        ? "Đang chờ"
-        : status;
-  return <Badge variant={variant}>{label}</Badge>;
+      : status === "pending"
+        ? "Đang chờ ký"
+        : "Chưa ký";
+  return (
+    <div className="flex items-center gap-2">
+      <Badge variant={variant}>{label}</Badge>
+      {status === "signed" && signedAt && (
+        <span className="text-xs text-muted-foreground">
+          {formatSigningTime(signedAt)}
+        </span>
+      )}
+    </div>
+  );
 }
 
 export default function SigningViewerPage() {
@@ -366,6 +399,8 @@ export default function SigningViewerPage() {
     </div>
   );
 
+  const isSigned = currentVersion.version >= 2 || jobState?.status === "COMPLETED";
+
   const JobStatusCardContent = jobState ? (
     <JobStatusCard
       status={jobState.status}
@@ -402,43 +437,32 @@ export default function SigningViewerPage() {
     <div className="flex h-[calc(100vh-3.5rem)] flex-col">
       <div className="flex items-center justify-between gap-4 border-b border-border px-5 py-2.5 bg-background/95">
         <div className="flex items-center gap-3 min-w-0">
+          <Link
+            href="/"
+            className="shrink-0 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+          >
+            PDFSignPro Cloud
+          </Link>
+          <span className="text-muted-foreground/50">/</span>
           <h2 className="truncate text-[15px] font-medium text-foreground">
             {doc.title}
           </h2>
           <Badge variant="outline" className="shrink-0 text-[11px] font-medium px-2 py-0 rounded-md">
             v{currentVersion.version}
           </Badge>
-          <StatusBadge status={doc.status} />
+          <StatusBadge
+            status={
+              jobState?.status === "CREATED"
+                ? "pending"
+                : currentVersion.version >= 2
+                  ? "signed"
+                  : "unsigned"
+            }
+            signedAt={data.signInfo?.signingTime}
+          />
         </div>
-        <div className="flex items-center gap-1 shrink-0">
+        <div className="shrink-0">
           <ThemeToggle />
-          <Button variant="ghost" size="sm" asChild className="text-muted-foreground hover:text-foreground">
-            <a href="/api/signer/download">
-              <Monitor className="size-4" />
-              Tải Signer
-            </a>
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={copyDocumentLink}
-            className="text-muted-foreground hover:text-foreground"
-            aria-label="Chia sẻ"
-          >
-            <Share2 className="size-4" />
-            Chia sẻ
-          </Button>
-          <Button variant="ghost" size="sm" asChild>
-            <a href={downloadUrl} download={doc.title ?? "document.pdf"}>
-              <Download className="size-4" />
-              Tải PDF
-            </a>
-          </Button>
-          <Button variant="ghost" size="icon" asChild aria-label="Đóng" className="text-muted-foreground hover:text-foreground">
-            <Link href="/">
-              <X className="size-4" />
-            </Link>
-          </Button>
         </div>
       </div>
 
@@ -457,7 +481,7 @@ export default function SigningViewerPage() {
               {data.signInfo && (
                 <SignatureInfoPanel signInfo={data.signInfo} />
               )}
-              <SigningPanel />
+              {!isSigned && <SigningPanel />}
             </div>
           </div>
           <div className="overflow-hidden">
@@ -473,6 +497,13 @@ export default function SigningViewerPage() {
               placements={placements}
               onPlacementUpdate={handlePlacementUpdate}
               activePageForPlacement={activePage}
+              readOnly={isSigned}
+              toolbarActions={{
+                downloadUrl,
+                documentTitle: doc.title ?? "document.pdf",
+                shareLink: typeof window !== "undefined" ? `${window.location.origin}/d/${publicId}` : "",
+                onCopyShare: copyDocumentLink,
+              }}
             />
           </div>
           <div className="border-l border-border p-4 overflow-y-auto flex flex-col min-h-0">
@@ -528,7 +559,7 @@ export default function SigningViewerPage() {
                   {data.signInfo && (
                     <SignatureInfoPanel signInfo={data.signInfo} />
                   )}
-                  <SigningPanel />
+                  {!isSigned && <SigningPanel />}
                 </div>
               </TabsContent>
               <TabsContent value="document" className="m-0 p-0 h-full">
@@ -544,6 +575,13 @@ export default function SigningViewerPage() {
                   placements={placements}
                   onPlacementUpdate={handlePlacementUpdate}
                   activePageForPlacement={activePage}
+                  readOnly={isSigned}
+                  toolbarActions={{
+                    downloadUrl,
+                    documentTitle: doc.title ?? "document.pdf",
+                    shareLink: typeof window !== "undefined" ? `${window.location.origin}/d/${publicId}` : "",
+                    onCopyShare: copyDocumentLink,
+                  }}
                 />
               </TabsContent>
               <TabsContent value="pages" className="m-0 p-4 h-full overflow-auto">
