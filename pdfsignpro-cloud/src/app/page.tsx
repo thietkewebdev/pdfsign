@@ -26,7 +26,9 @@ import {
   UploadDropzoneCard,
   UploadProgress,
 } from "@/components/upload";
-import { HeroDemoCard } from "@/components/home/hero-demo-card";
+import { HeroIllustration } from "@/components/home/HeroIllustration";
+import { useTheme } from "next-themes";
+import { cn } from "@/lib/utils";
 
 const MOTION = { duration: 0.2, ease: [0, 0, 0.2, 1] as const };
 
@@ -81,7 +83,11 @@ function StepCard({
 
   return (
     <m.div
-      className="group relative overflow-hidden rounded-xl border border-white/10 bg-white/5 p-6 backdrop-blur-sm transition-colors duration-200 hover:border-white/20 hover:bg-white/[0.07]"
+      className={cn(
+        "group relative overflow-hidden rounded-xl border p-6 backdrop-blur-sm transition-colors duration-200",
+        "border-zinc-200/80 bg-white/60 shadow-sm dark:border-white/10 dark:bg-white/5 dark:shadow-none",
+        "hover:border-zinc-300 hover:bg-white/80 dark:hover:border-white/20 dark:hover:bg-white/[0.07]"
+      )}
       initial={false}
       animate={{
         opacity,
@@ -93,10 +99,12 @@ function StepCard({
       }
     >
       <div className="mb-5 flex size-12 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500/20 to-blue-500/10">
-        <Icon className="size-6 text-violet-300" />
+        <Icon className="size-6 text-violet-600 dark:text-violet-300" />
       </div>
-      <h3 className="mb-2 text-lg font-semibold text-white">{title}</h3>
-      <p className="text-sm text-zinc-400">{copy}</p>
+      <h3 className="mb-2 text-lg font-semibold text-zinc-900 dark:text-white">
+        {title}
+      </h3>
+      <p className="text-sm text-zinc-600 dark:text-zinc-400">{copy}</p>
     </m.div>
   );
 }
@@ -110,6 +118,7 @@ export default function HomePage() {
   const stepsRef = useRef<HTMLDivElement>(null);
   const stepsInView = useInView(stepsRef, { once: true, margin: "0px 0px -80px 0px" });
   const reduceMotion = useReducedMotion();
+  const { resolvedTheme } = useTheme();
 
   const handleFileSelect = useCallback((file: File) => {
     setSelectedFile(file);
@@ -180,18 +189,16 @@ export default function HomePage() {
   }, []);
 
   return (
-    <div className="relative min-h-screen linear-home-bg">
-      {/* Layered background — subtle glow + faint grid, minimal noise */}
-      <div className="linear-glow-1" />
-      <div className="linear-glow-2" />
-      <div className="linear-glow-3" />
-      <div className="linear-grid" />
-      <div className="linear-noise" />
+    <div className="relative min-h-screen home-bg">
+      {/* Clean background — two subtle radial glows only */}
+      <div className="home-glow-hero" />
+      <div className="home-glow-upload" />
 
       {/* Hero */}
       <section className="relative px-6 pb-24 pt-16 sm:pb-32 sm:pt-24 md:pb-40 md:pt-28">
         <div className="container relative mx-auto max-w-6xl">
-          <div className="grid gap-12 lg:grid-cols-[1fr,minmax(280px,360px)] lg:items-start lg:gap-16">
+          <div className="grid gap-12 lg:grid-cols-[1fr,minmax(300px,400px)] lg:items-start lg:gap-16">
+            {/* Left: headline + upload */}
             <div className="space-y-8">
               <m.div
                 className="space-y-4"
@@ -199,17 +206,20 @@ export default function HomePage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ ...MOTION, delay: 0.05 }}
               >
-                <h1 className="text-4xl font-semibold tracking-tight text-white sm:text-5xl md:text-6xl md:leading-[1.1]">
+                <h1 className="text-4xl font-semibold tracking-tight text-zinc-900 dark:text-white sm:text-5xl md:text-6xl md:leading-[1.1]">
                   Ký số PDF — nhanh, chuẩn, an toàn
                 </h1>
-                <p className="max-w-lg text-lg text-zinc-400 sm:text-xl">
+                <p className="max-w-lg text-lg text-zinc-600 dark:text-zinc-400 sm:text-xl">
                   Tải PDF lên, đặt vị trí chữ ký, ký số bằng USB Token trên Windows.
                 </p>
               </m.div>
 
-              {/* Upload card — pops with lighter bg, border, shadow */}
+              {/* Upload card */}
               <m.div
-                className="rounded-xl border border-white/15 bg-white/[0.08] p-1 shadow-xl shadow-black/30 backdrop-blur-sm"
+                className={cn(
+                  "rounded-xl border p-1 shadow-lg backdrop-blur-sm",
+                  "border-zinc-200/80 bg-white/70 dark:border-white/15 dark:bg-white/[0.08] dark:shadow-xl dark:shadow-black/20"
+                )}
                 initial={{ opacity: 0, y: reduceMotion ? 0 : 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ ...MOTION, delay: 0.1 }}
@@ -218,7 +228,7 @@ export default function HomePage() {
                   <UploadDropzoneCard
                     onFileSelect={handleFileSelect}
                     disabled={isSubmitting}
-                    variant="dark"
+                    variant={resolvedTheme === "dark" ? "dark" : "default"}
                     className="min-h-[200px]"
                   />
                 ) : (
@@ -228,19 +238,31 @@ export default function HomePage() {
                         fileName={selectedFile.name}
                         progress={uploadProgress}
                         status={uploadProgress >= 100 ? "done" : "uploading"}
-                        className="border-white/10 bg-white/5 [&_p]:text-zinc-300"
+                        className="border-zinc-200/50 bg-white/50 dark:border-white/10 dark:bg-white/5 [&_p]:text-zinc-700 dark:[&_p]:text-zinc-300"
                       />
                     ) : (
                       <>
-                        <div className="flex items-center gap-4 rounded-lg border border-white/10 bg-white/5 p-4">
-                          <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-white/10">
-                            <span className="text-xs font-medium text-zinc-400">PDF</span>
+                        <div
+                          className={cn(
+                            "flex items-center gap-4 rounded-lg border p-4",
+                            "border-zinc-200/60 bg-white/50 dark:border-white/10 dark:bg-white/5"
+                          )}
+                        >
+                          <div
+                            className={cn(
+                              "flex size-10 shrink-0 items-center justify-center rounded-lg",
+                              "bg-zinc-100 dark:bg-white/10"
+                            )}
+                          >
+                            <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                              PDF
+                            </span>
                           </div>
                           <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-medium text-white">
+                            <p className="truncate text-sm font-medium text-zinc-900 dark:text-white">
                               {selectedFile.name}
                             </p>
-                            <p className="text-xs text-zinc-500">
+                            <p className="text-xs text-zinc-500 dark:text-zinc-500">
                               {(selectedFile.size / 1024).toFixed(1)} KB
                             </p>
                           </div>
@@ -250,7 +272,7 @@ export default function HomePage() {
                             size="icon"
                             onClick={handleClear}
                             disabled={isSubmitting}
-                            className="shrink-0 text-zinc-400 hover:bg-white/10 hover:text-white"
+                            className="shrink-0 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-white/10 dark:hover:text-white"
                             aria-label="Xóa file"
                           >
                             <X className="size-4" />
@@ -258,7 +280,10 @@ export default function HomePage() {
                         </div>
                         <form onSubmit={handleUpload} className="space-y-4">
                           <div className="space-y-2">
-                            <Label htmlFor="title" className="text-zinc-300">
+                            <Label
+                              htmlFor="title"
+                              className="text-zinc-700 dark:text-zinc-300"
+                            >
                               Tiêu đề tài liệu
                             </Label>
                             <Input
@@ -266,14 +291,14 @@ export default function HomePage() {
                               placeholder="VD: Hợp đồng 2024"
                               value={title}
                               onChange={(e) => setTitle(e.target.value)}
-                              className="rounded-lg border-white/20 bg-white/5 text-white placeholder:text-zinc-500 focus-visible:ring-white/30"
+                              className="rounded-lg border-zinc-200 bg-white text-zinc-900 placeholder:text-zinc-400 focus-visible:ring-zinc-400 dark:border-white/20 dark:bg-white/5 dark:text-white dark:placeholder:text-zinc-500 dark:focus-visible:ring-white/30"
                               disabled={isSubmitting}
                             />
                           </div>
                           <Button
                             type="submit"
                             size="lg"
-                            className="w-full rounded-lg bg-white text-zinc-900 hover:bg-zinc-100"
+                            className="w-full rounded-lg bg-zinc-900 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-100"
                             disabled={isSubmitting}
                           >
                             {isSubmitting ? (
@@ -304,7 +329,7 @@ export default function HomePage() {
                   variant="outline"
                   size="sm"
                   asChild
-                  className="rounded-lg border-white/20 bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-white"
+                  className="rounded-lg border-zinc-200 bg-white/80 text-zinc-700 hover:bg-zinc-50 hover:text-zinc-900 dark:border-white/20 dark:bg-white/5 dark:text-zinc-300 dark:hover:bg-white/10 dark:hover:text-white"
                 >
                   <a href="/api/signer/download">
                     <Monitor className="size-4" />
@@ -313,24 +338,26 @@ export default function HomePage() {
                 </Button>
                 <Link
                   href="/signer"
-                  className="text-sm text-zinc-500 underline-offset-4 hover:underline hover:text-zinc-400"
+                  className="text-sm text-zinc-500 underline-offset-4 hover:underline hover:text-zinc-700 dark:hover:text-zinc-400"
                 >
                   Hướng dẫn cài đặt
                 </Link>
               </m.div>
             </div>
+
+            {/* Right: hero illustration */}
             <div className="flex justify-center lg:justify-end">
-              <HeroDemoCard />
+              <HeroIllustration />
             </div>
           </div>
         </div>
       </section>
 
       {/* Cách hoạt động */}
-      <section className="relative border-t border-white/5 px-6 py-20 sm:py-28">
+      <section className="relative border-t border-zinc-200/80 bg-zinc-50/50 px-6 py-20 dark:border-white/5 dark:bg-transparent sm:py-28">
         <div className="container mx-auto max-w-6xl">
           <m.h2
-            className="mb-14 text-left text-2xl font-semibold text-white sm:text-3xl"
+            className="mb-14 text-left text-2xl font-semibold text-zinc-900 dark:text-white sm:text-3xl"
             ref={stepsRef}
           >
             Cách hoạt động
@@ -350,40 +377,52 @@ export default function HomePage() {
       </section>
 
       {/* Tính năng */}
-      <section className="relative border-t border-white/5 px-6 py-20 sm:py-28">
+      <section className="relative border-t border-zinc-200/80 px-6 py-20 dark:border-white/5 sm:py-28">
         <div className="container mx-auto max-w-6xl">
           <div className="grid gap-16 lg:grid-cols-2 lg:items-start lg:gap-24">
             <div>
-              <h2 className="mb-10 text-2xl font-semibold text-white sm:text-3xl">
+              <h2 className="mb-10 text-2xl font-semibold text-zinc-900 dark:text-white sm:text-3xl">
                 Tính năng
               </h2>
               <ul className="space-y-5">
                 {FEATURES.map((text, i) => (
                   <li key={i} className="flex items-start gap-3">
                     <span className="mt-1.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-violet-500/20">
-                      <Check className="size-3 text-violet-400" />
+                      <Check className="size-3 text-violet-600 dark:text-violet-400" />
                     </span>
-                    <span className="text-zinc-400">{text}</span>
+                    <span className="text-zinc-600 dark:text-zinc-400">
+                      {text}
+                    </span>
                   </li>
                 ))}
               </ul>
             </div>
             <m.div
-              className="rounded-xl border border-white/10 bg-white/5 p-6 backdrop-blur-sm sm:p-8"
+              className={cn(
+                "rounded-xl border p-6 backdrop-blur-sm sm:p-8",
+                "border-zinc-200/80 bg-white/60 shadow-sm dark:border-white/10 dark:bg-white/5 dark:shadow-none"
+              )}
               initial={{ opacity: 0, y: reduceMotion ? 0 : 12 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: "-50px" }}
               transition={MOTION}
             >
-              <h3 className="mb-6 text-lg font-semibold text-white">Đáng tin cậy</h3>
+              <h3 className="mb-6 text-lg font-semibold text-zinc-900 dark:text-white">
+                Đáng tin cậy
+              </h3>
               <div className="flex flex-wrap gap-3">
                 {TRUST_ITEMS.map(({ icon: Icon, label }) => (
                   <div
                     key={label}
-                    className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-4 py-2.5"
+                    className={cn(
+                      "flex items-center gap-2 rounded-lg border px-4 py-2.5",
+                      "border-zinc-200/80 bg-white/50 dark:border-white/10 dark:bg-white/5"
+                    )}
                   >
-                    <Icon className="size-4 text-violet-400" />
-                    <span className="text-sm font-medium text-white">{label}</span>
+                    <Icon className="size-4 text-violet-600 dark:text-violet-400" />
+                    <span className="text-sm font-medium text-zinc-900 dark:text-white">
+                      {label}
+                    </span>
                   </div>
                 ))}
               </div>
