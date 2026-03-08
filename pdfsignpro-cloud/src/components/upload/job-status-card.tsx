@@ -147,7 +147,7 @@ export function JobStatusCard({
               {viewLink && (
                 <p className="text-xs text-muted-foreground">
                   <a href={viewLink} className="underline hover:text-foreground">
-                    Link xem
+                    Link tải
                   </a>
                 </p>
               )}

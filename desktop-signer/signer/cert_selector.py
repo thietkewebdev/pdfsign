@@ -19,6 +19,7 @@ class CertInfo:
     """Parsed certificate info for display."""
     subject_o: Optional[str]
     subject_cn: Optional[str]
+    issuer_cn: Optional[str]
     serial: str
     valid_from: str
     valid_to: str
@@ -28,10 +29,10 @@ class CertInfo:
     raw_der: bytes
 
 
-def _get_rdn(cert: x509.Certificate, oid: x509.ObjectIdentifier) -> Optional[str]:
-    """Extract first RDN value from cert subject as Unicode str."""
+def _get_rdn_from_name(name: x509.Name, oid: x509.ObjectIdentifier) -> Optional[str]:
+    """Extract first RDN value from X.509 Name as Unicode str."""
     try:
-        attrs = cert.subject.get_attributes_for_oid(oid)
+        attrs = name.get_attributes_for_oid(oid)
         if not attrs:
             return None
         val = attrs[0].value
@@ -45,14 +46,16 @@ def _get_rdn(cert: x509.Certificate, oid: x509.ObjectIdentifier) -> Optional[str
 def parse_cert_der(der_bytes: bytes, label: str = "", cert_id: Optional[bytes] = None) -> CertInfo:
     """Parse X.509 cert DER to CertInfo."""
     cert = x509.load_der_x509_certificate(der_bytes, default_backend())
-    subject_o = _get_rdn(cert, x509.NameOID.ORGANIZATION_NAME)
-    subject_cn = _get_rdn(cert, x509.NameOID.COMMON_NAME)
+    subject_o = _get_rdn_from_name(cert.subject, x509.NameOID.ORGANIZATION_NAME)
+    subject_cn = _get_rdn_from_name(cert.subject, x509.NameOID.COMMON_NAME)
+    issuer_cn = _get_rdn_from_name(cert.issuer, x509.NameOID.COMMON_NAME)
     serial = format(cert.serial_number, "x").upper()
     valid_from = cert.not_valid_before_utc.strftime("%Y-%m-%d %H:%M")
     valid_to = cert.not_valid_after_utc.strftime("%Y-%m-%d %H:%M")
     return CertInfo(
         subject_o=subject_o,
         subject_cn=subject_cn,
+        issuer_cn=issuer_cn,
         serial=serial,
         valid_from=valid_from,
         valid_to=valid_to,

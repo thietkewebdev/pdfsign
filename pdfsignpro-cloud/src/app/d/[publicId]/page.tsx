@@ -20,8 +20,12 @@ import { Separator } from "@/components/ui/separator";
 import { Label } from "@/components/ui/label";
 import { PdfViewer } from "@/components/pdf/PdfViewer";
 import { JobStatusCard } from "@/components/upload";
-import { DocumentPageSkeleton } from "@/components/document/document-page-skeleton";
-import { DocumentEmptyState } from "@/components/document/document-empty-state";
+import {
+  DocumentPageSkeleton,
+  DocumentEmptyState,
+  SignatureInfoPanel,
+  type SignInfo,
+} from "@/components/document";
 import { useSignaturePlacement } from "@/hooks/use-signature-placement";
 import {
   CreateJobResponseSchema,
@@ -47,6 +51,7 @@ interface DocumentData {
   };
   presignedUrl: string;
   viewUrl?: string;
+  signInfo?: SignInfo | null;
 }
 
 function StatusBadge({ status }: { status: string }) {
@@ -204,12 +209,11 @@ export default function SigningViewerPage() {
   };
 
   const copyShareLink = () => {
-    if (typeof window === "undefined" || !publicId || !data) return;
-    const v = data.currentVersion.version;
-    const link = `${window.location.origin}/api/documents/${publicId}/download?v=${v}`;
+    if (typeof window === "undefined" || !publicId) return;
+    const link = `${window.location.origin}/d/${publicId}`;
     navigator.clipboard.writeText(link);
     setShareLinkCopied(true);
-    toast.success("Đã copy liên kết tải");
+    toast.success("Đã copy liên kết");
     setTimeout(() => setShareLinkCopied(false), 2000);
   };
 
@@ -360,12 +364,12 @@ export default function SigningViewerPage() {
           shareLinkCopied={shareLinkCopied}
           shareLink={
             jobState.status === "COMPLETED" && typeof window !== "undefined"
-              ? `${window.location.origin}/api/documents/${publicId}/download?v=${currentVersion.version}`
+              ? `${window.location.origin}/d/${publicId}`
               : undefined
           }
           viewLink={
             jobState.status === "COMPLETED" && typeof window !== "undefined"
-              ? `${window.location.origin}/d/${publicId}?v=${currentVersion.version}`
+              ? `${window.location.origin}/api/documents/${publicId}/download?v=${currentVersion.version}`
               : undefined
           }
           onReset={resetJobState}
@@ -444,11 +448,14 @@ export default function SigningViewerPage() {
               Trạng thái
             </h3>
             <ScrollArea className="h-[calc(100vh-14rem)]">
-              <div className="space-y-2 pr-4 text-sm text-muted-foreground">
+              <div className="space-y-4 pr-4 text-sm text-muted-foreground">
                 <p>Đã tải lên</p>
                 <p className="text-xs">
                   {new Date(doc.createdAt).toLocaleString("vi-VN")}
                 </p>
+                {data.signInfo && (
+                  <SignatureInfoPanel signInfo={data.signInfo} />
+                )}
                 <Separator className="my-2" />
                 <SigningPanel />
               </div>
@@ -515,6 +522,9 @@ export default function SigningViewerPage() {
                   <li>Bấm &quot;Ký số&quot; để tạo phiên ký</li>
                   <li>Bấm &quot;Mở PDFSignPro Signer&quot;</li>
                 </ol>
+                {data.signInfo && (
+                  <SignatureInfoPanel signInfo={data.signInfo} className="mb-4" />
+                )}
                 <Separator className="my-3" />
                 <SigningPanel />
               </TabsContent>

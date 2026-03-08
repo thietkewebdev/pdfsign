@@ -47,6 +47,7 @@ def list_certs(dll_path: str, pin: str) -> None:
             "index": i,
             "subjectO": c.subject_o,
             "subjectCN": c.subject_cn,
+            "issuerCN": c.issuer_cn,
             "serial": c.serial,
             "validTo": c.valid_to,
             "displayName": get_signer_name(c),

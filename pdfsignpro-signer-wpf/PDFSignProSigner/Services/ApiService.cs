@@ -62,7 +62,7 @@ public class ApiService
         await stream.CopyToAsync(fileStream, ct);
     }
 
-    public async Task<(string SignedPublicUrl, string? SignedDownloadUrl)> CompleteAsync(JobInfo job, string signedPdfPath, string subjectO, string subjectCN, string serial, string signingTime, CancellationToken ct = default)
+    public async Task<(string SignedPublicUrl, string? SignedDownloadUrl)> CompleteAsync(JobInfo job, string signedPdfPath, string subjectO, string subjectCN, string? issuerCN, string serial, string signingTime, CancellationToken ct = default)
     {
         var url = $"{job.ApiBaseUrl}/api/jobs/{job.JobId}/complete";
 
@@ -73,7 +73,7 @@ public class ApiService
         using var content = new MultipartFormDataContent();
         content.Add(fileContent, "file", "signed.pdf");
 
-        var certMeta = JsonSerializer.Serialize(new { subjectO, subjectCN, serial, signingTime }, JsonOpts);
+        var certMeta = JsonSerializer.Serialize(new { subjectO, subjectCN, issuerCN, serial, signingTime }, JsonOpts);
         content.Add(new StringContent(certMeta, Encoding.UTF8, "text/plain"), "certMeta");
 
         using var req = new HttpRequestMessage(HttpMethod.Post, url);

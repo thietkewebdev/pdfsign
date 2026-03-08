@@ -7,6 +7,7 @@ public record CertInfo(
     int Index,
     string? SubjectO,
     string? SubjectCN,
+    string? IssuerCN,
     string Serial,
     string ValidTo,
     string DisplayName

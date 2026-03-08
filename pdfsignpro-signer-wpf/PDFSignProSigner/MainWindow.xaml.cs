@@ -330,6 +330,7 @@ public partial class MainWindow : Window
                 outputPath,
                 cert.SubjectO ?? "",
                 cert.SubjectCN ?? "",
+                cert.IssuerCN,
                 cert.Serial,
                 signingTime
             );

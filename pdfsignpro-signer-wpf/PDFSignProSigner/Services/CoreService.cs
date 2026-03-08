@@ -46,6 +46,7 @@ public class CoreService
                 c.Index,
                 c.SubjectO,
                 c.SubjectCN,
+                c.IssuerCN,
                 c.Serial ?? "",
                 c.ValidTo ?? "",
                 c.DisplayName ?? $"{c.SubjectCN ?? "Unknown"} ({c.Serial ?? ""})"
@@ -121,5 +122,5 @@ public class CoreService
         return (proc.ExitCode, stdoutSb.ToString().TrimEnd(), stderrSb.ToString().TrimEnd());
     }
 
-    private record CertInfoJson(int Index, string? SubjectO, string? SubjectCN, string? Serial, string? ValidTo, string? DisplayName);
+        private record CertInfoJson(int Index, string? SubjectO, string? SubjectCN, string? IssuerCN, string? Serial, string? ValidTo, string? DisplayName);
 }
