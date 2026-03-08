@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Footer } from "@/components/footer";
 import { useTheme } from "next-themes";
 import { Moon, Sun, Github, Monitor } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -67,6 +68,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </header>
       <main className="flex-1">{children}</main>
+      <Footer />
     </div>
   );
 }

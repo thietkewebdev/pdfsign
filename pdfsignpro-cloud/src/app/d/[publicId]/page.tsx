@@ -4,14 +4,14 @@ import { useParams, useSearchParams } from "next/navigation";
 import { useEffect, useState, useRef, useCallback } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { PenLine } from "lucide-react";
+import { FilePlus, PenLine } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { PdfViewer } from "@/components/pdf/PdfViewer";
-import { JobStatusCard } from "@/components/upload";
+import { JobStatusCard, UploadModal } from "@/components/upload";
 import {
   DocumentPageSkeleton,
   DocumentEmptyState,
@@ -104,6 +104,7 @@ function StatusBadge({
 export default function SigningViewerPage() {
   const params = useParams();
   const publicId = params.publicId as string;
+  const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [data, setData] = useState<DocumentData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -430,6 +431,7 @@ export default function SigningViewerPage() {
       documentTitle={doc.title ?? "signed.pdf"}
       showCreatedHint={showCreatedHint}
       signInfo={jobState.status === "COMPLETED" ? data.signInfo : undefined}
+      onSignNewDocument={isSigned ? () => setUploadModalOpen(true) : undefined}
     />
   ) : null;
 
@@ -480,6 +482,16 @@ export default function SigningViewerPage() {
               )}
               {data.signInfo && (
                 <SignatureInfoPanel signInfo={data.signInfo} />
+              )}
+              {isSigned && !jobState && (
+                <Button
+                  size="sm"
+                  className="w-full rounded-md"
+                  onClick={() => setUploadModalOpen(true)}
+                >
+                  <FilePlus className="size-4" />
+                  Ký tài liệu mới
+                </Button>
               )}
               {!isSigned && <SigningPanel />}
             </div>
@@ -559,6 +571,16 @@ export default function SigningViewerPage() {
                   {data.signInfo && (
                     <SignatureInfoPanel signInfo={data.signInfo} />
                   )}
+                  {isSigned && !jobState && (
+                    <Button
+                      size="sm"
+                      className="w-full rounded-md"
+                      onClick={() => setUploadModalOpen(true)}
+                    >
+                      <FilePlus className="size-4" />
+                      Ký tài liệu mới
+                    </Button>
+                  )}
                   {!isSigned && <SigningPanel />}
                 </div>
               </TabsContent>
@@ -616,6 +638,10 @@ export default function SigningViewerPage() {
           </Tabs>
         </div>
       </div>
+      <UploadModal
+        open={uploadModalOpen}
+        onOpenChange={setUploadModalOpen}
+      />
     </div>
   );
 }

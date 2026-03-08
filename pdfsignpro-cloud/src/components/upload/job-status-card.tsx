@@ -9,6 +9,7 @@ import {
   Check,
   ExternalLink,
   Download,
+  FilePlus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -66,6 +67,8 @@ interface JobStatusCardProps {
   showCreatedHint?: boolean;
   /** Cert meta for COMPLETED audit display (signedBy, issuerCN, signingTime) */
   signInfo?: SignInfo | null;
+  /** When provided, shows "Ký tài liệu mới" button in COMPLETED state */
+  onSignNewDocument?: () => void;
 }
 
 export function JobStatusCard({
@@ -84,6 +87,7 @@ export function JobStatusCard({
   documentTitle = "document.pdf",
   showCreatedHint = false,
   signInfo,
+  onSignNewDocument,
 }: JobStatusCardProps) {
   return (
     <div className="rounded-lg border border-border bg-card p-4 space-y-3 shadow-sm overflow-hidden min-w-0">
@@ -176,6 +180,16 @@ export function JobStatusCard({
             )}
           </dl>
           <div className="space-y-2 pt-1 border-t border-border min-w-0">
+            {onSignNewDocument && (
+              <Button
+                size="sm"
+                className="w-full min-w-0"
+                onClick={onSignNewDocument}
+              >
+                <FilePlus className="size-4" />
+                Ký tài liệu mới
+              </Button>
+            )}
             <Button size="sm" className="w-full min-w-0" asChild>
               <a href={downloadLink ?? signedDownloadUrl ?? "#"}>
                 <Download className="size-4" />
