@@ -45,7 +45,8 @@ def _parse_deep_link(url: str) -> dict | None:
     if not url or not url.strip().lower().startswith("pdfsignpro://"):
         return None
     parsed = urlparse(url)
-    if parsed.scheme.lower() != "pdfsignpro" or parsed.netloc.lower() != "sign":
+    netloc = (parsed.netloc or "").rstrip("/").lower()
+    if parsed.scheme.lower() != "pdfsignpro" or netloc != "sign":
         return None
     qs = parse_qs(parsed.query)
     p_b64 = (qs.get("p") or [None])[0]

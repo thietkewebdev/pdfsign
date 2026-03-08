@@ -1,0 +1,122 @@
+<Window x:Class="PDFSignProSigner.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="PDFSignPro Signer"
+        Height="620" Width="480"
+        MinHeight="500" MinWidth="400"
+        Background="{StaticResource BgPrimaryBrush}"
+        Foreground="{StaticResource TextPrimaryBrush}"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="CanResizeWithGrip">
+    <Grid Margin="28">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <StackPanel Grid.Row="0" Margin="0,0,0,24">
+            <TextBlock Text="PDFSignPro Signer"
+                       FontSize="22" FontWeight="SemiBold"
+                       Foreground="{StaticResource TextPrimaryBrush}"/>
+            <TextBlock x:Name="SubtitleText" Text="Mở qua liên kết pdfsignpro:// để ký tài liệu"
+                       FontSize="13" Foreground="{StaticResource TextSecondaryBrush}"
+                       Margin="0,4,0,0"/>
+        </StackPanel>
+
+        <!-- Content area - screens -->
+        <Border Grid.Row="1"
+                Background="{StaticResource BgSecondaryBrush}"
+                BorderBrush="{StaticResource BorderBrush}"
+                BorderThickness="1"
+                CornerRadius="8"
+                Padding="24">
+            <Grid>
+                <!-- Idle -->
+                <StackPanel x:Name="IdlePanel" Visibility="Visible">
+                    <TextBlock Text="Chưa có tài liệu cần ký"
+                               Foreground="{StaticResource TextSecondaryBrush}"
+                               FontSize="14" TextWrapping="Wrap"/>
+                    <TextBlock Text="Mở liên kết pdfsignpro:// từ trình duyệt hoặc email để bắt đầu."
+                               Foreground="{StaticResource TextSecondaryBrush}"
+                               FontSize="13" TextWrapping="Wrap" Margin="0,12,0,0"/>
+                </StackPanel>
+
+                <!-- Loading -->
+                <StackPanel x:Name="LoadingPanel" Visibility="Collapsed" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <ProgressBar IsIndeterminate="True" Height="4" Width="200" Margin="0,0,0,16"/>
+                    <TextBlock x:Name="LoadingText" Text="Đang tải..."
+                               Foreground="{StaticResource TextSecondaryBrush}" FontSize="14"/>
+                </StackPanel>
+
+                <!-- Sign -->
+                <ScrollViewer x:Name="SignPanel" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
+                    <StackPanel>
+                        <TextBlock x:Name="DocTitleText" Text="Tài liệu"
+                                   FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}"
+                                   TextWrapping="Wrap" Margin="0,0,0,16"/>
+                        <!-- PIN first -->
+                        <TextBlock Text="Mã PIN" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12" Margin="0,0,0,6"/>
+                        <PasswordBox x:Name="PinBox" Height="36" Margin="0,0,0,8"
+                                     FontSize="14" PasswordChanged="PinBox_PasswordChanged"/>
+                        <!-- Cert loading state -->
+                        <StackPanel x:Name="CertLoadingPanel" Visibility="Collapsed" Orientation="Horizontal" Margin="0,0,0,12">
+                            <ProgressBar IsIndeterminate="True" Height="3" Width="120" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                            <TextBlock Text="Đang đọc chứng thư…" Foreground="{StaticResource TextSecondaryBrush}" FontSize="13" VerticalAlignment="Center"/>
+                        </StackPanel>
+                        <!-- Cert dropdown -->
+                        <TextBlock Text="Chứng chỉ" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12" Margin="0,0,0,6"/>
+                        <ComboBox x:Name="CertCombo" MinHeight="44" Margin="0,0,0,20"
+                                  IsEnabled="False"
+                                  Background="{StaticResource BgTertiaryBrush}"
+                                  Foreground="{StaticResource TextPrimaryBrush}"
+                                  BorderBrush="{StaticResource BorderBrush}"
+                                  Padding="8,6">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel>
+                                        <TextBlock Text="{Binding OrgCn}" FontWeight="SemiBold" FontSize="13"
+                                                   TextWrapping="Wrap" MaxWidth="380"
+                                                   Foreground="{StaticResource TextPrimaryBrush}"/>
+                                        <TextBlock Text="{Binding SerialAndExpiry}" FontSize="11" Margin="0,2,0,0"
+                                                   Foreground="{StaticResource TextSecondaryBrush}"/>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                        <Button x:Name="SignBtn" Content="Ký số"
+                                Click="Sign_Click"
+                                IsEnabled="False"
+                                Background="{StaticResource AccentBrush}"
+                                Foreground="White" FontWeight="SemiBold"
+                                Padding="24,12" HorizontalAlignment="Stretch"/>
+                        <TextBlock x:Name="SignErrorText" Foreground="#F87171" FontSize="12"
+                                   TextWrapping="Wrap" Margin="0,12,0,0" Visibility="Collapsed"/>
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- Signing (progress) -->
+                <StackPanel x:Name="SigningPanel" Visibility="Collapsed" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <ProgressBar IsIndeterminate="True" Height="4" Width="200" Margin="0,0,0,16"/>
+                    <TextBlock x:Name="SigningText" Text="Đang ký PDF..."
+                               Foreground="{StaticResource TextSecondaryBrush}" FontSize="14"/>
+                    <TextBlock x:Name="SigningLog" Text="" Foreground="{StaticResource TextSecondaryBrush}"
+                               FontSize="11" FontFamily="Consolas" TextWrapping="Wrap"
+                               Margin="0,12,0,0" MaxWidth="360"/>
+                </StackPanel>
+
+                <!-- Success -->
+                <StackPanel x:Name="SuccessPanel" Visibility="Collapsed" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <TextBlock Text="✓ Đã ký thành công"
+                               FontSize="18" FontWeight="SemiBold" Foreground="#22C55E"
+                               HorizontalAlignment="Center" Margin="0,0,0,16"/>
+                    <Button x:Name="OpenDocBtn" Content="Mở tài liệu trong trình duyệt"
+                            Click="OpenDoc_Click"
+                            Background="{StaticResource AccentBrush}"
+                            Foreground="White" FontWeight="SemiBold"
+                            Padding="24,12" HorizontalAlignment="Center"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

@@ -1,0 +1,5 @@
+G:\Code\PDFSignProCloud\pdfsignpro-signer-wpf\publish\PDFSignProSigner.exe
+G:\Code\PDFSignProCloud\pdfsignpro-signer-wpf\publish\PDFSignProSigner.dll
+G:\Code\PDFSignProCloud\pdfsignpro-signer-wpf\publish\PDFSignProSigner.deps.json
+G:\Code\PDFSignProCloud\pdfsignpro-signer-wpf\publish\PDFSignProSigner.runtimeconfig.json
+G:\Code\PDFSignProCloud\pdfsignpro-signer-wpf\publish\PDFSignProSigner.pdb

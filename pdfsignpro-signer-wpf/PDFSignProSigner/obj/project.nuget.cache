@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "dgSpecHash": "pX0LlB3Bix8=",
+  "success": true,
+  "projectFilePath": "G:\\Code\\PDFSignProCloud\\pdfsignpro-signer-wpf\\PDFSignProSigner\\PDFSignProSigner.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\chube\\.nuget\\packages\\system.net.http.json\\8.0.1\\system.net.http.json.8.0.1.nupkg.sha512",
+    "C:\\Users\\chube\\.nuget\\packages\\system.text.json\\8.0.5\\system.text.json.8.0.5.nupkg.sha512"
+  ],
+  "logs": []
+}

@@ -7,6 +7,7 @@ CLI (--in/--out) delegates to sign_pades.py.
 """
 from __future__ import annotations
 
+import ctypes
 import json
 import logging
 import os
@@ -17,7 +18,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 import requests
-from PySide6.QtCore import QThread, Signal, Qt
+from PySide6.QtCore import QThread, Signal, Qt, QTimer
 from PySide6.QtWidgets import (
     QApplication,
     QMainWindow,
@@ -39,6 +40,7 @@ from PySide6.QtWidgets import (
     QInputDialog,
 )
 from PySide6.QtGui import QFont, QPalette, QColor
+from PySide6.QtNetwork import QLocalServer, QLocalSocket
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
@@ -64,6 +66,22 @@ def extract_deeplink(argv: list) -> str | None:
         if isinstance(arg, str) and arg.strip().lower().startswith("pdfsignpro://"):
             return arg.strip()
     return None
+
+
+_SERVER_NAME = "PDFSignProSigner_single_instance"
+
+
+def _send_to_existing_instance(deeplink: str) -> bool:
+    """If another instance is running, send deeplink and return True."""
+    sock = QLocalSocket()
+    sock.connectToServer(_SERVER_NAME)
+    if sock.waitForConnected(500):
+        sock.write(deeplink.encode("utf-8"))
+        sock.flush()
+        sock.waitForBytesWritten(1000)
+        sock.disconnectFromServer()
+        return True
+    return False
 
 
 from signer.pkcs11_discovery import get_pkcs11_dll
@@ -129,7 +147,8 @@ def _parse_deep_link(url: str) -> dict | None:
     if not url or not url.strip().lower().startswith("pdfsignpro://"):
         return None
     parsed = urlparse(url)
-    if parsed.scheme.lower() != "pdfsignpro" or parsed.netloc.lower() != "sign":
+    netloc = (parsed.netloc or "").rstrip("/").lower()
+    if parsed.scheme.lower() != "pdfsignpro" or netloc != "sign":
         return None
     qs = parse_qs(parsed.query)
     p_b64 = (qs.get("p") or [None])[0]
@@ -436,6 +455,7 @@ class MainWindow(QMainWindow):
         self._append_loading_log(f"Detected deeplink: {deeplink[:60]}{'...' if len(deeplink) > 60 else ''}")
         params = _parse_deep_link(deeplink)
         if not params:
+            logging.getLogger("pdfsignpro").warning("Parse deeplink failed: %s", deeplink[:80])
             self._append_loading_log("Parse failed: invalid or unsupported URL format.")
             QMessageBox.warning(
                 self,
@@ -444,6 +464,8 @@ class MainWindow(QMainWindow):
             )
             return
         self.deep_link_params = params
+        log = logging.getLogger("pdfsignpro")
+        log.info("Parsed deeplink OK: jobId=%s, apiBase=%s", params["jobId"], params["apiBaseUrl"])
         self._append_loading_log("Parsed successfully. Claiming job...")
         self._start_fetch_job()
 
@@ -688,6 +710,7 @@ class MainWindow(QMainWindow):
         self.sign_btn.setEnabled(self.cert_combo.count() > 0)
 
     def _on_fetch_error(self, msg: str):
+        logging.getLogger("pdfsignpro").error("Fetch job failed: %s", msg)
         QMessageBox.critical(self, "Lỗi", msg)
         self.loading_label.setText("Lỗi tải job")
 
@@ -776,19 +799,53 @@ def main():
     app.setFont(font)
 
     deeplink = extract_deeplink(sys.argv)
-    params = _parse_deep_link(deeplink) if deeplink else None
-
     if deeplink:
         log.info("Detected deeplink: %s", deeplink[:80] + ("..." if len(deeplink) > 80 else ""))
+        if _send_to_existing_instance(deeplink):
+            log.info("Passed deeplink to existing instance, exiting.")
+            sys.exit(0)
 
+    params = _parse_deep_link(deeplink) if deeplink else None
     win = MainWindow(deep_link_params=params, argv_debug=sys.argv)
+
+    # Show window immediately - topmost when launched via deeplink so it appears above browser
+    if deeplink or params:
+        log.info("Showing window (deeplink mode)")
+        win.setWindowFlags(win.windowFlags() | Qt.WindowType.WindowStaysOnTopHint)
+    win.show()
+    win.raise_()
+    win.activateWindow()
+    app.processEvents()
+    if (deeplink or params) and sys.platform == "win32":
+        try:
+            hwnd = int(win.winId())
+            ctypes.windll.user32.SetForegroundWindow(hwnd)
+        except Exception:
+            pass
+
+    server = QLocalServer()
+    def on_new_connection():
+        sock = server.nextPendingConnection()
+        if sock and sock.waitForReadyRead(2000):
+            data = sock.readAll().data().decode("utf-8", errors="replace")
+            sock.disconnectFromServer()
+            if data and data.strip().startswith("pdfsignpro://"):
+                win.start_from_deeplink(data.strip())
+                win.show()
+                win.raise_()
+                win.activateWindow()
+    server.newConnection.connect(on_new_connection)
+    server.removeServer(_SERVER_NAME)
+    server.listen(_SERVER_NAME)
 
     if deeplink and not params:
         win.start_from_deeplink(deeplink)
 
-    win.show()
-    win.raise_()
-    win.activateWindow()
+    if deeplink or params:
+        def _clear_topmost():
+            win.setWindowFlags(win.windowFlags() & ~Qt.WindowType.WindowStaysOnTopHint)
+            win.show()
+        QTimer.singleShot(3000, _clear_topmost)
     sys.exit(app.exec())
 
 
