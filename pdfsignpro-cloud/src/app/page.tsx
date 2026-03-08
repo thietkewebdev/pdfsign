@@ -26,7 +26,6 @@ import {
   UploadDropzoneCard,
   UploadProgress,
 } from "@/components/upload";
-import { HeroIllustration } from "@/components/home/HeroIllustration";
 import { FeatureMockStrip } from "@/components/home/FeatureMockStrip";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
@@ -195,12 +194,10 @@ export default function HomePage() {
       <div className="home-glow-hero" />
       <div className="home-glow-upload" />
 
-      {/* Hero */}
-      <section className="relative px-6 pb-24 pt-16 sm:pb-32 sm:pt-24 md:pb-40 md:pt-28">
-        <div className="container relative mx-auto max-w-6xl">
-          <div className="grid gap-12 lg:grid-cols-[1fr,minmax(300px,400px)] lg:items-start lg:gap-16">
-            {/* Left: headline + upload */}
-            <div className="space-y-8">
+      {/* Hero — single column: headline + subtitle + upload */}
+      <section className="relative px-6 pb-12 pt-16 sm:pb-16 sm:pt-20 md:pb-20 md:pt-24">
+        <div className="container relative mx-auto max-w-2xl">
+          <div className="space-y-8">
               <m.div
                 className="space-y-4"
                 initial={{ opacity: 0, y: reduceMotion ? 0 : 16 }}
@@ -210,7 +207,7 @@ export default function HomePage() {
                 <h1 className="text-4xl font-semibold tracking-tight text-zinc-900 dark:text-white sm:text-5xl md:text-6xl md:leading-[1.1]">
                   Ký số PDF — nhanh, chuẩn, an toàn
                 </h1>
-                <p className="max-w-lg text-lg text-zinc-600 dark:text-zinc-400 sm:text-xl">
+                <p className="text-lg text-zinc-600 dark:text-zinc-400 sm:text-xl">
                   Tải PDF lên, đặt vị trí chữ ký, ký số bằng USB Token trên Windows.
                 </p>
               </m.div>
@@ -344,18 +341,12 @@ export default function HomePage() {
                   Hướng dẫn cài đặt
                 </Link>
               </m.div>
-            </div>
-
-            {/* Right: hero illustration */}
-            <div className="flex justify-center lg:justify-end">
-              <HeroIllustration />
-            </div>
           </div>
         </div>
       </section>
 
       {/* Mock cards strip */}
-      <section className="relative -mt-8 px-0 md:-mt-12">
+      <section className="relative px-0">
         <div className="container mx-auto max-w-6xl px-6">
           <FeatureMockStrip />
         </div>

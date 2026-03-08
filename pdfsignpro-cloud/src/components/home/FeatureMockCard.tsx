@@ -137,7 +137,7 @@ export function FeatureMockCard({
   return (
     <div
       className={cn(
-        "flex min-w-[200px] max-w-[240px] flex-1 flex-col gap-3 rounded-xl border p-4 shadow-sm backdrop-blur-sm transition-shadow",
+        "flex h-full min-h-[180px] min-w-[200px] max-w-[240px] flex-1 flex-col gap-3 rounded-xl border p-4 shadow-sm backdrop-blur-sm transition-shadow",
         "bg-gradient-to-br from-white/80 to-white/40 dark:from-white/[0.08] dark:to-white/[0.02]",
         "border-zinc-200/80 dark:border-white/10",
         "shadow-zinc-900/5 dark:shadow-black/20",
@@ -145,10 +145,10 @@ export function FeatureMockCard({
         className
       )}
     >
-      <div className="min-h-[64px]">
+      <div className="flex min-h-0 flex-1 flex-col">
         <MiniIllustration variant={variantType} isDark={isDark} />
       </div>
-      <div>
+      <div className="mt-auto shrink-0">
         <h3 className="text-sm font-semibold text-zinc-900 dark:text-white">
           {title}
         </h3>

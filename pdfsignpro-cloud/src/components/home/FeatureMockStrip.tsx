@@ -42,12 +42,12 @@ export function FeatureMockStrip({ className }: { className?: string }) {
         className
       )}
     >
-      <div className="flex gap-4 md:grid md:grid-cols-4 md:gap-4 md:max-w-6xl md:mx-auto">
+      <div className="flex items-stretch gap-4 md:grid md:grid-cols-4 md:items-stretch md:gap-4 md:max-w-6xl md:mx-auto">
         {CARDS.map((card, i) => (
           <m.div
             key={card.variantType}
             className={cn(
-              "shrink-0 snap-center md:shrink",
+              "flex h-full shrink-0 snap-center md:shrink",
               "min-w-[200px] max-w-[240px] md:min-w-0 md:max-w-none"
             )}
             whileHover={
