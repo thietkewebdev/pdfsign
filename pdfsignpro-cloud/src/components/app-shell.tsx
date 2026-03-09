@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Footer } from "@/components/footer";
 import { useTheme } from "next-themes";
-import { Moon, Sun, Github, Monitor } from "lucide-react";
+import { Moon, Sun, Github, Monitor, Laptop, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -11,9 +11,11 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { theme, setTheme } = useTheme();
+  const hasOffline = !!process.env.NEXT_PUBLIC_OFFLINE_APP_URL;
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -26,19 +28,41 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             PDFSignPro Cloud
           </Link>
           <div className="flex items-center gap-2">
-            <a
-              href="/api/signer/download"
-              className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors duration-150 hover:bg-muted/80 hover:text-foreground"
-            >
-              <Monitor className="size-4" />
-              Tải PDFSignPro Signer (Windows)
-            </a>
-            <Link
-              href="/signer"
-              className="text-xs text-muted-foreground underline hover:text-foreground transition-colors duration-150"
-            >
-              Hướng dẫn cài đặt
-            </Link>
+            {/* Hướng dẫn dropdown */}
+            <div className="group relative">
+              <button
+                type="button"
+                className={cn(
+                  "inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors duration-150",
+                  "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+                )}
+                aria-haspopup="true"
+                aria-expanded="false"
+              >
+                Hướng dẫn
+                <ChevronDown className="size-4 opacity-70" />
+              </button>
+              <div className="absolute left-0 top-full pt-1 opacity-0 transition-opacity duration-150 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
+                <div className="min-w-[220px] rounded-md border border-border bg-popover py-1 shadow-lg">
+                  <Link
+                    href="/signer"
+                    className="flex items-center gap-2 px-3 py-2 text-sm text-popover-foreground hover:bg-accent hover:text-accent-foreground"
+                  >
+                    <Monitor className="size-4 shrink-0" />
+                    Tải phần mềm ký online
+                  </Link>
+                  {hasOffline && (
+                    <Link
+                      href="/offline"
+                      className="flex items-center gap-2 px-3 py-2 text-sm text-popover-foreground hover:bg-accent hover:text-accent-foreground"
+                    >
+                      <Laptop className="size-4 shrink-0" />
+                      Tải phần mềm ký offline
+                    </Link>
+                  )}
+                </div>
+              </div>
+            </div>
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
