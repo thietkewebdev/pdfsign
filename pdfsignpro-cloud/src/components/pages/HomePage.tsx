@@ -9,6 +9,8 @@ import { useInView, useReducedMotion } from "motion/react";
 import {
   Upload,
   Monitor,
+  Cloud,
+  Laptop,
   FileUp,
   MousePointer,
   Shield,
@@ -18,6 +20,7 @@ import {
   BadgeCheck,
   X,
   Loader2,
+  Download,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -116,7 +119,12 @@ export function HomePage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const stepsRef = useRef<HTMLDivElement>(null);
+  const uploadRef = useRef<HTMLDivElement>(null);
   const stepsInView = useInView(stepsRef, { once: true, margin: "0px 0px -80px 0px" });
+
+  const scrollToUpload = useCallback(() => {
+    uploadRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, []);
   const reduceMotion = useReducedMotion();
   const { resolvedTheme } = useTheme();
 
@@ -196,7 +204,7 @@ export function HomePage() {
 
       {/* Hero — single column: headline + subtitle + upload */}
       <section className="relative px-6 pb-12 pt-16 sm:pb-16 sm:pt-20 md:pb-20 md:pt-24">
-        <div className="container relative mx-auto max-w-2xl">
+        <div ref={uploadRef} className="container relative mx-auto max-w-2xl">
           <div className="space-y-8">
               <m.div
                 className="space-y-4"
@@ -349,6 +357,90 @@ export function HomePage() {
       <section className="relative px-0">
         <div className="container mx-auto max-w-6xl px-6">
           <FeatureMockStrip />
+        </div>
+      </section>
+
+      {/* Chọn phiên bản */}
+      <section className="relative border-t border-zinc-200/80 bg-zinc-50/30 px-6 py-20 dark:border-white/5 dark:bg-transparent sm:py-24">
+        <div className="container mx-auto max-w-4xl">
+          <h2 className="mb-12 text-center text-2xl font-semibold text-zinc-900 dark:text-white sm:text-3xl">
+            Chọn cách ký
+          </h2>
+          <div
+            className={cn(
+              "grid gap-6",
+              process.env.NEXT_PUBLIC_OFFLINE_APP_URL
+                ? "sm:grid-cols-2"
+                : "mx-auto max-w-md sm:max-w-lg"
+            )}
+          >
+            {/* PDFSignPro Cloud */}
+            <m.div
+              className={cn(
+                "group relative flex flex-col rounded-xl border p-6 backdrop-blur-sm transition-all duration-200",
+                "border-zinc-200/80 bg-white/70 shadow-sm dark:border-white/10 dark:bg-white/[0.06] dark:shadow-none",
+                "hover:-translate-y-0.5 hover:border-violet-300/50 hover:shadow-md hover:shadow-violet-500/5 dark:hover:border-violet-400/30 dark:hover:bg-white/[0.08]"
+              )}
+              initial={{ opacity: 0, y: reduceMotion ? 0 : 12 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "-40px" }}
+              transition={MOTION}
+            >
+              <div className="mb-4 flex size-12 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500/25 to-blue-500/15">
+                <Cloud className="size-6 text-violet-600 dark:text-violet-400" />
+              </div>
+              <h3 className="mb-2 text-lg font-semibold text-zinc-900 dark:text-white">
+                PDFSignPro Cloud
+              </h3>
+              <p className="mb-6 flex-1 text-sm text-zinc-600 dark:text-zinc-400">
+                Ký số PDF trực tuyến. Tải lên, đặt vị trí chữ ký, ký bằng USB Token qua Signer — không cần cài app.
+              </p>
+              <Button
+                size="lg"
+                onClick={scrollToUpload}
+                className="w-full rounded-lg bg-zinc-900 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-100"
+              >
+                <Upload className="size-4" />
+                Ký online ngay
+              </Button>
+            </m.div>
+
+            {/* PDFSignPro Offline */}
+            {process.env.NEXT_PUBLIC_OFFLINE_APP_URL ? (
+              <m.div
+                className={cn(
+                  "group relative flex flex-col rounded-xl border p-6 backdrop-blur-sm transition-all duration-200",
+                  "border-zinc-200/80 bg-white/70 shadow-sm dark:border-white/10 dark:bg-white/[0.06] dark:shadow-none",
+                  "hover:-translate-y-0.5 hover:border-zinc-300 hover:shadow-md dark:hover:border-white/20 dark:hover:bg-white/[0.08]"
+                )}
+                initial={{ opacity: 0, y: reduceMotion ? 0 : 12 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: "-40px" }}
+                transition={{ ...MOTION, delay: 0.05 }}
+              >
+                <div className="mb-4 flex size-12 items-center justify-center rounded-xl bg-gradient-to-br from-zinc-500/20 to-zinc-400/10 dark:from-white/15 dark:to-white/5">
+                  <Laptop className="size-6 text-zinc-600 dark:text-zinc-300" />
+                </div>
+                <h3 className="mb-2 text-lg font-semibold text-zinc-900 dark:text-white">
+                  PDFSignPro Offline
+                </h3>
+                <p className="mb-6 flex-1 text-sm text-zinc-600 dark:text-zinc-400">
+                  Ứng dụng Windows độc lập. Ký PDF offline, không cần trình duyệt. Phù hợp môi trường nội bộ.
+                </p>
+                <Button
+                  size="lg"
+                  variant="outline"
+                  asChild
+                  className="w-full rounded-lg border-zinc-200 bg-white/80 hover:bg-zinc-50 dark:border-white/20 dark:bg-white/5 dark:hover:bg-white/10"
+                >
+                  <a href={process.env.NEXT_PUBLIC_OFFLINE_APP_URL} target="_blank" rel="noopener noreferrer">
+                    <Download className="size-4" />
+                    Tải PDFSignPro Offline
+                  </a>
+                </Button>
+              </m.div>
+            ) : null}
+          </div>
         </div>
       </section>
 
