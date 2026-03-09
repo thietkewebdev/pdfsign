@@ -14,10 +14,13 @@ async function sendTelegramNotification(params: {
   contact: string;
   topic: string;
   message: string;
-}) {
+}): Promise<{ ok: boolean; error?: string; detail?: { description?: string } }> {
   const token = process.env.TELEGRAM_BOT_TOKEN?.trim();
   const chatId = process.env.TELEGRAM_CHAT_ID?.trim();
-  if (!token || !chatId) return;
+
+  if (!token || !chatId) {
+    return { ok: true };
+  }
 
   const topicLabel = TOPIC_LABELS[params.topic] ?? params.topic;
   const text = [
@@ -41,10 +44,22 @@ async function sendTelegramNotification(params: {
     }),
   });
 
+  const body = await res.json().catch(() => ({}));
+
   if (!res.ok) {
-    const err = await res.text();
-    console.error("Telegram sendMessage failed:", res.status, err);
+    const errMsg = body.description ?? body.error_description ?? JSON.stringify(body);
+    console.error("Telegram sendMessage failed:", res.status, errMsg);
+    const isAuthError = res.status === 401 || /unauthorized|bad token/i.test(String(errMsg));
+    return {
+      ok: false,
+      error: isAuthError
+        ? "Missing TELEGRAM_BOT_TOKEN hoặc token không hợp lệ"
+        : `Telegram API error: ${res.status}`,
+      detail: { description: errMsg },
+    };
   }
+
+  return { ok: true };
 }
 
 export async function POST(req: Request) {
@@ -94,7 +109,18 @@ export async function POST(req: Request) {
 
     console.log("[Contact]", { name, contact, topic, messageLength: message.length });
 
-    await sendTelegramNotification({ name, contact, topic, message });
+    const telegramResult = await sendTelegramNotification({ name, contact, topic, message });
+
+    if (!telegramResult.ok) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: telegramResult.error ?? "Gửi thông báo thất bại",
+          detail: telegramResult.detail,
+        },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({ ok: true });
   } catch (err) {

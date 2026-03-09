@@ -55,7 +55,7 @@ export function ContactSection() {
 
       const data = await res.json().catch(() => ({}));
 
-      if (res.ok) {
+      if (res.ok && data.ok !== false) {
         setStatus("success");
         setName("");
         setContact("");
@@ -64,11 +64,29 @@ export function ContactSection() {
         setConsent(false);
       } else {
         setStatus("error");
-        setErrorMessage(data.error ?? "Gửi thất bại. Vui lòng thử lại.");
+        const parts: string[] = [];
+        if (!res.ok) parts.push(`[${res.status}]`);
+        if (data.error) parts.push(data.error);
+        if (data.detail?.description) parts.push(data.detail.description);
+        const msg = parts.length > 0 ? parts.join(" ") : "Gửi thất bại. Vui lòng thử lại.";
+        setErrorMessage(msg);
+
+        const errDetail = { status: res.status, data };
+        console.error("Contact form error:", errDetail);
+
+        if (
+          msg.toLowerCase().includes("telegram_bot_token") ||
+          msg.toLowerCase().includes("missing telegram")
+        ) {
+          setErrorMessage(
+            `${msg} Chưa cấu hình TELEGRAM_BOT_TOKEN trên Render.`
+          );
+        }
       }
-    } catch {
+    } catch (err) {
       setStatus("error");
       setErrorMessage("Lỗi kết nối. Vui lòng thử lại.");
+      console.error("Contact form error:", err);
     } finally {
       setIsLoading(false);
     }
@@ -160,10 +178,10 @@ export function ContactSection() {
                   onChange={(e) => setTopic(e.target.value)}
                   disabled={isLoading}
                   className={cn(
-                    "flex h-9 w-full rounded-lg border border-zinc-200 bg-white px-3 py-1 text-sm",
-                    "placeholder:text-zinc-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                    "disabled:cursor-not-allowed disabled:opacity-50",
-                    "dark:border-white/20 dark:bg-white/5 dark:text-white dark:placeholder:text-zinc-500"
+                    "flex h-9 w-full rounded-lg border px-3 py-1 text-sm",
+                    "bg-white text-slate-900 border-zinc-200",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                    "disabled:cursor-not-allowed disabled:opacity-50"
                   )}
                 >
                   {TOPIC_OPTIONS.map((opt) => (
