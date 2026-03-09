@@ -30,6 +30,7 @@ import {
   UploadProgress,
 } from "@/components/upload";
 import { FeatureMockStrip } from "@/components/home/FeatureMockStrip";
+import { ContactSection } from "@/components/home/ContactSection";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
 
@@ -521,6 +522,9 @@ export function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* Liên hệ */}
+      <ContactSection />
     </div>
   );
 }
