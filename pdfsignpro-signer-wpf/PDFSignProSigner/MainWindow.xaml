@@ -79,6 +79,52 @@
                             <ProgressBar IsIndeterminate="True" Height="3" Width="120" VerticalAlignment="Center" Margin="0,0,8,0"/>
                             <TextBlock Text="Đang đọc chứng thư…" Foreground="{StaticResource TextSecondaryBrush}" FontSize="13" VerticalAlignment="Center"/>
                         </StackPanel>
+                        <!-- Signature templates -->
+                        <TextBlock Text="Mẫu chữ ký" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12" Margin="0,0,0,6"/>
+                        <ListBox x:Name="TemplateList" MinHeight="120" MaxHeight="160" Margin="0,0,0,12"
+                                 Background="{StaticResource BgTertiaryBrush}"
+                                 BorderBrush="{StaticResource BorderBrush}"
+                                 BorderThickness="1"
+                                 Padding="8"
+                                 SelectionChanged="TemplateList_SelectionChanged">
+                            <ListBox.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel Orientation="Horizontal"/>
+                                </ItemsPanelTemplate>
+                            </ListBox.ItemsPanel>
+                            <ListBox.ItemContainerStyle>
+                                <Style TargetType="ListBoxItem">
+                                    <Setter Property="Padding" Value="4"/>
+                                    <Setter Property="Background" Value="Transparent"/>
+                                </Style>
+                            </ListBox.ItemContainerStyle>
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Width="100" Height="52" Padding="6" CornerRadius="4"
+                                            BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                                            Background="{StaticResource BgSecondaryBrush}"
+                                            ClipToBounds="True">
+                                        <Border.Style>
+                                            <Style TargetType="Border">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
+                                                        <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
+                                                        <Setter Property="BorderThickness" Value="2"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
+                                        <StackPanel>
+                                            <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" FontSize="11"
+                                                       Foreground="{StaticResource TextPrimaryBrush}"/>
+                                            <TextBlock Text="{Binding PreviewText}" FontSize="9" Margin="0,2,0,0"
+                                                       Foreground="{StaticResource TextSecondaryBrush}"
+                                                       TextWrapping="Wrap"/>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
                         <!-- Cert dropdown -->
                         <TextBlock Text="Chứng chỉ" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12" Margin="0,0,0,6"/>
                         <ComboBox x:Name="CertCombo" MinHeight="44" Margin="0,0,0,20"

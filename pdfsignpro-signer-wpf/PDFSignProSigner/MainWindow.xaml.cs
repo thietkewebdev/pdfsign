@@ -17,6 +17,7 @@ public partial class MainWindow : Window
 {
     private readonly ApiService _api = new();
     private readonly CoreService _core = new();
+    private readonly SignatureTemplateManager _templateManager = new();
     private JobInfo? _job;
     private string _signedPublicUrl = "";
     private string? _signedDownloadUrl;
@@ -29,6 +30,28 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         CertCombo.ItemsSource = _certs;
+        TemplateList.ItemsSource = _templateManager.Templates;
+        SelectTemplateFromManager();
+    }
+
+    private void SelectTemplateFromManager()
+    {
+        var selected = _templateManager.SelectedTemplate;
+        if (selected == null) return;
+        for (var i = 0; i < TemplateList.Items.Count; i++)
+        {
+            if (TemplateList.Items[i] is SignatureTemplate t && t.Id == selected.Id)
+            {
+                TemplateList.SelectedIndex = i;
+                break;
+            }
+        }
+    }
+
+    private void TemplateList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (TemplateList.SelectedItem is SignatureTemplate template)
+            _templateManager.SelectTemplate(template);
     }
 
     public void ProcessDeepLink(string url)
@@ -295,6 +318,12 @@ public partial class MainWindow : Window
 
         var outputPath = Path.Combine(_tempDir, "signed.pdf");
         var logLines = new List<string>();
+
+        // TODO: Pass _templateManager.SelectedTemplate to backend/Core for visible signature appearance.
+        // CoreService.SignAsync does not yet support template/appearance; add --template or similar when backend ready.
+        var template = _templateManager.SelectedTemplate;
+        if (template != null)
+            LogService.Info($"Signing with template: {template.Id} ({template.DisplayName})");
 
         try
         {

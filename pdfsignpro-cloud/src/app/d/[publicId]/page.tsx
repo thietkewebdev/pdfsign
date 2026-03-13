@@ -132,6 +132,7 @@ export default function SigningViewerPage() {
   const [shareLinkCopied, setShareLinkCopied] = useState(false);
   const [signerDownloadModalOpen, setSignerDownloadModalOpen] = useState(false);
   const pollStartRef = useRef<number | null>(null);
+  const userLeftTabRef = useRef(false);
   const searchParams = useSearchParams();
 
   const {
@@ -240,10 +241,11 @@ export default function SigningViewerPage() {
     });
     pollStartRef.current = Date.now();
     toast.success("Đã tạo phiên ký. Mở Signer để ký số.");
+    userLeftTabRef.current = false;
     window.location.href = deepLink;
 
     setTimeout(() => {
-      setSignerDownloadModalOpen(true);
+      if (!userLeftTabRef.current) setSignerDownloadModalOpen(true);
     }, 2500);
   };
 
@@ -275,6 +277,14 @@ export default function SigningViewerPage() {
     setJobState(null);
     pollStartRef.current = null;
   };
+
+  useEffect(() => {
+    const onVisibilityChange = () => {
+      if (document.hidden) userLeftTabRef.current = true;
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", onVisibilityChange);
+  }, []);
 
   useEffect(() => {
     if (!jobState || jobState.status !== "CREATED") return;

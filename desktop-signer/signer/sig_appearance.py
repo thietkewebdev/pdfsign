@@ -46,6 +46,7 @@ _FONT_PATH = Path(__file__).resolve().parent.parent / "assets" / "fonts" / "Noto
 _PADDING = 8
 _TEXT_PADDING = 16
 _MAX_SIGNER_LINES = 3
+_MAX_TS_LINES = 3
 _MIN_FONT_SIZE = 8
 _MAX_FONT_SIZE = 10
 _LEADING_RATIO = 1.2  # leading = font_size * this
@@ -146,13 +147,15 @@ def _compute_layout(
     engine = factory.create_font_engine(w)
 
     signer_text = f"Ký số bởi: {signer}" if signer else "Ký số bởi:"
-    ts_lines = [f"Thời gian: {ts}"] if ts else ["Thời gian:"]
+    ts_text = f"Thời gian: {ts}" if ts else "Thời gian:"
 
     for sz in range(_MAX_FONT_SIZE, _MIN_FONT_SIZE - 1, -1):
         leading = sz * _LEADING_RATIO
         signer_lines = _wrap_text(engine, signer_text, text_width, float(sz))
         if len(signer_lines) > _MAX_SIGNER_LINES:
             continue
+        ts_lines = _wrap_text(engine, ts_text, text_width, float(sz))
+        ts_lines = ts_lines[:_MAX_TS_LINES]
         total_lines = len(signer_lines) + len(ts_lines)
         # First baseline at pad + font_size; block height = (n-1)*leading + font_size + gap
         block_height = (total_lines - 1) * leading + sz + _GAP_BEFORE_TIME
@@ -165,8 +168,10 @@ def _compute_layout(
     leading = sz * _LEADING_RATIO
     signer_lines = _wrap_text(engine, signer_text, text_width, float(sz))
     signer_lines = signer_lines[:_MAX_SIGNER_LINES]
+    ts_lines = _wrap_text(engine, ts_text, text_width, float(sz))
+    ts_lines = ts_lines[:_MAX_TS_LINES]
     if os.environ.get("PDFSIGN_DEBUG"):
-        _debug_print(f"[sig_appearance] wrap (fallback): font_size={sz}, signer_lines={signer_lines}")
+        _debug_print(f"[sig_appearance] wrap (fallback): font_size={sz}, signer_lines={signer_lines}, ts_lines={ts_lines}")
     return icon_size, text_x, text_width, leading, signer_lines, ts_lines, sz
 
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import Link from "next/link";
 import {
   Download,
@@ -55,6 +55,7 @@ export default function SignPage() {
   } | null>(null);
   const [copied, setCopied] = useState(false);
   const [signerDownloadModalOpen, setSignerDownloadModalOpen] = useState(false);
+  const userLeftTabRef = useRef(false);
 
   const {
     placements,
@@ -127,11 +128,20 @@ export default function SignPage() {
 
     const data = await res.json();
     setJobResult({ jobId: data.jobId, deepLink: data.deepLink });
+    userLeftTabRef.current = false;
     window.location.href = data.deepLink;
     setTimeout(() => {
-      setSignerDownloadModalOpen(true);
+      if (!userLeftTabRef.current) setSignerDownloadModalOpen(true);
     }, 2500);
   };
+
+  useEffect(() => {
+    const onVisibilityChange = () => {
+      if (document.hidden) userLeftTabRef.current = true;
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", onVisibilityChange);
+  }, []);
 
   const copyDeepLink = () => {
     if (!jobResult) return;

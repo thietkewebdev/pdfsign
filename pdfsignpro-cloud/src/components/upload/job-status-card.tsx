@@ -149,7 +149,7 @@ export function JobStatusCard({
         <div className="space-y-3 min-w-0">
           <div className="flex items-center gap-2 min-w-0">
             <Badge variant="success" className="text-xs font-medium shrink-0">
-              <CheckCircle2 className="size-3.5 mr-1" />
+              <CheckCircle2 className="size-3 mr-1" />
               Đã ký
             </Badge>
           </div>

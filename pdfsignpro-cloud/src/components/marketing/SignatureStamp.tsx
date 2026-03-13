@@ -38,10 +38,7 @@ export function SignatureStamp({
     [signedAt]
   );
 
-  const displayCompany = useMemo(
-    () => (companyName.length > 24 ? `${companyName.slice(0, 21)}…` : companyName),
-    [companyName]
-  );
+  const displayCompany = companyName;
 
   const isDark = variant === "dark";
   const uid = useId().replace(/[^a-z0-9]/gi, "");
@@ -119,7 +116,7 @@ export function SignatureStamp({
       />
 
       {/* Check-in-circle icon (left) */}
-      <g transform="translate(20, 20)">
+      <g transform="translate(16, 22) scale(0.75)">
         <circle
           cx="16"
           cy="16"
@@ -138,37 +135,48 @@ export function SignatureStamp({
         />
       </g>
 
-      {/* Text block (right) */}
-      <g transform="translate(72, 16)">
-        <text
-          x="0"
-          y="14"
-          fill={isDark ? "#e5e7eb" : "#1f2937"}
-          fontFamily="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
-          fontSize="13"
-          fontWeight="600"
+      {/* Text block (right) - foreignObject for word wrap */}
+      <foreignObject x="72" y="12" width="196" height="48">
+        <div
+          xmlns="http://www.w3.org/1999/xhtml"
+          style={{
+            width: "100%",
+            overflow: "hidden",
+            whiteSpace: "normal",
+            overflowWrap: "anywhere",
+            wordBreak: "break-word",
+            fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+            fontSize: "11px",
+            lineHeight: 1.35,
+          }}
         >
-          Đã ký số
-        </text>
-        <text
-          x="0"
-          y="34"
-          fill={isDark ? "#9ca3af" : "#4b5563"}
-          fontFamily="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
-          fontSize="11"
-        >
-          Ký bởi: {displayCompany}
-        </text>
-        <text
-          x="0"
-          y="52"
-          fill={isDark ? "#9ca3af" : "#4b5563"}
-          fontFamily="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
-          fontSize="11"
-        >
-          Thời gian: {formattedTime}
-        </text>
-      </g>
+          <div
+            style={{
+              fontWeight: 600,
+              fontSize: "13px",
+              color: isDark ? "#e5e7eb" : "#1f2937",
+              marginBottom: 2,
+            }}
+          >
+            Đã ký số
+          </div>
+          <div
+            style={{
+              color: isDark ? "#9ca3af" : "#4b5563",
+              marginBottom: 2,
+            }}
+          >
+            Ký bởi: {displayCompany}
+          </div>
+          <div
+            style={{
+              color: isDark ? "#9ca3af" : "#4b5563",
+            }}
+          >
+            Thời gian: {formattedTime}
+          </div>
+        </div>
+      </foreignObject>
     </svg>
   );
 }
