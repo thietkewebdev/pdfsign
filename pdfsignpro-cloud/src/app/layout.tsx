@@ -93,6 +93,10 @@ export default function RootLayout({
                   <GA4 />
                 </>
               )}
+              <Script
+                src="https://code.jivosite.com/widget/9n5ITyZv5a"
+                strategy="afterInteractive"
+              />
             </UploadProvider>
           </LazyMotion>
         </ThemeProvider>
