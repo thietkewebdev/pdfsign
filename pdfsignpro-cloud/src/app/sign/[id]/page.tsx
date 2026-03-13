@@ -3,7 +3,6 @@
 import { useParams } from "next/navigation";
 import { useState, useCallback, useEffect } from "react";
 import Link from "next/link";
-import { toast } from "sonner";
 import {
   Download,
   HelpCircle,
@@ -23,6 +22,14 @@ import { PdfViewer } from "@/components/pdf/PdfViewer";
 import { useUpload } from "@/contexts/upload-context";
 import { useSignaturePlacement } from "@/hooks/use-signature-placement";
 import type { SignaturePlacement } from "@/lib/types";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface DocumentData {
   document: { id: string; publicId: string; title: string };
@@ -47,6 +54,7 @@ export default function SignPage() {
     deepLink: string;
   } | null>(null);
   const [copied, setCopied] = useState(false);
+  const [signerDownloadModalOpen, setSignerDownloadModalOpen] = useState(false);
 
   const {
     placements,
@@ -121,13 +129,7 @@ export default function SignPage() {
     setJobResult({ jobId: data.jobId, deepLink: data.deepLink });
     window.location.href = data.deepLink;
     setTimeout(() => {
-      toast.info("Chưa mở được ứng dụng? Có thể máy chưa cài PDFSignPro Signer.", {
-        action: {
-          label: "Tải Signer",
-          onClick: () => window.open("/api/signer/download", "_blank"),
-        },
-        duration: 10000,
-      });
+      setSignerDownloadModalOpen(true);
     }, 2500);
   };
 
@@ -449,6 +451,37 @@ export default function SignPage() {
           </Tabs>
         </div>
       </div>
+
+      <Dialog open={signerDownloadModalOpen} onOpenChange={setSignerDownloadModalOpen}>
+        <DialogContent className="sm:max-w-md shadow-xl ring-1 ring-border/50">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-xl">
+              <Download className="size-5 text-primary" />
+              Chưa mở được ứng dụng ký số?
+            </DialogTitle>
+            <DialogDescription className="text-base pt-1">
+              Có thể máy tính chưa cài PDFSignPro Signer. Tải và cài đặt ứng dụng (Windows) để ký số PDF bằng USB Token.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0 pt-4">
+            <Button
+              variant="outline"
+              onClick={() => setSignerDownloadModalOpen(false)}
+            >
+              Đóng
+            </Button>
+            <Button
+              onClick={() => {
+                window.open("/api/signer/download", "_blank");
+                setSignerDownloadModalOpen(false);
+              }}
+            >
+              <Download className="size-4" />
+              Tải PDFSignPro Signer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
