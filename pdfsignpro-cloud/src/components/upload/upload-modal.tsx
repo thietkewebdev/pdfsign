@@ -200,7 +200,7 @@ export function UploadModal({
                       ? uploadProgress >= 100
                         ? "Hoàn tất"
                         : "Đang tải lên…"
-                      : "Tải lên & tạo liên kết"}
+                      : "Upload tài liệu và ký số"}
                   </Button>
                 </form>
               )}

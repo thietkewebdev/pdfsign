@@ -3,6 +3,7 @@
 import { useParams } from "next/navigation";
 import { useState, useCallback, useEffect } from "react";
 import Link from "next/link";
+import { toast } from "sonner";
 import {
   Download,
   HelpCircle,
@@ -118,6 +119,16 @@ export default function SignPage() {
 
     const data = await res.json();
     setJobResult({ jobId: data.jobId, deepLink: data.deepLink });
+    window.location.href = data.deepLink;
+    setTimeout(() => {
+      toast.info("Chưa mở được ứng dụng? Có thể máy chưa cài PDFSignPro Signer.", {
+        action: {
+          label: "Tải Signer",
+          onClick: () => window.open("/api/signer/download", "_blank"),
+        },
+        duration: 10000,
+      });
+    }, 2500);
   };
 
   const copyDeepLink = () => {

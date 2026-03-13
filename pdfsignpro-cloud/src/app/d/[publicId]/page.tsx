@@ -232,6 +232,16 @@ export default function SigningViewerPage() {
     pollStartRef.current = Date.now();
     toast.success("Đã tạo phiên ký. Mở Signer để ký số.");
     window.location.href = deepLink;
+
+    setTimeout(() => {
+      toast.info("Chưa mở được ứng dụng? Có thể máy chưa cài PDFSignPro Signer.", {
+        action: {
+          label: "Tải Signer",
+          onClick: () => window.open("/api/signer/download", "_blank"),
+        },
+        duration: 10000,
+      });
+    }, 2500);
   };
 
   const copyDeepLink = () => {
