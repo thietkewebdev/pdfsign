@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 const SERVICES = [
   { label: "Thiết kế web", href: "https://thietkeweb.dev/" },
   { label: "Chữ ký số Viettel", href: "https://tokenviettel.com/" },
@@ -9,13 +11,19 @@ const SERVICES = [
   { label: "Đại lý chữ ký số", href: "https://dailychukyso.com.vn/" },
 ] as const;
 
+const LEGAL_LINKS = [
+  { label: "Câu hỏi thường gặp", href: "/faq" },
+  { label: "Điều khoản dịch vụ", href: "/terms" },
+  { label: "Chính sách bảo mật", href: "/privacy" },
+] as const;
+
 export function Footer() {
   const year = new Date().getFullYear();
 
   return (
     <footer className="border-t border-border bg-background/50">
       <div className="container mx-auto max-w-6xl px-6 py-12">
-        <div className="grid gap-10 sm:grid-cols-2 md:gap-16">
+        <div className="grid gap-10 sm:grid-cols-3 md:gap-16">
           <div>
             <p className="mb-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
               Liên hệ
@@ -39,6 +47,23 @@ export function Footer() {
                   info@thietkeweb.dev
                 </a>
               </li>
+            </ul>
+          </div>
+          <div>
+            <p className="mb-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              Hỗ trợ & Pháp lý
+            </p>
+            <ul className="space-y-2 text-sm text-muted-foreground">
+              {LEGAL_LINKS.map(({ label, href }) => (
+                <li key={href}>
+                  <Link
+                    href={href}
+                    className="underline-offset-4 hover:underline hover:text-foreground transition-colors duration-150"
+                  >
+                    {label}
+                  </Link>
+                </li>
+              ))}
             </ul>
           </div>
           <div>

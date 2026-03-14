@@ -67,6 +67,45 @@ const TRUST_ITEMS = [
   { icon: BadgeCheck, label: "Adobe Verify" },
 ] as const;
 
+const TESTIMONIALS = [
+  {
+    name: "Nguyễn Văn Minh",
+    role: "Giám đốc, Công ty TNHH Thiên An",
+    quote:
+      "Trước đây ký hợp đồng phải cài phần mềm rất nặng. Giờ chỉ cần tải PDF lên, đặt vị trí ký là xong. Tiết kiệm rất nhiều thời gian cho đội ngũ.",
+  },
+  {
+    name: "Trần Thị Hương",
+    role: "Kế toán trưởng, Tập đoàn Phú Thịnh",
+    quote:
+      "Ký hóa đơn và chứng từ hàng ngày rất nhanh. Adobe verify được ngay, đối tác rất yên tâm. Giao diện đơn giản, nhân viên mới cũng dùng được luôn.",
+  },
+  {
+    name: "Lê Hoàng Nam",
+    role: "Luật sư, Văn phòng luật Nam Phong",
+    quote:
+      "Chữ ký PAdES chuẩn quốc tế, hợp lệ theo Luật Giao dịch điện tử. Tôi dùng ký văn bản pháp lý hàng ngày, rất tin tưởng về mặt pháp lý.",
+  },
+  {
+    name: "Phạm Quốc Bảo",
+    role: "CTO, Startup GreenTech",
+    quote:
+      "Tích hợp dễ dàng vào quy trình nội bộ. API rõ ràng, Signer chạy mượt. Team dev chúng tôi rất thích cách nó hoạt động — đơn giản mà hiệu quả.",
+  },
+  {
+    name: "Võ Thị Mai Anh",
+    role: "Trưởng phòng HC, Bệnh viện Đa khoa Sài Gòn",
+    quote:
+      "Bệnh viện ký rất nhiều văn bản mỗi ngày. PDFSignPro giúp số hóa quy trình ký hoàn toàn, giảm giấy tờ và lưu trữ gọn gàng hơn nhiều.",
+  },
+  {
+    name: "Đặng Minh Tuấn",
+    role: "Freelancer, Tư vấn tài chính",
+    quote:
+      "Không cần cài phần mềm nặng nề, chỉ cần trình duyệt và USB Token là ký được. Chia sẻ link cho khách hàng xem tài liệu đã ký rất tiện lợi.",
+  },
+] as const;
+
 function StepCard({
   icon: Icon,
   title,
@@ -519,6 +558,65 @@ export function HomePage() {
                 ))}
               </div>
             </m.div>
+          </div>
+        </div>
+      </section>
+
+      {/* Testimonials / Social proof */}
+      <section className="relative border-t border-zinc-200/80 bg-zinc-50/30 px-6 py-20 dark:border-white/5 dark:bg-transparent sm:py-28">
+        <div className="container mx-auto max-w-6xl">
+          <m.h2
+            className="mb-4 text-center text-2xl font-semibold text-zinc-900 dark:text-white sm:text-3xl"
+            initial={{ opacity: 0, y: reduceMotion ? 0 : 12 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-50px" }}
+            transition={MOTION}
+          >
+            Khách hàng nói gì
+          </m.h2>
+          <m.p
+            className="mb-14 text-center text-zinc-500 dark:text-zinc-400"
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            viewport={{ once: true }}
+            transition={{ ...MOTION, delay: 0.05 }}
+          >
+            Được tin dùng bởi doanh nghiệp và cá nhân trên toàn quốc
+          </m.p>
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {TESTIMONIALS.map((t, i) => (
+              <m.div
+                key={i}
+                className={cn(
+                  "flex flex-col rounded-xl border p-6 backdrop-blur-sm",
+                  "border-zinc-200/80 bg-white/60 shadow-sm dark:border-white/10 dark:bg-white/5 dark:shadow-none"
+                )}
+                initial={{ opacity: 0, y: reduceMotion ? 0 : 12 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: "-30px" }}
+                transition={{ ...MOTION, delay: i * 0.06 }}
+              >
+                <div className="mb-3 flex gap-0.5">
+                  {Array.from({ length: 5 }).map((_, s) => (
+                    <svg key={s} className="size-4 text-amber-400" viewBox="0 0 20 20" fill="currentColor">
+                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                    </svg>
+                  ))}
+                </div>
+                <p className="mb-4 flex-1 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">
+                  &ldquo;{t.quote}&rdquo;
+                </p>
+                <div className="flex items-center gap-3">
+                  <div className="flex size-9 items-center justify-center rounded-full bg-gradient-to-br from-violet-500/30 to-blue-500/20 text-sm font-semibold text-violet-700 dark:text-violet-300">
+                    {t.name.charAt(0)}
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-zinc-900 dark:text-white">{t.name}</p>
+                    <p className="text-xs text-zinc-500 dark:text-zinc-500">{t.role}</p>
+                  </div>
+                </div>
+              </m.div>
+            ))}
           </div>
         </div>
       </section>
