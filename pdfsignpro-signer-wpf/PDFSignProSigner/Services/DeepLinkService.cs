@@ -3,7 +3,7 @@ using System.Text.Json;
 
 namespace PDFSignProSigner.Services;
 
-public record DeepLinkPayload(string JobId, string ClaimCode, string Host);
+public record DeepLinkPayload(string JobId, string ClaimCode, string Host, string? TemplateId = null);
 
 public static class DeepLinkService
 {
@@ -42,7 +42,8 @@ public static class DeepLinkService
             if (string.IsNullOrEmpty(j) || string.IsNullOrEmpty(c) || string.IsNullOrEmpty(h))
                 return null;
 
-            return new DeepLinkPayload(j, c, h);
+            var t = root.TryGetProperty("t", out var tProp) ? tProp.GetString() : null;
+            return new DeepLinkPayload(j, c, h, string.IsNullOrEmpty(t) ? null : t);
         }
         catch
         {

@@ -31,6 +31,8 @@ import {
   CreateJobResponseSchema,
   JobStatusResponseSchema,
 } from "@/lib/job-status";
+import { SIGNATURE_TEMPLATES } from "@/lib/signature-templates";
+import { SignatureTemplateSelector } from "@/components/signature/SignatureTemplateSelector";
 
 const POLL_INTERVAL_MS = 2000;
 const POLL_TIMEOUT_MS = 5 * 60 * 1000;
@@ -133,6 +135,7 @@ export default function SigningViewerPage() {
   const [signerDownloadModalOpen, setSignerDownloadModalOpen] = useState(false);
   const pollStartRef = useRef<number | null>(null);
   const userLeftTabRef = useRef(false);
+  const [selectedTemplateId, setSelectedTemplateId] = useState("classic");
   const searchParams = useSearchParams();
 
   const {
@@ -206,6 +209,7 @@ export default function SigningViewerPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         documentId: data.document.id,
+        templateId: selectedTemplateId,
         placement: {
           page,
           rectPct: {
@@ -376,6 +380,11 @@ export default function SigningViewerPage() {
       <h3 className="text-sm font-semibold text-foreground">
         Chữ ký số
       </h3>
+      <SignatureTemplateSelector
+        templates={SIGNATURE_TEMPLATES}
+        selectedId={selectedTemplateId}
+        onSelect={setSelectedTemplateId}
+      />
       <Button
         variant="outline"
         size="sm"

@@ -73,6 +73,19 @@ public class SignatureTemplateManager
             DateFormat: "dd/MM/yyyy",
             StampText: "Đã ký số"
         ));
+        Templates.Add(new SignatureTemplate(
+            Id: "valid",
+            DisplayName: "Valid",
+            FontFamily: "Segoe UI",
+            FontSize: 10,
+            Color: "#059669",
+            BorderStyle: SignatureTemplate.BorderSolid,
+            Background: SignatureTemplate.BgWhite,
+            Layout: SignatureTemplate.LayoutStack,
+            ShowDate: true,
+            DateFormat: "dd/MM/yyyy",
+            StampText: "Đã xác thực"
+        ));
     }
 
     private void RestoreSelected()

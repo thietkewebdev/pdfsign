@@ -98,6 +98,9 @@ public partial class MainWindow : Window
             DocTitleText.Text = _job.DocumentTitle;
             ShowScreen(Screen.Sign);
             ResetSignState();
+            if (!string.IsNullOrEmpty(payload.TemplateId))
+                _templateManager.SelectTemplateById(payload.TemplateId);
+            SelectTemplateFromManager();
         }
         catch (HttpRequestException ex)
         {

@@ -30,6 +30,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { SIGNATURE_TEMPLATES } from "@/lib/signature-templates";
+import { SignatureTemplateSelector } from "@/components/signature/SignatureTemplateSelector";
 
 interface DocumentData {
   document: { id: string; publicId: string; title: string };
@@ -56,6 +58,7 @@ export default function SignPage() {
   const [copied, setCopied] = useState(false);
   const [signerDownloadModalOpen, setSignerDownloadModalOpen] = useState(false);
   const userLeftTabRef = useRef(false);
+  const [selectedTemplateId, setSelectedTemplateId] = useState("classic");
 
   const {
     placements,
@@ -224,6 +227,11 @@ export default function SignPage() {
               <h3 className="text-sm font-semibold text-foreground">
                 Signature
               </h3>
+              <SignatureTemplateSelector
+                templates={SIGNATURE_TEMPLATES}
+                selectedId={selectedTemplateId}
+                onSelect={setSelectedTemplateId}
+              />
               <Button
                 variant="outline"
                 size="sm"
@@ -362,6 +370,11 @@ export default function SignPage() {
             <div className="flex-1 overflow-auto">
               <TabsContent value="signature" className="m-0 p-4 h-full">
                 <div className="space-y-4">
+                  <SignatureTemplateSelector
+                    templates={SIGNATURE_TEMPLATES}
+                    selectedId={selectedTemplateId}
+                    onSelect={setSelectedTemplateId}
+                  />
                   <Button
                     variant="outline"
                     size="sm"

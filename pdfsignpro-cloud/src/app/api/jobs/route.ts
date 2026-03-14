@@ -15,6 +15,7 @@ const rectPctSchema = z.object({
 
 const CreateJobSchema = z.object({
   documentId: z.string().min(1),
+  templateId: z.string().optional(),
   placement: z.object({
     page: z.union([z.literal("LAST"), z.number().int().positive()]),
     rectPct: rectPctSchema,
@@ -38,7 +39,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const { documentId, placement: rawPlacement } = parsed.data;
+    const { documentId, templateId, placement: rawPlacement } = parsed.data;
 
     // Normalize placement to spec format: { page, rectPct: { x, y, w, h } }
     const placement = "rectPct" in rawPlacement
@@ -99,7 +100,8 @@ export async function POST(request: Request) {
     const apiBaseUrl =
       process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
     const hostname = new URL(apiBaseUrl).hostname;
-    const payload = { j: jobId, c: claimCode, h: hostname };
+    const payload: Record<string, string> = { j: jobId, c: claimCode, h: hostname };
+    if (templateId) payload.t = templateId;
     const deepLink = `pdfsignpro://sign?p=${base64urlEncode(payload)}`;
 
     return NextResponse.json({

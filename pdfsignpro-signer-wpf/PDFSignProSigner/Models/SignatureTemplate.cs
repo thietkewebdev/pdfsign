@@ -22,6 +22,7 @@ public record SignatureTemplate(
         "modern" => "Nguyễn Văn A · Giám đốc",
         "minimal" => "Nguyễn Văn A",
         "stamp" => "Đã ký số · 10/12/2026",
+        "valid" => "✓ Đã xác thực",
         _ => DisplayName,
     };
     public const string BorderNone = "none";
