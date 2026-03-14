@@ -144,7 +144,11 @@ public partial class MainWindow : Window
         CertLoadingPanel.Visibility = Visibility.Collapsed;
         CertCombo.IsEnabled = false;
         SignBtn.IsEnabled = false;
-        PinBox.Password = "";
+        PinInputPanel.Visibility = Visibility.Visible;
+        LockoutWarningText.Visibility = Visibility.Visible;
+        PinBox.PasswordChanged -= PinBox_PasswordChanged;
+        try { PinBox.Password = ""; }
+        finally { PinBox.PasswordChanged += PinBox_PasswordChanged; }
         _loadCertsCts?.Cancel();
     }
 
@@ -152,6 +156,7 @@ public partial class MainWindow : Window
     {
         _cachedPin = null;
         _cachedTokenId = null;
+        PinCacheStorage.Delete();
     }
 
     private static string ComputeTokenId(string dllPath, List<CertInfo> certs)
@@ -162,7 +167,13 @@ public partial class MainWindow : Window
 
     private async Task TryAutoVerifyWithCachedPinAsync()
     {
-        if (string.IsNullOrEmpty(_cachedPin)) return;
+        if (string.IsNullOrEmpty(_cachedPin))
+        {
+            var (storedTokenId, storedPin) = PinCacheStorage.Load();
+            if (string.IsNullOrEmpty(storedPin)) return;
+            _cachedPin = storedPin;
+            _cachedTokenId = storedTokenId;
+        }
 
         _loadCertsCts?.Cancel();
         _loadCertsCts = new CancellationTokenSource();
@@ -194,6 +205,8 @@ public partial class MainWindow : Window
             CertCombo.SelectedIndex = 0;
             CertCombo.IsEnabled = true;
             SignBtn.IsEnabled = true;
+            PinInputPanel.Visibility = Visibility.Collapsed;
+            LockoutWarningText.Visibility = Visibility.Collapsed;
             VerifyPinResultText.Text = "✓ Đã dùng PIN đã lưu.";
             VerifyPinResultText.Foreground = new System.Windows.Media.SolidColorBrush(
                 (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#22C55E"));
@@ -284,9 +297,12 @@ public partial class MainWindow : Window
                 _pinVerified = true;
                 _cachedPin = pin;
                 _cachedTokenId = ComputeTokenId(dllPath, validCerts);
+                PinCacheStorage.Save(_cachedTokenId, pin);
                 CertCombo.SelectedIndex = 0;
                 CertCombo.IsEnabled = true;
                 SignBtn.IsEnabled = true;
+                PinInputPanel.Visibility = Visibility.Collapsed;
+                LockoutWarningText.Visibility = Visibility.Collapsed;
                 VerifyPinResultText.Text = "✓ PIN đúng. Đã tải chứng thư số.";
                 VerifyPinResultText.Foreground = new System.Windows.Media.SolidColorBrush(
                     (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#22C55E"));
@@ -396,6 +412,7 @@ public partial class MainWindow : Window
 
         try
         {
+            var templateId = _templateManager.SelectedTemplate?.Id ?? "valid";
             var result = await _core.SignAsync(
                 _inputPdfPath,
                 outputPath,
@@ -403,7 +420,8 @@ public partial class MainWindow : Window
                 cert.Index,
                 pin,
                 _job.Placement.Page,
-                _job.Placement.Rect
+                _job.Placement.Rect,
+                templateId
             );
 
             logLines.Add(result.Stdout);

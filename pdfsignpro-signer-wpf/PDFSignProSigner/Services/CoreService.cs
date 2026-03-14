@@ -59,7 +59,7 @@ public class CoreService
         }
     }
 
-    /// <summary>Run sign mode. Desktop-signer chỉ xác thực chứng thư số.</summary>
+    /// <summary>Run sign mode. templateId: classic, modern, minimal, stamp, valid.</summary>
     public async Task<CoreSignResult> SignAsync(
         string inputPath,
         string outputPath,
@@ -68,6 +68,7 @@ public class CoreService
         string pin,
         string page,
         RectPct rect,
+        string? templateId = null,
         CancellationToken ct = default)
     {
         var (valid, err) = rect.Validate();
@@ -75,7 +76,7 @@ public class CoreService
             throw new ArgumentException(err ?? "Invalid rectPct");
 
         var rectStr = rect.ToRectPctString();
-        var args = new[]
+        var args = new List<string>
         {
             "--in", inputPath,
             "--out", outputPath,
@@ -85,7 +86,12 @@ public class CoreService
             "--page", page,
             "--rectPct", rectStr
         };
-        var (exitCode, stdout, stderr) = await RunCoreAsync(args, ct);
+        if (!string.IsNullOrEmpty(templateId))
+        {
+            args.Add("--template");
+            args.Add(templateId);
+        }
+        var (exitCode, stdout, stderr) = await RunCoreAsync(args.ToArray(), ct);
         return new CoreSignResult(exitCode == 0, stdout, stderr, exitCode);
     }
 

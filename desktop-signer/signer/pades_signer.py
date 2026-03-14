@@ -15,7 +15,7 @@ from pyhanko.sign.fields import SigFieldSpec
 from pyhanko.sign.pkcs11 import PKCS11Signer
 from pyhanko.sign.signers.pdf_signer import PdfSignatureMetadata
 
-from .sig_appearance import SigAppearanceStampStyle
+from .sig_appearance import get_stamp_style_for_template
 import pkcs11
 from pkcs11 import Attribute, ObjectClass
 
@@ -197,6 +197,7 @@ async def sign_pdf(
     rect_pct: tuple[float, float, float, float],
     slot_no: Optional[int] = None,
     cert_index: Optional[int] = None,
+    template_id: str = "valid",
 ) -> None:
     """
     Sign PDF with PAdES using PKCS#11 token.
@@ -260,10 +261,11 @@ async def sign_pdf(
         )
 
         meta = PdfSignatureMetadata(field_name="Signature1")
+        stamp_style = get_stamp_style_for_template(template_id)
         pdf_signer = signers.PdfSigner(
             meta,
             signer=pkcs11_signer,
-            stamp_style=SigAppearanceStampStyle(),
+            stamp_style=stamp_style,
         )
 
         with open(output_path, "wb") as outf:
@@ -284,6 +286,7 @@ def sign_pdf_sync(
     rect_pct: tuple[float, float, float, float],
     slot_no: Optional[int] = None,
     cert_index: Optional[int] = None,
+    template_id: str = "valid",
 ) -> None:
     """Synchronous wrapper for sign_pdf."""
     asyncio.run(
@@ -297,5 +300,6 @@ def sign_pdf_sync(
             rect_pct=rect_pct,
             slot_no=slot_no,
             cert_index=cert_index,
+            template_id=template_id,
         )
     )

@@ -55,18 +55,20 @@
                         <TextBlock x:Name="DocTitleText" Text="Tài liệu"
                                    FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}"
                                    TextWrapping="Wrap" Margin="0,0,0,16"/>
-                        <!-- PIN first -->
-                        <TextBlock Text="Mã PIN" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12" Margin="0,0,0,6"/>
-                        <PasswordBox x:Name="PinBox" Height="36" Margin="0,0,0,8"
-                                     FontSize="14" PasswordChanged="PinBox_PasswordChanged"/>
-                        <Button x:Name="VerifyPinBtn" Content="Kiểm tra PIN"
-                                Click="VerifyPin_Click"
-                                Background="{StaticResource BgTertiaryBrush}"
-                                Foreground="{StaticResource TextPrimaryBrush}"
-                                BorderBrush="{StaticResource BorderBrush}"
-                                BorderThickness="1"
-                                Padding="16,8" HorizontalAlignment="Left"
-                                Margin="0,0,0,8"/>
+                        <!-- PIN: ẩn khi dùng PIN đã lưu -->
+                        <StackPanel x:Name="PinInputPanel">
+                            <TextBlock Text="Mã PIN" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12" Margin="0,0,0,6"/>
+                            <PasswordBox x:Name="PinBox" Height="36" Margin="0,0,0,8"
+                                         FontSize="14" PasswordChanged="PinBox_PasswordChanged"/>
+                            <Button x:Name="VerifyPinBtn" Content="Kiểm tra PIN"
+                                    Click="VerifyPin_Click"
+                                    Background="{StaticResource BgTertiaryBrush}"
+                                    Foreground="{StaticResource TextPrimaryBrush}"
+                                    BorderBrush="{StaticResource BorderBrush}"
+                                    BorderThickness="1"
+                                    Padding="16,8" HorizontalAlignment="Left"
+                                    Margin="0,0,0,8"/>
+                        </StackPanel>
                         <TextBlock x:Name="VerifyPinResultText" Text=""
                                   Foreground="#22C55E" FontSize="12" Margin="0,0,0,4"
                                   Visibility="Collapsed"/>

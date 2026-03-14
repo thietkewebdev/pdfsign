@@ -22,6 +22,7 @@ from pyhanko.stamp import BaseStamp, BaseStampStyle
 from .stamp_valid_config import (
     PADDING,
     TITLE_STAMP,
+    TITLE_VALID,
     SIGNER_PREFIX,
     TS_PREFIX,
     TITLE_SIZE_MAX,
@@ -121,6 +122,7 @@ def _compute_stamp_layout(
     height: float,
     signer: str,
     ts: str,
+    title: str = TITLE_VALID,
 ) -> Tuple[float, float, float, int, int, List[str], List[str]]:
     """
     Compute layout matching StampValidPreview.
@@ -144,6 +146,13 @@ def _compute_stamp_layout(
 
     signer_text = f"{SIGNER_PREFIX}{signer}" if signer else SIGNER_PREFIX
     ts_text = f"{TS_PREFIX}{ts}" if ts else TS_PREFIX
+
+    # Adaptive: giảm title_size nếu title quá rộng
+    title = ""  # will be set by caller
+    for try_title in range(int(title_size), 6, -1):
+        if _measure_width(engine, title or "Đã xác thực", float(try_title)) <= text_max_width:
+            title_size = try_title
+            break
 
     # Adaptive: giảm content_size cho đến khi tất cả text vừa trong box
     pad = PADDING
@@ -243,7 +252,7 @@ def _build_stamp_content(
     ts: str,
     writer,
     resource_target,
-    title: str = TITLE_STAMP,
+    title: str,
 ) -> bytes:
     """
     Build PDF content stream for stamp_valid. Layout matches StampValidPreview 1:1.
@@ -256,7 +265,7 @@ def _build_stamp_content(
 
     pad = PADDING
     icon_size, text_x, _, title_size, content_size, signer_lines, ts_lines = _compute_stamp_layout(
-        width, height, signer, ts
+        width, height, signer, ts, title
     )
 
     flip_cm = b"1 0 0 -1 0 %g cm" % height
@@ -317,10 +326,20 @@ def _build_stamp_content(
     return b" ".join(ops)
 
 
+def get_stamp_style_for_template(template_id: str):
+    """Return stamp style for template: classic, modern, minimal, stamp, valid."""
+    tid = (template_id or "valid").strip().lower()
+    if tid in ("stamp", "valid"):
+        title = TITLE_VALID if tid == "valid" else TITLE_STAMP
+        return SigAppearanceStampStyle(title=title)
+    return SimpleTextStampStyle(template_id=tid)
+
+
 @dataclass(frozen=True)
 class SigAppearanceStampStyle(BaseStampStyle):
-    """Stamp_valid style. Desktop-signer chỉ xác thực chứng thư, không nhận mẫu."""
+    """Stamp/valid style - icon + text. title: TITLE_STAMP or TITLE_VALID."""
 
+    title: str = TITLE_VALID
     timestamp_format: str = "%d/%m/%Y %H:%M:%S"
     border_width: int = 0
 
@@ -356,7 +375,197 @@ class SigAppearanceStamp(BaseStamp):
 
         w = self.box.width
         h = self.box.height
+        title = getattr(self.style, "title", TITLE_VALID)
         content_bytes = _build_stamp_content(
-            w, h, signer, ts, self.writer, resource_target=self
+            w, h, signer, ts, self.writer, resource_target=self, title=title
         )
         return [content_bytes]
+
+
+# --- Simple text stamps (classic, modern, minimal) ---
+
+SIMPLE_FONT_SIZE_MIN = 6
+SIMPLE_FONT_SIZE_MAX = 14
+SIMPLE_LINE_HEIGHT = 1.2
+
+
+def _wrap_text_reportlab(c, font_name: str, text: str, max_width: float, font_size: float) -> List[str]:
+    """Wrap text to fit max_width using reportlab stringWidth."""
+    if not text or max_width <= 0:
+        return [text or ""]
+    words = text.split()
+    lines: List[str] = []
+    current: List[str] = []
+    for word in words:
+        sep = " " if current else ""
+        candidate = sep.join(current + [word])
+        w = c.stringWidth(candidate, font_name, font_size)
+        if w <= max_width:
+            current.append(word)
+        else:
+            if current:
+                lines.append(" ".join(current))
+                current = []
+            ww = c.stringWidth(word, font_name, font_size)
+            if ww <= max_width:
+                current = [word]
+            else:
+                for ch in word:
+                    cand = "".join(current) + ch
+                    if c.stringWidth(cand, font_name, font_size) <= max_width:
+                        current.append(ch)
+                    else:
+                        if current:
+                            lines.append("".join(current))
+                        current = [ch] if c.stringWidth(ch, font_name, font_size) <= max_width else []
+    if current:
+        # Words use " ", chars (from breaking long word) use ""
+        lines.append(" ".join(current) if not all(len(x) == 1 for x in current) else "".join(current))
+    return lines
+
+
+def _compute_simple_layout(
+    width: float,
+    height: float,
+    signer: str,
+    ts: str,
+    template_id: str,
+    c,
+    font_name: str,
+) -> Tuple[int, List[str], List[str]]:
+    """Compute font size and wrapped lines so text fits in box. Returns (font_size, signer_lines, ts_lines)."""
+    pad = 6
+    max_w = max(20, width - 2 * pad)
+    has_ts = template_id != "minimal" and bool(ts)
+    signer_text = signer or "—"
+    ts_text = ts or ""
+
+    for font_size in range(SIMPLE_FONT_SIZE_MAX, SIMPLE_FONT_SIZE_MIN - 1, -1):
+        leading = font_size * SIMPLE_LINE_HEIGHT
+        signer_lines = _wrap_text_reportlab(c, font_name, signer_text, max_w, font_size)
+        ts_lines = _wrap_text_reportlab(c, font_name, ts_text, max_w, font_size) if has_ts else []
+
+        needed_h = len(signer_lines) * leading
+        if has_ts:
+            needed_h += len(ts_lines) * leading + 2
+        available_h = height - 2 * pad
+        if needed_h <= available_h:
+            return font_size, signer_lines, ts_lines
+
+    # Fallback: use min size, truncate if needed
+    fs = SIMPLE_FONT_SIZE_MIN
+    signer_lines = _wrap_text_reportlab(c, font_name, signer_text, max_w, fs)
+    ts_lines = _wrap_text_reportlab(c, font_name, ts_text, max_w, fs) if has_ts else []
+    return fs, signer_lines, ts_lines
+
+
+def _render_simple_text_pdf(
+    width: float,
+    height: float,
+    signer: str,
+    ts: str,
+    template_id: str,
+) -> str:
+    """Render simple text stamp via reportlab. Auto-size font, wrap text to fit box."""
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
+    from reportlab.pdfgen import canvas
+
+    font_path = _ensure_font()
+    font_name = "NotoSans"
+    if font_name not in pdfmetrics.getRegisteredFontNames():
+        pdfmetrics.registerFont(TTFont(font_name, str(font_path)))
+
+    tmp = tempfile.NamedTemporaryFile(suffix=".pdf", delete=False)
+    tmp.close()
+    path = tmp.name
+
+    c = canvas.Canvas(path, pagesize=(width, height))
+    pad = 6
+
+    # Need c for stringWidth - compute layout first
+    font_size, signer_lines, ts_lines = _compute_simple_layout(
+        width, height, signer, ts, template_id, c, font_name
+    )
+    leading = font_size * SIMPLE_LINE_HEIGHT
+
+    # Draw from top (reportlab y=0 is bottom)
+    y = height - pad
+    c.setFillColorRGB(0.22, 0.23, 0.27)
+
+    if template_id == "modern":
+        c.setFillColorRGB(0.94, 0.94, 0.94)
+        c.roundRect(pad, pad, width - 2 * pad, height - 2 * pad, 4, fill=1, stroke=0)
+        c.setFillColorRGB(0.22, 0.23, 0.27)
+
+    c.setFont(font_name, font_size)
+    for line in signer_lines:
+        c.drawCentredString(width / 2, y - font_size, line)
+        y -= leading
+
+    if ts_lines:
+        c.setFillColorRGB(0.55, 0.58, 0.63)
+        y -= 2
+        for line in ts_lines:
+            c.drawCentredString(width / 2, y - font_size, line)
+            y -= leading
+
+    if template_id == "classic":
+        c.setStrokeColorRGB(0.2, 0.2, 0.2)
+        c.setLineWidth(1)
+        c.line(pad, pad + 2, width - pad, pad + 2)
+
+    c.save()
+    return path
+
+
+@dataclass(frozen=True)
+class SimpleTextStampStyle(BaseStampStyle):
+    """Simple text stamp for classic, modern, minimal."""
+
+    template_id: str = "classic"
+    timestamp_format: str = "%d/%m/%Y %H:%M:%S"
+    border_width: int = 0
+
+    def create_stamp(self, writer, box: layout.BoxConstraints, text_params: dict):
+        return SimpleTextStamp(
+            writer=writer,
+            style=self,
+            box=box,
+            text_params=text_params,
+        )
+
+
+class SimpleTextStamp(BaseStamp):
+    """Simple text-only stamp."""
+
+    def __init__(self, writer, style: SimpleTextStampStyle, box, text_params=None):
+        super().__init__(writer=writer, style=style, box=box)
+        self.text_params = text_params or {}
+
+    def _render_inner_content(self):
+        signer = self.text_params.get("signer", "")
+        ts = self.text_params.get("ts", "")
+        if not ts and hasattr(self.style, "timestamp_format"):
+            from datetime import datetime
+
+            try:
+                import zoneinfo
+
+                tz = zoneinfo.ZoneInfo("Asia/Ho_Chi_Minh")
+                ts = datetime.now(tz).strftime(self.style.timestamp_format)
+            except ImportError:
+                ts = datetime.now().strftime(self.style.timestamp_format)
+
+        w = self.box.width
+        h = self.box.height
+        tid = getattr(self.style, "template_id", "classic")
+        pdf_path = _render_simple_text_pdf(w, h, signer, ts, tid)
+        try:
+            imported = ImportedPdfPage(pdf_path, page_ix=0)
+            imported.set_writer(self.writer)
+            do_cmd = imported.render()
+            self.import_resources(imported.resources)
+            return [b"q", do_cmd, b"Q"]
+        finally:
+            Path(pdf_path).unlink(missing_ok=True)

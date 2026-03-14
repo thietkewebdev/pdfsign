@@ -10,6 +10,7 @@
       "PDFSignProSigner/1.0.0": {
         "dependencies": {
           "System.Net.Http.Json": "8.0.1",
+          "System.Security.Cryptography.ProtectedData": "8.0.0",
           "System.Text.Json": "8.0.5"
         },
         "runtime": {
@@ -17,6 +18,7 @@
         }
       },
       "System.Net.Http.Json/8.0.1": {},
+      "System.Security.Cryptography.ProtectedData/8.0.0": {},
       "System.Text.Json/8.0.5": {}
     }
   },
@@ -32,6 +34,13 @@
       "sha512": "sha512-F423ZLoJFYg1s6iA+Y7BLflVKjEK5XEA2+Z9CHbxJEUtS3+R5pgnFN499QzriRjYpOu6kS2Crd2YBkOFDHrblg==",
       "path": "system.net.http.json/8.0.1",
       "hashPath": "system.net.http.json.8.0.1.nupkg.sha512"
+    },
+    "System.Security.Cryptography.ProtectedData/8.0.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-+TUFINV2q2ifyXauQXRwy4CiBhqvDEDZeVJU7qfxya4aRYOKzVBpN+4acx25VcPB9ywUN6C0n8drWl110PhZEg==",
+      "path": "system.security.cryptography.protecteddata/8.0.0",
+      "hashPath": "system.security.cryptography.protecteddata.8.0.0.nupkg.sha512"
     },
     "System.Text.Json/8.0.5": {
       "type": "package",
