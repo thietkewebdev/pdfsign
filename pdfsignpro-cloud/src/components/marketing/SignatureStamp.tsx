@@ -138,7 +138,6 @@ export function SignatureStamp({
       {/* Text block (right) - foreignObject for word wrap */}
       <foreignObject x="72" y="12" width="196" height="48">
         <div
-          xmlns="http://www.w3.org/1999/xhtml"
           style={{
             width: "100%",
             overflow: "hidden",
