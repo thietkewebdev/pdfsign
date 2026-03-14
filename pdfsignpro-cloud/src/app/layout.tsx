@@ -65,9 +65,28 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const organizationJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: "PDFSignPro Cloud",
+    url: baseUrl,
+    logo: `${baseUrl}/icon-192.png`,
+    contactPoint: {
+      "@type": "ContactPoint",
+      email: "info@thietkeweb.dev",
+      contactType: "customer service",
+      availableLanguage: "Vietnamese",
+    },
+    sameAs: ["https://github.com/thietkewebdev/pdfsign"],
+  };
+
   return (
     <html lang="vi" suppressHydrationWarning>
       <body className={`${inter.variable} font-sans antialiased text-[15px] leading-normal`}>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
+        />
         <ThemeProvider
           attribute="class"
           defaultTheme="dark"
