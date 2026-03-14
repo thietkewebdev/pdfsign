@@ -1,10 +1,19 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { Footer } from "@/components/footer";
 import { useTheme } from "next-themes";
-import { Moon, Sun, Github, Monitor, Laptop, ChevronDown } from "lucide-react";
+import { useSession, signIn, signOut } from "next-auth/react";
+import { Moon, Sun, Github, Monitor, Laptop, ChevronDown, LogIn, FileText, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 import {
   Tooltip,
   TooltipContent,
@@ -15,6 +24,7 @@ import { cn } from "@/lib/utils";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { theme, setTheme } = useTheme();
+  const { data: session, status } = useSession();
   const hasOffline = !!process.env.NEXT_PUBLIC_OFFLINE_APP_URL;
 
   return (
@@ -79,6 +89,58 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <TooltipContent>Đổi giao diện</TooltipContent>
               </Tooltip>
             </TooltipProvider>
+            {status === "authenticated" && session?.user ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="rounded-full">
+                    {session.user.image ? (
+                      <Image
+                        src={session.user.image}
+                        alt={session.user.name ?? "Avatar"}
+                        width={28}
+                        height={28}
+                        className="rounded-full"
+                      />
+                    ) : (
+                      <div className="size-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-medium">
+                        {(session.user.name ?? session.user.email ?? "U").charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <div className="px-2 py-1.5">
+                    <p className="text-sm font-medium">{session.user.name}</p>
+                    <p className="text-xs text-muted-foreground truncate">{session.user.email}</p>
+                  </div>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link href="/dashboard" className="cursor-pointer">
+                      <FileText className="size-4" />
+                      Tài liệu của tôi
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    className="cursor-pointer text-destructive focus:text-destructive"
+                    onClick={() => signOut()}
+                  >
+                    <LogOut className="size-4" />
+                    Đăng xuất
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : status === "unauthenticated" ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => signIn("google")}
+                className="gap-1.5 text-muted-foreground hover:text-foreground"
+              >
+                <LogIn className="size-4" />
+                Đăng nhập
+              </Button>
+            ) : null}
             <Button variant="ghost" size="icon" asChild aria-label="GitHub">
               <a
                 href="https://github.com"

@@ -1,7 +1,8 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { randomBytes } from "crypto";
 import { prisma } from "@/lib/prisma";
+import { auth } from "@/lib/auth";
 import { getStorageDriver } from "@/storage";
 
 const CreateDocumentSchema = z.object({
@@ -21,6 +22,8 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
+
+    const session = await auth();
 
     const formData = await request.formData();
     const file = formData.get("file") as File | null;
@@ -57,6 +60,7 @@ export async function POST(request: Request) {
         publicId,
         title: title || file.name || "Untitled",
         status: "ACTIVE",
+        userId: session?.user?.id ?? null,
         versions: {
           create: {
             version: 1,
@@ -84,6 +88,67 @@ export async function POST(request: Request) {
     });
   } catch (err) {
     console.error("POST /api/documents error:", err);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    const { searchParams } = request.nextUrl;
+    const mine = searchParams.get("mine");
+
+    if (mine !== "1") {
+      return NextResponse.json(
+        { error: "Missing required query param: mine=1" },
+        { status: 400 }
+      );
+    }
+
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { error: "Authentication required" },
+        { status: 401 }
+      );
+    }
+
+    const docs = await prisma.document.findMany({
+      where: { userId: session.user.id },
+      orderBy: { createdAt: "desc" },
+      include: {
+        versions: {
+          orderBy: { version: "desc" },
+          take: 1,
+          select: { version: true },
+        },
+        jobs: {
+          where: { status: "COMPLETED" },
+          take: 1,
+          select: { id: true },
+        },
+        _count: {
+          select: { jobs: true },
+        },
+      },
+    });
+
+    const documents = docs.map((doc) => ({
+      id: doc.id,
+      publicId: doc.publicId,
+      title: doc.title,
+      status: doc.status,
+      createdAt: doc.createdAt.toISOString(),
+      latestVersion: doc.versions[0]?.version ?? 1,
+      isSigned: doc.jobs.length > 0,
+      signingJobCount: doc._count.jobs,
+    }));
+
+    return NextResponse.json({ documents });
+  } catch (err) {
+    console.error("GET /api/documents error:", err);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

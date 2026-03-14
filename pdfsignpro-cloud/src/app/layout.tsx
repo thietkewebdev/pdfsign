@@ -4,6 +4,7 @@ import Script from "next/script";
 import { Toaster } from "sonner";
 import { LazyMotion, domAnimation } from "motion/react";
 import { ThemeProvider } from "@/components/theme-provider";
+import { AuthProvider } from "@/components/auth-provider";
 import { UploadProvider } from "@/contexts/upload-context";
 import { ConditionalShell } from "@/components/conditional-shell";
 import { GA4 } from "@/components/analytics/ga4";
@@ -73,6 +74,7 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
+          <AuthProvider>
           <LazyMotion features={domAnimation}>
             <UploadProvider>
               <ConditionalShell>{children}</ConditionalShell>
@@ -99,6 +101,7 @@ export default function RootLayout({
               />
             </UploadProvider>
           </LazyMotion>
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>
