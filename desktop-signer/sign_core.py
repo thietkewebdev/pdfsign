@@ -66,7 +66,6 @@ def sign_pdf(
     dll_path: str,
     cert_index: int,
     pin: str,
-    template_id: str | None = None,
 ) -> None:
     """Sign PDF. Output to stdout on success."""
     certs, slot_no = list_certs_from_token(dll_path, pin=pin)
@@ -83,7 +82,6 @@ def sign_pdf(
         rect_pct=rect_pct,
         slot_no=slot_no,
         cert_index=cert_index,
-        template_id=template_id,
     )
     print("OK")
 
@@ -98,7 +96,6 @@ def main() -> int:
     parser.add_argument("--page", default="LAST", help="Page number or LAST")
     parser.add_argument("--rectPct", default="0.64,0.06,0.32,0.10", help="Rect as x,y,w,h")
     parser.add_argument("--cert-index", type=int, help="Certificate index")
-    parser.add_argument("--template", help="Template id: stamp (default) or valid")
 
     args = parser.parse_args()
 
@@ -116,7 +113,6 @@ def main() -> int:
             dll = get_pkcs11_dll(args.dll) if args.dll else get_pkcs11_dll(None)
             page_spec = parse_page(args.page)
             rect = parse_rect_pct(args.rectPct)
-            template_id = args.template
             sign_pdf(
                 args.input,
                 args.output,
@@ -125,7 +121,6 @@ def main() -> int:
                 str(dll),
                 args.cert_index,
                 args.pin,
-                template_id,
             )
     except Exception as e:
         print(str(e), file=sys.stderr)

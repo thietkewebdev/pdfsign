@@ -322,11 +322,6 @@ public partial class MainWindow : Window
         var outputPath = Path.Combine(_tempDir, "signed.pdf");
         var logLines = new List<string>();
 
-        var template = _templateManager.SelectedTemplate;
-        var templateId = template?.Id;
-        if (template != null)
-            LogService.Info($"Signing with template: {template.Id} ({template.DisplayName})");
-
         try
         {
             var result = await _core.SignAsync(
@@ -336,8 +331,7 @@ public partial class MainWindow : Window
                 cert.Index,
                 pin,
                 _job.Placement.Page,
-                _job.Placement.Rect,
-                templateId
+                _job.Placement.Rect
             );
 
             logLines.Add(result.Stdout);

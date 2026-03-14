@@ -34,7 +34,7 @@ function TemplatePreview({
   return (
     <StampValidPreview
       variant={variant}
-      companyName="Công ty ABC"
+      companyName="Công ty TNHH Cổ phần Xây dựng và Thương mại Việt Nam"
       signedAt="14/03/2026 09:33:58"
       boxWidth={boxWidth}
       boxHeight={boxHeight}

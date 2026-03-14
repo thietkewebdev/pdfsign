@@ -16,13 +16,13 @@ TITLE_SIZE_RATIO = 0.2
 CONTENT_SIZE_RATIO = 0.16
 TITLE_SIZE_MIN = 10
 TITLE_SIZE_MAX = 14
-CONTENT_SIZE_MIN = 8
+CONTENT_SIZE_MIN = 6
 CONTENT_SIZE_MAX = 12
 LINE_HEIGHT = 1.25
 
-# Max lines (clip if exceeded)
-MAX_SIGNER_LINES = 2
-MAX_TS_LINES = 3
+# Không giới hạn dòng - hiển thị đủ tên công ty, thời gian
+MAX_SIGNER_LINES = 10
+MAX_TS_LINES = 5
 
 # Labels
 TITLE_STAMP = "Đã ký số"

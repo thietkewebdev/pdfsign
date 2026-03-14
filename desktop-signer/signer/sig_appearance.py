@@ -25,6 +25,7 @@ from .stamp_valid_config import (
     SIGNER_PREFIX,
     TS_PREFIX,
     TITLE_SIZE_MAX,
+    CONTENT_SIZE_MIN,
     CONTENT_SIZE_MAX,
     LINE_HEIGHT,
     MAX_SIGNER_LINES,
@@ -123,6 +124,7 @@ def _compute_stamp_layout(
 ) -> Tuple[float, float, float, int, int, List[str], List[str]]:
     """
     Compute layout matching StampValidPreview.
+    Tự động giảm font khi text dài để hiển thị đủ, không cắt chữ.
     Returns: icon_size, text_x, text_max_width, title_size, content_size, signer_lines, ts_lines.
     """
     font_path = _ensure_font()
@@ -143,16 +145,32 @@ def _compute_stamp_layout(
     signer_text = f"{SIGNER_PREFIX}{signer}" if signer else SIGNER_PREFIX
     ts_text = f"{TS_PREFIX}{ts}" if ts else TS_PREFIX
 
+    # Adaptive: giảm content_size cho đến khi tất cả text vừa trong box
+    pad = PADDING
+    title_block_height = title_size * leading_ratio + 4
+    available_height = height - 2 * pad - title_block_height
+
+    for try_size in range(int(content_size), CONTENT_SIZE_MIN - 1, -1):
+        fs = float(try_size)
+        signer_lines = _wrap_text(engine, signer_text, text_max_width, fs)
+        signer_lines = signer_lines[:MAX_SIGNER_LINES]
+        ts_lines = _wrap_text(engine, ts_text, text_max_width, fs)
+        ts_lines = ts_lines[:MAX_TS_LINES]
+        leading = try_size * LINE_HEIGHT
+        needed = (len(signer_lines) + len(ts_lines)) * leading
+        if needed <= available_height:
+            content_size = try_size
+            break
+
     signer_lines = _wrap_text(engine, signer_text, text_max_width, float(content_size))
     signer_lines = signer_lines[:MAX_SIGNER_LINES]
-
     ts_lines = _wrap_text(engine, ts_text, text_max_width, float(content_size))
     ts_lines = ts_lines[:MAX_TS_LINES]
 
     if os.environ.get("PDFSIGN_DEBUG"):
         _debug_print(
             f"[sig_appearance] stamp_valid: {width}x{height} icon={icon_size:.1f} "
-            f"text_x={text_x} signer_lines={signer_lines} ts_lines={ts_lines}"
+            f"content_size={content_size} signer_lines={signer_lines} ts_lines={ts_lines}"
         )
 
     return icon_size, text_x, text_max_width, title_size, content_size, signer_lines, ts_lines
@@ -305,7 +323,6 @@ class SigAppearanceStampStyle(BaseStampStyle):
 
     timestamp_format: str = "%d/%m/%Y %H:%M:%S"
     border_width: int = 0
-    title: str = TITLE_STAMP  # TITLE_STAMP or TITLE_VALID for valid template
 
     def create_stamp(self, writer, box: layout.BoxConstraints, text_params: dict):
         return SigAppearanceStamp(
@@ -339,8 +356,7 @@ class SigAppearanceStamp(BaseStamp):
 
         w = self.box.width
         h = self.box.height
-        title = getattr(self.style, "title", TITLE_STAMP)
         content_bytes = _build_stamp_content(
-            w, h, signer, ts, self.writer, resource_target=self, title=title
+            w, h, signer, ts, self.writer, resource_target=self
         )
         return [content_bytes]

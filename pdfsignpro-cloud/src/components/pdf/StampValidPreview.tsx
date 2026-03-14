@@ -26,8 +26,9 @@ export function StampValidPreview({
 }: StampValidPreviewProps) {
   const { iconSize, textMaxWidth, textMaxHeight, titleSize, contentSize, lineHeight } =
     useMemo(
-      () => computeStampValidLayout(boxWidth, boxHeight),
-      [boxWidth, boxHeight]
+      () =>
+        computeStampValidLayout(boxWidth, boxHeight, companyName, signedAt),
+      [boxWidth, boxHeight, companyName, signedAt]
     );
 
   const title =
@@ -38,7 +39,7 @@ export function StampValidPreview({
   return (
     <div
       className={cn(
-        "flex items-stretch overflow-hidden rounded",
+        "flex items-stretch rounded",
         variant === "valid"
           ? "bg-emerald-50/90 dark:bg-emerald-950/40 border border-emerald-500/50"
           : "bg-white/90 dark:bg-zinc-800/90 border border-emerald-500/30",
@@ -74,9 +75,9 @@ export function StampValidPreview({
         </svg>
       </div>
 
-      {/* Text - right, clipped, wrap */}
+      {/* Text - right, wrap đủ, không cắt */}
       <div
-        className="flex flex-col justify-center min-w-0 overflow-hidden shrink"
+        className="flex flex-col justify-center min-w-0 shrink overflow-hidden"
         style={{
           maxWidth: Math.max(0, textMaxWidth),
           maxHeight: textMaxHeight,
@@ -84,7 +85,7 @@ export function StampValidPreview({
         }}
       >
         <div
-          className="font-semibold text-red-600 dark:text-red-400 truncate"
+          className="font-semibold text-red-600 dark:text-red-400 shrink-0"
           style={{ fontSize: titleSize, lineHeight }}
         >
           {title}
