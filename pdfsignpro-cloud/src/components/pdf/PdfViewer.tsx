@@ -41,6 +41,8 @@ interface PdfViewerProps {
   activePageForPlacement: number;
   /** When true, hide signature overlays and disable placement editing (read-only for signed PDFs) */
   readOnly?: boolean;
+  /** Selected template id for signature preview */
+  selectedTemplateId?: string;
   /** Toolbar actions - when provided, rendered in viewer toolbar */
   toolbarActions?: {
     downloadUrl: string;
@@ -63,6 +65,7 @@ export function PdfViewer({
   onPlacementUpdate,
   activePageForPlacement,
   readOnly = false,
+  selectedTemplateId = "classic",
   toolbarActions,
 }: PdfViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -318,6 +321,7 @@ export function PdfViewer({
                   pageWidth={pageWidth}
                   pageHeight={pageHeight}
                   scale={1}
+                  templateId={selectedTemplateId}
                   onDragStop={handleDragStop(globalIndex)}
                   onResizeStop={handleResizeStop(globalIndex)}
                 />

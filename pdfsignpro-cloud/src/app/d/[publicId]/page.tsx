@@ -383,7 +383,10 @@ export default function SigningViewerPage() {
       <SignatureTemplateSelector
         templates={SIGNATURE_TEMPLATES}
         selectedId={selectedTemplateId}
-        onSelect={setSelectedTemplateId}
+        onSelect={(id) => {
+          setSelectedTemplateId(id);
+          if (placements.length === 0 && totalPages > 0) addSignatureBox();
+        }}
       />
       <Button
         variant="outline"
@@ -542,6 +545,7 @@ export default function SigningViewerPage() {
               onPlacementUpdate={handlePlacementUpdate}
               activePageForPlacement={activePage}
               readOnly={isSigned}
+              selectedTemplateId={selectedTemplateId}
               toolbarActions={{
                 downloadUrl,
                 documentTitle: doc.title ?? "document.pdf",
@@ -630,6 +634,7 @@ export default function SigningViewerPage() {
                   onPlacementUpdate={handlePlacementUpdate}
                   activePageForPlacement={activePage}
                   readOnly={isSigned}
+                  selectedTemplateId={selectedTemplateId}
                   toolbarActions={{
                     downloadUrl,
                     documentTitle: doc.title ?? "document.pdf",

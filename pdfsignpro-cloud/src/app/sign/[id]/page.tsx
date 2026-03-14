@@ -230,7 +230,10 @@ export default function SignPage() {
               <SignatureTemplateSelector
                 templates={SIGNATURE_TEMPLATES}
                 selectedId={selectedTemplateId}
-                onSelect={setSelectedTemplateId}
+                onSelect={(id) => {
+                  setSelectedTemplateId(id);
+                  if (placements.length === 0 && totalPages > 0) addSignatureBox();
+                }}
               />
               <Button
                 variant="outline"
@@ -328,6 +331,7 @@ export default function SignPage() {
               placements={placements}
               onPlacementUpdate={handlePlacementUpdate}
               activePageForPlacement={activePage}
+              selectedTemplateId={selectedTemplateId}
             />
           </div>
           <div className="border-l border-border p-4 overflow-hidden">
@@ -373,7 +377,10 @@ export default function SignPage() {
                   <SignatureTemplateSelector
                     templates={SIGNATURE_TEMPLATES}
                     selectedId={selectedTemplateId}
-                    onSelect={setSelectedTemplateId}
+                    onSelect={(id) => {
+                      setSelectedTemplateId(id);
+                      if (placements.length === 0 && totalPages > 0) addSignatureBox();
+                    }}
                   />
                   <Button
                     variant="outline"
@@ -446,6 +453,7 @@ export default function SignPage() {
                     placements={placements}
                     onPlacementUpdate={handlePlacementUpdate}
                     activePageForPlacement={activePage}
+                    selectedTemplateId={selectedTemplateId}
                   />
                 </div>
               </TabsContent>
