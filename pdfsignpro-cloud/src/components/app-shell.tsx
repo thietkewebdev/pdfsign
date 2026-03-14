@@ -5,7 +5,7 @@ import Image from "next/image";
 import { Footer } from "@/components/footer";
 import { useTheme } from "next-themes";
 import { useSession, signIn, signOut } from "next-auth/react";
-import { Moon, Sun, Github, Monitor, Laptop, ChevronDown, LogIn, FileText, LogOut } from "lucide-react";
+import { Moon, Sun, Github, Monitor, Laptop, ChevronDown, LogIn, FileText, LogOut, HelpCircle, Scale, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -70,6 +70,28 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                       Tải phần mềm ký offline
                     </Link>
                   )}
+                  <Link
+                    href="/faq"
+                    className="flex items-center gap-2 px-3 py-2 text-sm text-popover-foreground hover:bg-accent hover:text-accent-foreground"
+                  >
+                    <HelpCircle className="size-4 shrink-0" />
+                    Câu hỏi thường gặp
+                  </Link>
+                  <div className="my-1 border-t border-border" />
+                  <Link
+                    href="/terms"
+                    className="flex items-center gap-2 px-3 py-2 text-sm text-popover-foreground hover:bg-accent hover:text-accent-foreground"
+                  >
+                    <Scale className="size-4 shrink-0" />
+                    Điều khoản dịch vụ
+                  </Link>
+                  <Link
+                    href="/privacy"
+                    className="flex items-center gap-2 px-3 py-2 text-sm text-popover-foreground hover:bg-accent hover:text-accent-foreground"
+                  >
+                    <ShieldCheck className="size-4 shrink-0" />
+                    Chính sách bảo mật
+                  </Link>
                 </div>
               </div>
             </div>
