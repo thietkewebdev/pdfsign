@@ -62,11 +62,15 @@ def _parse_deep_link(url: str) -> dict | None:
             j = data.get("j")
             c = data.get("c")
             h = data.get("h")
+            t = data.get("t")
             if j and c and h:
                 scheme = "http" if h == "localhost" or str(h).startswith("localhost:") else "https"
                 port = ":3000" if h == "localhost" else ""
                 api_base = f"{scheme}://{h}{port}".rstrip("/")
-                return {"jobId": j, "code": c, "apiBaseUrl": api_base}
+                result = {"jobId": j, "code": c, "apiBaseUrl": api_base}
+                if t:
+                    result["templateId"] = t
+                return result
         except (ValueError, json.JSONDecodeError, KeyError):
             pass
     # Legacy: jobId + code + u
@@ -163,6 +167,7 @@ def run_deep_link(params: dict) -> int:
 
     input_pdf_url = job.get("inputPdfUrl")
     placement = job.get("placement", {})
+    template_id = params.get("templateId")
     if not input_pdf_url:
         print("Lỗi: Job không có inputPdfUrl", file=sys.stderr)
         return 1
@@ -236,6 +241,7 @@ def run_deep_link(params: dict) -> int:
                 rect_pct=rect_pct,
                 slot_no=slot_no,
                 cert_index=idx,
+                template_id=template_id,
             )
         except Exception as e:
             print(f"Lỗi ký: {e}", file=sys.stderr)

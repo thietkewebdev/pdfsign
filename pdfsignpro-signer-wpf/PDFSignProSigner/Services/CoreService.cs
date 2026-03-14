@@ -68,6 +68,7 @@ public class CoreService
         string pin,
         string page,
         RectPct rect,
+        string? templateId = null,
         CancellationToken ct = default)
     {
         var (valid, err) = rect.Validate();
@@ -75,7 +76,7 @@ public class CoreService
             throw new ArgumentException(err ?? "Invalid rectPct");
 
         var rectStr = rect.ToRectPctString();
-        var args = new[]
+        var args = new List<string>
         {
             "--in", inputPath,
             "--out", outputPath,
@@ -85,7 +86,10 @@ public class CoreService
             "--page", page,
             "--rectPct", rectStr
         };
-        var (exitCode, stdout, stderr) = await RunCoreAsync(args, ct);
+        if (!string.IsNullOrEmpty(templateId))
+            args.AddRange(new[] { "--template", templateId });
+        var argsArr = args.ToArray();
+        var (exitCode, stdout, stderr) = await RunCoreAsync(argsArr, ct);
         return new CoreSignResult(exitCode == 0, stdout, stderr, exitCode);
     }
 

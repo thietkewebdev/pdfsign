@@ -79,9 +79,10 @@
                             <ProgressBar IsIndeterminate="True" Height="3" Width="120" VerticalAlignment="Center" Margin="0,0,8,0"/>
                             <TextBlock Text="Đang đọc chứng thư…" Foreground="{StaticResource TextSecondaryBrush}" FontSize="13" VerticalAlignment="Center"/>
                         </StackPanel>
-                        <!-- Signature templates -->
-                        <TextBlock Text="Mẫu chữ ký" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12" Margin="0,0,0,6"/>
-                        <ListBox x:Name="TemplateList" MinHeight="120" MaxHeight="160" Margin="0,0,0,12"
+                        <!-- Signature templates - ẩn khi ký từ web, mẫu cố định từ deep link -->
+                        <StackPanel x:Name="TemplateSelectorPanel" Visibility="Collapsed">
+                            <TextBlock Text="Mẫu chữ ký" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12" Margin="0,0,0,6"/>
+                            <ListBox x:Name="TemplateList" MinHeight="120" MaxHeight="160" Margin="0,0,0,12"
                                  Background="{StaticResource BgTertiaryBrush}"
                                  BorderBrush="{StaticResource BorderBrush}"
                                  BorderThickness="1"
@@ -125,6 +126,7 @@
                                 </DataTemplate>
                             </ListBox.ItemTemplate>
                         </ListBox>
+                        </StackPanel>
                         <!-- Cert dropdown -->
                         <TextBlock Text="Chứng chỉ" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12" Margin="0,0,0,6"/>
                         <ComboBox x:Name="CertCombo" MinHeight="44" Margin="0,0,0,20"

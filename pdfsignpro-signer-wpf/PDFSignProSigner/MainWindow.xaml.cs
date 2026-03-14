@@ -322,9 +322,8 @@ public partial class MainWindow : Window
         var outputPath = Path.Combine(_tempDir, "signed.pdf");
         var logLines = new List<string>();
 
-        // TODO: Pass _templateManager.SelectedTemplate to backend/Core for visible signature appearance.
-        // CoreService.SignAsync does not yet support template/appearance; add --template or similar when backend ready.
         var template = _templateManager.SelectedTemplate;
+        var templateId = template?.Id;
         if (template != null)
             LogService.Info($"Signing with template: {template.Id} ({template.DisplayName})");
 
@@ -337,7 +336,8 @@ public partial class MainWindow : Window
                 cert.Index,
                 pin,
                 _job.Placement.Page,
-                _job.Placement.Rect
+                _job.Placement.Rect,
+                templateId
             );
 
             logLines.Add(result.Stdout);

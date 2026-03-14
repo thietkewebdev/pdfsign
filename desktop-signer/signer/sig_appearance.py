@@ -225,6 +225,7 @@ def _build_stamp_content(
     ts: str,
     writer,
     resource_target,
+    title: str = TITLE_STAMP,
 ) -> bytes:
     """
     Build PDF content stream for stamp_valid. Layout matches StampValidPreview 1:1.
@@ -257,7 +258,7 @@ def _build_stamp_content(
     text_form_y = height - text_y_baseline
     text_pdf_path = _render_text_via_reportlab(
         width, height,
-        TITLE_STAMP,
+        title,
         signer_lines, ts_lines,
         text_x, text_form_y,
         title_size, content_size,
@@ -304,6 +305,7 @@ class SigAppearanceStampStyle(BaseStampStyle):
 
     timestamp_format: str = "%d/%m/%Y %H:%M:%S"
     border_width: int = 0
+    title: str = TITLE_STAMP  # TITLE_STAMP or TITLE_VALID for valid template
 
     def create_stamp(self, writer, box: layout.BoxConstraints, text_params: dict):
         return SigAppearanceStamp(
@@ -337,7 +339,8 @@ class SigAppearanceStamp(BaseStamp):
 
         w = self.box.width
         h = self.box.height
+        title = getattr(self.style, "title", TITLE_STAMP)
         content_bytes = _build_stamp_content(
-            w, h, signer, ts, self.writer, resource_target=self
+            w, h, signer, ts, self.writer, resource_target=self, title=title
         )
         return [content_bytes]
