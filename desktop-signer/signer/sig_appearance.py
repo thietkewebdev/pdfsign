@@ -148,9 +148,9 @@ def _compute_stamp_layout(
     ts_text = f"{TS_PREFIX}{ts}" if ts else TS_PREFIX
 
     # Adaptive: giảm title_size nếu title quá rộng
-    title = ""  # will be set by caller
+    title_text = title or TITLE_VALID
     for try_title in range(int(title_size), 6, -1):
-        if _measure_width(engine, title or "Đã xác thực", float(try_title)) <= text_max_width:
+        if _measure_width(engine, title_text, float(try_title)) <= text_max_width:
             title_size = try_title
             break
 
@@ -326,9 +326,11 @@ def _build_stamp_content(
     return b" ".join(ops)
 
 
-def get_stamp_style_for_template(template_id: str):
-    """Return stamp style for template: classic, modern, minimal, stamp, valid."""
+def get_stamp_style_for_template(template_id: str, seal_image_path: str | None = None):
+    """Return stamp style for template: classic, modern, minimal, stamp, valid, seal."""
     tid = (template_id or "valid").strip().lower()
+    if tid == "seal" and seal_image_path:
+        return SealStampStyle(seal_image_path=seal_image_path)
     if tid in ("stamp", "valid"):
         title = TITLE_VALID if tid == "valid" else TITLE_STAMP
         return SigAppearanceStampStyle(title=title)
@@ -386,42 +388,17 @@ class SigAppearanceStamp(BaseStamp):
 
 SIMPLE_FONT_SIZE_MIN = 6
 SIMPLE_FONT_SIZE_MAX = 14
-SIMPLE_LINE_HEIGHT = 1.2
+SIMPLE_LINE_HEIGHT = 1.25
 
 
-def _wrap_text_reportlab(c, font_name: str, text: str, max_width: float, font_size: float) -> List[str]:
-    """Wrap text to fit max_width using reportlab stringWidth."""
-    if not text or max_width <= 0:
-        return [text or ""]
-    words = text.split()
-    lines: List[str] = []
-    current: List[str] = []
-    for word in words:
-        sep = " " if current else ""
-        candidate = sep.join(current + [word])
-        w = c.stringWidth(candidate, font_name, font_size)
-        if w <= max_width:
-            current.append(word)
-        else:
-            if current:
-                lines.append(" ".join(current))
-                current = []
-            ww = c.stringWidth(word, font_name, font_size)
-            if ww <= max_width:
-                current = [word]
-            else:
-                for ch in word:
-                    cand = "".join(current) + ch
-                    if c.stringWidth(cand, font_name, font_size) <= max_width:
-                        current.append(ch)
-                    else:
-                        if current:
-                            lines.append("".join(current))
-                        current = [ch] if c.stringWidth(ch, font_name, font_size) <= max_width else []
-    if current:
-        # Words use " ", chars (from breaking long word) use ""
-        lines.append(" ".join(current) if not all(len(x) == 1 for x in current) else "".join(current))
-    return lines
+def _get_font_engine():
+    """Get pyHanko font engine for accurate text measurement (Vietnamese-safe)."""
+    font_path = _ensure_font()
+    w = PdfFileWriter(init_page_tree=False)
+    factory = GlyphAccumulatorFactory(
+        str(font_path), font_size=SIMPLE_FONT_SIZE_MAX, bcp47_lang_code="vi"
+    )
+    return factory.create_font_engine(w)
 
 
 def _compute_simple_layout(
@@ -430,20 +407,20 @@ def _compute_simple_layout(
     signer: str,
     ts: str,
     template_id: str,
-    c,
-    font_name: str,
 ) -> Tuple[int, List[str], List[str]]:
-    """Compute font size and wrapped lines so text fits in box. Returns (font_size, signer_lines, ts_lines)."""
+    """Compute font size and wrapped lines so text fits in box. Uses pyHanko engine for accurate Vietnamese measurement."""
     pad = 6
     max_w = max(20, width - 2 * pad)
     has_ts = template_id != "minimal" and bool(ts)
     signer_text = signer or "—"
     ts_text = ts or ""
 
+    engine = _get_font_engine()
+
     for font_size in range(SIMPLE_FONT_SIZE_MAX, SIMPLE_FONT_SIZE_MIN - 1, -1):
         leading = font_size * SIMPLE_LINE_HEIGHT
-        signer_lines = _wrap_text_reportlab(c, font_name, signer_text, max_w, font_size)
-        ts_lines = _wrap_text_reportlab(c, font_name, ts_text, max_w, font_size) if has_ts else []
+        signer_lines = _wrap_text(engine, signer_text, max_w, float(font_size))
+        ts_lines = _wrap_text(engine, ts_text, max_w, float(font_size)) if has_ts else []
 
         needed_h = len(signer_lines) * leading
         if has_ts:
@@ -452,10 +429,9 @@ def _compute_simple_layout(
         if needed_h <= available_h:
             return font_size, signer_lines, ts_lines
 
-    # Fallback: use min size, truncate if needed
     fs = SIMPLE_FONT_SIZE_MIN
-    signer_lines = _wrap_text_reportlab(c, font_name, signer_text, max_w, fs)
-    ts_lines = _wrap_text_reportlab(c, font_name, ts_text, max_w, fs) if has_ts else []
+    signer_lines = _wrap_text(engine, signer_text, max_w, float(fs))
+    ts_lines = _wrap_text(engine, ts_text, max_w, float(fs)) if has_ts else []
     return fs, signer_lines, ts_lines
 
 
@@ -476,6 +452,11 @@ def _render_simple_text_pdf(
     if font_name not in pdfmetrics.getRegisteredFontNames():
         pdfmetrics.registerFont(TTFont(font_name, str(font_path)))
 
+    font_size, signer_lines, ts_lines = _compute_simple_layout(
+        width, height, signer, ts, template_id
+    )
+    leading = font_size * SIMPLE_LINE_HEIGHT
+
     tmp = tempfile.NamedTemporaryFile(suffix=".pdf", delete=False)
     tmp.close()
     path = tmp.name
@@ -483,22 +464,19 @@ def _render_simple_text_pdf(
     c = canvas.Canvas(path, pagesize=(width, height))
     pad = 6
 
-    # Need c for stringWidth - compute layout first
-    font_size, signer_lines, ts_lines = _compute_simple_layout(
-        width, height, signer, ts, template_id, c, font_name
-    )
-    leading = font_size * SIMPLE_LINE_HEIGHT
-
-    # Draw from top (reportlab y=0 is bottom)
-    y = height - pad
-    c.setFillColorRGB(0.22, 0.23, 0.27)
+    # Vertically center all lines
+    total_h = len(signer_lines) * leading
+    if ts_lines:
+        total_h += len(ts_lines) * leading + 2
+    y_start = (height + total_h) / 2
 
     if template_id == "modern":
         c.setFillColorRGB(0.94, 0.94, 0.94)
         c.roundRect(pad, pad, width - 2 * pad, height - 2 * pad, 4, fill=1, stroke=0)
-        c.setFillColorRGB(0.22, 0.23, 0.27)
 
     c.setFont(font_name, font_size)
+    c.setFillColorRGB(0.22, 0.23, 0.27)
+    y = y_start
     for line in signer_lines:
         c.drawCentredString(width / 2, y - font_size, line)
         y -= leading
@@ -561,6 +539,141 @@ class SimpleTextStamp(BaseStamp):
         h = self.box.height
         tid = getattr(self.style, "template_id", "classic")
         pdf_path = _render_simple_text_pdf(w, h, signer, ts, tid)
+        try:
+            imported = ImportedPdfPage(pdf_path, page_ix=0)
+            imported.set_writer(self.writer)
+            do_cmd = imported.render()
+            self.import_resources(imported.resources)
+            return [b"q", do_cmd, b"Q"]
+        finally:
+            Path(pdf_path).unlink(missing_ok=True)
+
+
+# --- Seal stamp (con dấu + text) ---
+
+def _render_seal_pdf(
+    width: float,
+    height: float,
+    signer: str,
+    ts: str,
+    seal_image_path: str,
+) -> str:
+    """Render seal stamp: image on left, text on right. Returns temp PDF path."""
+    from reportlab.lib.utils import ImageReader
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
+    from reportlab.pdfgen import canvas
+
+    font_path = _ensure_font()
+    font_name = "NotoSans"
+    if font_name not in pdfmetrics.getRegisteredFontNames():
+        pdfmetrics.registerFont(TTFont(font_name, str(font_path)))
+
+    pad = PADDING
+    img_reader = ImageReader(seal_image_path)
+    img_w, img_h = img_reader.getSize()
+
+    available_h = height - 2 * pad
+    img_area_w = min(width * 0.45, available_h)
+    img_scale = min(img_area_w / img_w, available_h / img_h)
+    draw_w = img_w * img_scale
+    draw_h = img_h * img_scale
+
+    img_x = pad
+    img_y = (height - draw_h) / 2
+
+    text_x = pad + img_area_w + pad
+    text_max_w = max(20, width - text_x - pad)
+
+    engine = _get_font_engine()
+    signer_text = signer or "—"
+    ts_text = ts or ""
+
+    for font_size in range(SIMPLE_FONT_SIZE_MAX, SIMPLE_FONT_SIZE_MIN - 1, -1):
+        leading = font_size * SIMPLE_LINE_HEIGHT
+        s_lines = _wrap_text(engine, signer_text, text_max_w, float(font_size))
+        t_lines = _wrap_text(engine, ts_text, text_max_w, float(font_size)) if ts_text else []
+        needed = len(s_lines) * leading + len(t_lines) * leading + (2 if t_lines else 0)
+        if needed <= available_h:
+            break
+    else:
+        font_size = SIMPLE_FONT_SIZE_MIN
+        leading = font_size * SIMPLE_LINE_HEIGHT
+        s_lines = _wrap_text(engine, signer_text, text_max_w, float(font_size))
+        t_lines = _wrap_text(engine, ts_text, text_max_w, float(font_size)) if ts_text else []
+
+    total_text_h = len(s_lines) * leading + len(t_lines) * leading + (2 if t_lines else 0)
+    text_y_start = (height + total_text_h) / 2
+
+    tmp = tempfile.NamedTemporaryFile(suffix=".pdf", delete=False)
+    tmp.close()
+    path = tmp.name
+
+    c = canvas.Canvas(path, pagesize=(width, height))
+
+    c.drawImage(img_reader, img_x, img_y, width=draw_w, height=draw_h, preserveAspectRatio=True, mask="auto")
+
+    c.setFont(font_name, font_size)
+    c.setFillColorRGB(0.863, 0.149, 0.149)
+    y = text_y_start
+    for line in s_lines:
+        c.drawString(text_x, y - font_size, line)
+        y -= leading
+
+    if t_lines:
+        c.setFillColorRGB(0.29, 0.34, 0.39)
+        y -= 2
+        for line in t_lines:
+            c.drawString(text_x, y - font_size, line)
+            y -= leading
+
+    c.save()
+    return path
+
+
+@dataclass(frozen=True)
+class SealStampStyle(BaseStampStyle):
+    """Seal stamp: company seal image + signer text."""
+
+    seal_image_path: str = ""
+    timestamp_format: str = "%d/%m/%Y %H:%M:%S"
+    border_width: int = 0
+
+    def create_stamp(self, writer, box: layout.BoxConstraints, text_params: dict):
+        return SealStamp(
+            writer=writer,
+            style=self,
+            box=box,
+            text_params=text_params,
+        )
+
+
+class SealStamp(BaseStamp):
+    """Seal stamp rendering: image left + text right."""
+
+    def __init__(self, writer, style: SealStampStyle, box, text_params=None):
+        super().__init__(writer=writer, style=style, box=box)
+        self.text_params = text_params or {}
+
+    def _render_inner_content(self):
+        signer = self.text_params.get("signer", "")
+        ts = self.text_params.get("ts", "")
+        if not ts and hasattr(self.style, "timestamp_format"):
+            from datetime import datetime
+            try:
+                import zoneinfo
+                tz = zoneinfo.ZoneInfo("Asia/Ho_Chi_Minh")
+                ts = datetime.now(tz).strftime(self.style.timestamp_format)
+            except ImportError:
+                ts = datetime.now().strftime(self.style.timestamp_format)
+
+        w = self.box.width
+        h = self.box.height
+        seal_path = getattr(self.style, "seal_image_path", "")
+        if not seal_path or not Path(seal_path).exists():
+            pdf_path = _render_simple_text_pdf(w, h, signer, ts, "classic")
+        else:
+            pdf_path = _render_seal_pdf(w, h, signer, ts, seal_path)
         try:
             imported = ImportedPdfPage(pdf_path, page_ix=0)
             imported.set_writer(self.writer)

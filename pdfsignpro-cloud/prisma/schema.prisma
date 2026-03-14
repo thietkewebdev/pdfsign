@@ -44,6 +44,7 @@ model SigningJob {
   claimCodeHash       String?   // sha256 of short claim code (new jobs only)
   status              String    @default("CREATED") // CREATED, COMPLETED, EXPIRED, CANCELED
   placementJson       String    // JSON: { page, rectPct: { x, y, w, h } }
+  sealImageKey        String?   // storage key for seal image (template=seal)
   certMetaJson        String?   // JSON: subject O/CN, serial, signingTime...
   outputVersionId     String?   // new DocumentVersion when completed
   outputVersion       DocumentVersion? @relation("OutputVersion", fields: [outputVersionId], references: [id])

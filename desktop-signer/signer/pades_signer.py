@@ -198,6 +198,7 @@ async def sign_pdf(
     slot_no: Optional[int] = None,
     cert_index: Optional[int] = None,
     template_id: str = "valid",
+    seal_image_path: Optional[str] = None,
 ) -> None:
     """
     Sign PDF with PAdES using PKCS#11 token.
@@ -261,7 +262,7 @@ async def sign_pdf(
         )
 
         meta = PdfSignatureMetadata(field_name="Signature1")
-        stamp_style = get_stamp_style_for_template(template_id)
+        stamp_style = get_stamp_style_for_template(template_id, seal_image_path=seal_image_path)
         pdf_signer = signers.PdfSigner(
             meta,
             signer=pkcs11_signer,
@@ -287,6 +288,7 @@ def sign_pdf_sync(
     slot_no: Optional[int] = None,
     cert_index: Optional[int] = None,
     template_id: str = "valid",
+    seal_image_path: Optional[str] = None,
 ) -> None:
     """Synchronous wrapper for sign_pdf."""
     asyncio.run(
@@ -301,5 +303,6 @@ def sign_pdf_sync(
             slot_no=slot_no,
             cert_index=cert_index,
             template_id=template_id,
+            seal_image_path=seal_image_path,
         )
     )

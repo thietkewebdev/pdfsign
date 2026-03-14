@@ -38,6 +38,8 @@ public class ApiService
         var doc = json.GetProperty("document");
         var placement = json.GetProperty("placement");
         var (pageStr, rect) = ParsePlacement(placement);
+        var sealImageUrl = json.TryGetProperty("sealImageUrl", out var sealEl) && sealEl.ValueKind == JsonValueKind.String
+            ? sealEl.GetString() : null;
         return new JobInfo(
             jobId,
             jobToken,
@@ -45,7 +47,8 @@ public class ApiService
             json.GetProperty("inputPdfUrl").GetString() ?? "",
             doc.GetProperty("title").GetString() ?? "Document",
             doc.GetProperty("publicId").GetString() ?? "",
-            new PlacementInfo(pageStr, rect)
+            new PlacementInfo(pageStr, rect),
+            sealImageUrl
         );
     }
 

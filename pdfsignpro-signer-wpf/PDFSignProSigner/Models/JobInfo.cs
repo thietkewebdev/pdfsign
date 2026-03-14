@@ -9,7 +9,8 @@ public record JobInfo(
     string InputPdfUrl,
     string DocumentTitle,
     string PublicId,
-    PlacementInfo Placement
+    PlacementInfo Placement,
+    string? SealImageUrl = null
 );
 
 public record PlacementInfo(string Page, RectPct Rect);

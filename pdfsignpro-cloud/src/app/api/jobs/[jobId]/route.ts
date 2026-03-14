@@ -96,6 +96,11 @@ export async function GET(
       3600
     );
 
+    let sealImageUrl: string | undefined;
+    if (job.sealImageKey) {
+      sealImageUrl = await storage.getPresignedUrl(job.sealImageKey, 3600);
+    }
+
     let placement: { page: number | "LAST"; rectPct: { x: number; y: number; w: number; h: number } };
     try {
       const raw = JSON.parse(job.placementJson);
@@ -114,6 +119,7 @@ export async function GET(
         publicId: job.document.publicId,
       },
       inputPdfUrl,
+      sealImageUrl,
       placement,
       status: job.status,
     });

@@ -43,6 +43,8 @@ interface PdfViewerProps {
   readOnly?: boolean;
   /** Selected template id for signature preview */
   selectedTemplateId?: string;
+  /** Base64 seal image for the "seal" template */
+  sealImageBase64?: string | null;
   /** Toolbar actions - when provided, rendered in viewer toolbar */
   toolbarActions?: {
     downloadUrl: string;
@@ -66,6 +68,7 @@ export function PdfViewer({
   activePageForPlacement,
   readOnly = false,
   selectedTemplateId = "classic",
+  sealImageBase64,
   toolbarActions,
 }: PdfViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -322,6 +325,7 @@ export function PdfViewer({
                   pageHeight={pageHeight}
                   scale={1}
                   templateId={selectedTemplateId}
+                  sealImageBase64={sealImageBase64}
                   onDragStop={handleDragStop(globalIndex)}
                   onResizeStop={handleResizeStop(globalIndex)}
                 />

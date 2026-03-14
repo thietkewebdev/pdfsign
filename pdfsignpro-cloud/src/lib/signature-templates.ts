@@ -5,6 +5,8 @@ export interface SignatureTemplate {
   previewText: string;
   /** Show green tick icon in template card */
   showTick?: boolean;
+  /** Show seal/stamp image upload for this template */
+  showSealUpload?: boolean;
 }
 
 export const SIGNATURE_TEMPLATES: SignatureTemplate[] = [
@@ -13,4 +15,5 @@ export const SIGNATURE_TEMPLATES: SignatureTemplate[] = [
   { id: "minimal", displayName: "Minimal", previewText: "Nguyễn Văn A" },
   { id: "stamp", displayName: "Stamp", previewText: "Đã ký số · 10/12/2026" },
   { id: "valid", displayName: "Valid", previewText: "✓ Đã xác thực", showTick: true },
+  { id: "seal", displayName: "Con dấu", previewText: "Con dấu + Tên công ty", showSealUpload: true },
 ];

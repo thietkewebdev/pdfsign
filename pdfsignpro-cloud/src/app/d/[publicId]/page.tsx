@@ -136,6 +136,7 @@ export default function SigningViewerPage() {
   const pollStartRef = useRef<number | null>(null);
   const userLeftTabRef = useRef(false);
   const [selectedTemplateId, setSelectedTemplateId] = useState("classic");
+  const [sealImageBase64, setSealImageBase64] = useState<string | null>(null);
   const searchParams = useSearchParams();
 
   const {
@@ -204,22 +205,26 @@ export default function SigningViewerPage() {
 
     // Convert UI coords (top-left origin) to PDF rectPct (bottom-left origin)
     const pdfY = 1 - placement.yPct - placement.hPct;
+    const jobBody: Record<string, unknown> = {
+      documentId: data.document.id,
+      templateId: selectedTemplateId,
+      placement: {
+        page,
+        rectPct: {
+          x: placement.xPct,
+          y: Math.max(0, Math.min(1, pdfY)),
+          w: placement.wPct,
+          h: placement.hPct,
+        },
+      },
+    };
+    if (selectedTemplateId === "seal" && sealImageBase64) {
+      jobBody.sealImage = sealImageBase64;
+    }
     const res = await fetch("/api/jobs", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        documentId: data.document.id,
-        templateId: selectedTemplateId,
-        placement: {
-          page,
-          rectPct: {
-            x: placement.xPct,
-            y: Math.max(0, Math.min(1, pdfY)),
-            w: placement.wPct,
-            h: placement.hPct,
-          },
-        },
-      }),
+      body: JSON.stringify(jobBody),
     });
 
     if (!res.ok) {
@@ -389,6 +394,8 @@ export default function SigningViewerPage() {
           setSelectedTemplateId(id);
           if (placements.length === 0 && totalPages > 0) addSignatureBox();
         }}
+        sealImageBase64={sealImageBase64}
+        onSealImageChange={setSealImageBase64}
       />
       <Button
         variant="outline"
@@ -549,6 +556,7 @@ export default function SigningViewerPage() {
               activePageForPlacement={activePage}
               readOnly={isSigned}
               selectedTemplateId={selectedTemplateId}
+              sealImageBase64={sealImageBase64}
               toolbarActions={{
                 downloadUrl,
                 documentTitle: doc.title ?? "document.pdf",
@@ -638,6 +646,7 @@ export default function SigningViewerPage() {
                   activePageForPlacement={activePage}
                   readOnly={isSigned}
                   selectedTemplateId={selectedTemplateId}
+                  sealImageBase64={sealImageBase64}
                   toolbarActions={{
                     downloadUrl,
                     documentTitle: doc.title ?? "document.pdf",

@@ -67,6 +67,7 @@ def sign_pdf(
     cert_index: int,
     pin: str,
     template_id: str = "valid",
+    seal_image_path: str | None = None,
 ) -> None:
     """Sign PDF. Output to stdout on success."""
     certs, slot_no = list_certs_from_token(dll_path, pin=pin)
@@ -84,6 +85,7 @@ def sign_pdf(
         slot_no=slot_no,
         cert_index=cert_index,
         template_id=template_id,
+        seal_image_path=seal_image_path,
     )
     print("OK")
 
@@ -98,7 +100,8 @@ def main() -> int:
     parser.add_argument("--page", default="LAST", help="Page number or LAST")
     parser.add_argument("--rectPct", default="0.64,0.06,0.32,0.10", help="Rect as x,y,w,h")
     parser.add_argument("--cert-index", type=int, help="Certificate index")
-    parser.add_argument("--template", default="valid", help="Template: classic, modern, minimal, stamp, valid")
+    parser.add_argument("--template", default="valid", help="Template: classic, modern, minimal, stamp, valid, seal")
+    parser.add_argument("--seal-image", dest="seal_image", default=None, help="Path to seal image (for seal template)")
 
     args = parser.parse_args()
 
@@ -126,6 +129,7 @@ def main() -> int:
                 args.cert_index,
                 args.pin,
                 template_id=template_id,
+                seal_image_path=args.seal_image,
             )
     except Exception as e:
         print(str(e), file=sys.stderr)

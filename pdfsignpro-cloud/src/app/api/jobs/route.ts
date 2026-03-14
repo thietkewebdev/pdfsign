@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { generateJobToken, hashJobToken } from "@/lib/job-token";
 import { generateClaimCode, hashClaimCode } from "@/lib/claim-code";
 import { base64urlEncode } from "@/lib/base64url";
+import { getStorageDriver } from "@/storage";
 
 const rectPctSchema = z.object({
   x: z.number().min(0).max(1),
@@ -16,6 +17,7 @@ const rectPctSchema = z.object({
 const CreateJobSchema = z.object({
   documentId: z.string().min(1),
   templateId: z.string().optional(),
+  sealImage: z.string().optional(),
   placement: z.object({
     page: z.union([z.literal("LAST"), z.number().int().positive()]),
     rectPct: rectPctSchema,
@@ -39,7 +41,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const { documentId, templateId, placement: rawPlacement } = parsed.data;
+    const { documentId, templateId, sealImage, placement: rawPlacement } = parsed.data;
 
     // Normalize placement to spec format: { page, rectPct: { x, y, w, h } }
     const placement = "rectPct" in rawPlacement
@@ -83,6 +85,21 @@ export async function POST(request: Request) {
 
     const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
 
+    let sealImageKey: string | null = null;
+    if (templateId === "seal" && sealImage) {
+      const match = sealImage.match(/^data:image\/(png|jpe?g|webp);base64,(.+)$/i);
+      if (match) {
+        const ext = match[1].toLowerCase().replace("jpeg", "jpg");
+        const buf = Buffer.from(match[2], "base64");
+        const MAX_SEAL_SIZE = 2 * 1024 * 1024;
+        if (buf.length <= MAX_SEAL_SIZE) {
+          sealImageKey = `documents/${document.publicId}/seal_${jobId}.${ext}`;
+          const storage = getStorageDriver();
+          await storage.upload(sealImageKey, buf, `image/${ext === "jpg" ? "jpeg" : ext}`);
+        }
+      }
+    }
+
     await prisma.signingJob.create({
       data: {
         id: jobId,
@@ -93,6 +110,7 @@ export async function POST(request: Request) {
         claimCodeHash,
         status: "CREATED",
         placementJson: JSON.stringify(placement),
+        sealImageKey,
         expiresAt,
       },
     });

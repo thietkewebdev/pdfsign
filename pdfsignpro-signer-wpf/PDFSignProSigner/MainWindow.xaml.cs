@@ -95,7 +95,17 @@ public partial class MainWindow : Window
             var inputPath = Path.Combine(tempDir, "input.pdf");
             await File.WriteAllBytesAsync(inputPath, pdfBytes);
 
-            _job = _job with { }; // keep job, we'll store inputPath in a field
+            _sealImagePath = null;
+            if (!string.IsNullOrEmpty(_job.SealImageUrl))
+            {
+                LoadingText.Text = "Đang tải ảnh con dấu...";
+                var ext = _job.SealImageUrl.Contains(".png", StringComparison.OrdinalIgnoreCase) ? ".png" : ".jpg";
+                var sealPath = Path.Combine(tempDir, $"seal{ext}");
+                await _api.DownloadToFileAsync(_job.SealImageUrl, sealPath);
+                _sealImagePath = sealPath;
+            }
+
+            _job = _job with { };
             _inputPdfPath = inputPath;
             _tempDir = tempDir;
 
@@ -121,6 +131,7 @@ public partial class MainWindow : Window
 
     private string _inputPdfPath = "";
     private string _tempDir = "";
+    private string? _sealImagePath;
 
     private void ShowScreen(Screen screen)
     {
@@ -421,7 +432,8 @@ public partial class MainWindow : Window
                 pin,
                 _job.Placement.Page,
                 _job.Placement.Rect,
-                templateId
+                templateId,
+                _sealImagePath
             );
 
             logLines.Add(result.Stdout);

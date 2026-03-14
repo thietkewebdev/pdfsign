@@ -59,7 +59,7 @@ public class CoreService
         }
     }
 
-    /// <summary>Run sign mode. templateId: classic, modern, minimal, stamp, valid.</summary>
+    /// <summary>Run sign mode. templateId: classic, modern, minimal, stamp, valid, seal.</summary>
     public async Task<CoreSignResult> SignAsync(
         string inputPath,
         string outputPath,
@@ -69,6 +69,7 @@ public class CoreService
         string page,
         RectPct rect,
         string? templateId = null,
+        string? sealImagePath = null,
         CancellationToken ct = default)
     {
         var (valid, err) = rect.Validate();
@@ -90,6 +91,11 @@ public class CoreService
         {
             args.Add("--template");
             args.Add(templateId);
+        }
+        if (!string.IsNullOrEmpty(sealImagePath))
+        {
+            args.Add("--seal-image");
+            args.Add(sealImagePath);
         }
         var (exitCode, stdout, stderr) = await RunCoreAsync(args.ToArray(), ct);
         return new CoreSignResult(exitCode == 0, stdout, stderr, exitCode);

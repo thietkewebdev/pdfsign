@@ -59,6 +59,7 @@ export default function SignPage() {
   const [signerDownloadModalOpen, setSignerDownloadModalOpen] = useState(false);
   const userLeftTabRef = useRef(false);
   const [selectedTemplateId, setSelectedTemplateId] = useState("classic");
+  const [sealImageBase64, setSealImageBase64] = useState<string | null>(null);
 
   const {
     placements,
@@ -106,21 +107,26 @@ export default function SignPage() {
     if (placements.length === 0 || !docData) return;
     const placement = placements[0];
 
+    const jobBody: Record<string, unknown> = {
+      documentId: docData.document.id,
+      templateId: selectedTemplateId,
+      placement: {
+        page: placement.page,
+        rectPct: {
+          x: placement.xPct,
+          y: placement.yPct,
+          w: placement.wPct,
+          h: placement.hPct,
+        },
+      },
+    };
+    if (selectedTemplateId === "seal" && sealImageBase64) {
+      jobBody.sealImage = sealImageBase64;
+    }
     const res = await fetch("/api/jobs", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        documentId: docData.document.id,
-        placement: {
-          page: placement.page,
-          rectPct: {
-            x: placement.xPct,
-            y: placement.yPct,
-            w: placement.wPct,
-            h: placement.hPct,
-          },
-        },
-      }),
+      body: JSON.stringify(jobBody),
     });
 
     if (!res.ok) {
@@ -234,6 +240,8 @@ export default function SignPage() {
                   setSelectedTemplateId(id);
                   if (placements.length === 0 && totalPages > 0) addSignatureBox();
                 }}
+                sealImageBase64={sealImageBase64}
+                onSealImageChange={setSealImageBase64}
               />
               <Button
                 variant="outline"
@@ -339,6 +347,7 @@ export default function SignPage() {
               onPlacementUpdate={handlePlacementUpdate}
               activePageForPlacement={activePage}
               selectedTemplateId={selectedTemplateId}
+              sealImageBase64={sealImageBase64}
             />
           </div>
           <div className="border-l border-border p-4 overflow-hidden">
@@ -461,6 +470,7 @@ export default function SignPage() {
                     onPlacementUpdate={handlePlacementUpdate}
                     activePageForPlacement={activePage}
                     selectedTemplateId={selectedTemplateId}
+                    sealImageBase64={sealImageBase64}
                   />
                 </div>
               </TabsContent>

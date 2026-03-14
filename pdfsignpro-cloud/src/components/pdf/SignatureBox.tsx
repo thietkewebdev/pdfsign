@@ -11,6 +11,7 @@ interface SignatureBoxProps {
   pageHeight: number;
   scale: number;
   templateId?: string;
+  sealImageBase64?: string | null;
   onDragStop: (x: number, y: number) => void;
   onResizeStop: (x: number, y: number, w: number, h: number) => void;
   isActive?: boolean;
@@ -68,17 +69,59 @@ function MinimalPreview({ className }: { className?: string }) {
   );
 }
 
+function SealPreview({
+  sealImageBase64,
+  className,
+}: {
+  sealImageBase64?: string | null;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "flex items-center gap-2 px-2 overflow-hidden w-full h-full",
+        className
+      )}
+    >
+      {sealImageBase64 ? (
+        <img
+          src={sealImageBase64}
+          alt="Seal"
+          className="h-full max-h-[90%] w-auto object-contain shrink-0"
+        />
+      ) : (
+        <div className="size-10 rounded-full border-2 border-red-400 flex items-center justify-center shrink-0">
+          <span className="text-[8px] text-red-400 font-bold">Dấu</span>
+        </div>
+      )}
+      <div className="flex flex-col items-start justify-center min-w-0 flex-1">
+        <span className="text-[10px] font-semibold text-red-600 leading-tight truncate w-full">
+          CÔNG TY TNHH...
+        </span>
+        <span className="text-[8px] text-muted-foreground truncate w-full">
+          14/03/2026 09:33
+        </span>
+      </div>
+    </div>
+  );
+}
+
 function TemplatePreview({
   templateId,
   boxWidth,
   boxHeight,
+  sealImageBase64,
   className,
 }: {
   templateId: string;
   boxWidth: number;
   boxHeight: number;
+  sealImageBase64?: string | null;
   className?: string;
 }) {
+  if (templateId === "seal") {
+    return <SealPreview sealImageBase64={sealImageBase64} className={className} />;
+  }
   if (templateId === "stamp") {
     return (
       <StampValidPreview
@@ -121,6 +164,7 @@ export function SignatureBox({
   pageHeight,
   scale,
   templateId = "classic",
+  sealImageBase64,
   onDragStop,
   onResizeStop,
   isActive = true,
@@ -156,6 +200,7 @@ export function SignatureBox({
           templateId={templateId}
           boxWidth={w}
           boxHeight={h}
+          sealImageBase64={sealImageBase64}
           className="max-w-full max-h-full"
         />
       </div>
