@@ -21,6 +21,7 @@ import {
   X,
   Loader2,
   Download,
+  ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -106,6 +107,33 @@ const TESTIMONIALS = [
   },
 ] as const;
 
+const FAQ_HOME = [
+  {
+    q: "PDFSignPro Cloud hỗ trợ USB Token nào?",
+    a: "Hỗ trợ hầu hết USB Token chữ ký số tại Việt Nam (PKCS#11): Viettel-CA, EasyCA, FastCA, VNPT-CA, FPT-CA, BKAV-CA, CyberLotus và các CA khác.",
+  },
+  {
+    q: "Chữ ký có hợp lệ theo pháp luật Việt Nam không?",
+    a: "Có. Chữ ký PAdES chuẩn quốc tế. Tính hợp lệ pháp lý phụ thuộc vào chứng thư số do CA được Bộ TT&TT cấp phép. Hoàn toàn có giá trị theo Luật Giao dịch điện tử 2023.",
+  },
+  {
+    q: "Adobe Acrobat có verify được chữ ký không?",
+    a: 'Có. Adobe Acrobat Reader nhận diện và xác minh chữ ký PAdES. Nếu CA nằm trong danh sách AATL (hầu hết CA lớn tại VN), bạn sẽ thấy "Signed and all signatures are valid".',
+  },
+  {
+    q: "Dữ liệu tài liệu có an toàn không?",
+    a: "An toàn. Truyền tải qua HTTPS, lưu trữ trên Cloudflare R2. Khóa riêng không bao giờ rời USB Token — ký diễn ra hoàn toàn trên máy bạn qua PDFSignPro Signer.",
+  },
+  {
+    q: "Có phí sử dụng không?",
+    a: "Miễn phí cho người dùng cá nhân. Tải lên, ký số và chia sẻ tài liệu không tốn phí.",
+  },
+  {
+    q: "PDFSignPro Signer là gì?",
+    a: "Phần mềm nhỏ trên Windows, cầu nối trình duyệt với USB Token. Nhấn \"Ký số\" trên web → Signer tự mở, đọc chứng thư và ký. Bắt buộc cài vì trình duyệt không truy cập USB Token trực tiếp.",
+  },
+] as const;
+
 function StepCard({
   icon: Icon,
   title,
@@ -149,6 +177,89 @@ function StepCard({
       </h3>
       <p className="text-sm text-zinc-600 dark:text-zinc-400">{copy}</p>
     </m.div>
+  );
+}
+
+function FaqSection({ reduceMotion }: { reduceMotion: boolean }) {
+  const [openIndex, setOpenIndex] = useState<number | null>(0);
+
+  return (
+    <section className="relative border-t border-zinc-200/80 px-6 py-20 dark:border-white/5 sm:py-28">
+      <div className="container mx-auto max-w-3xl">
+        <m.h2
+          className="mb-4 text-center text-2xl font-semibold text-zinc-900 dark:text-white sm:text-3xl"
+          initial={{ opacity: 0, y: reduceMotion ? 0 : 12 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-50px" }}
+          transition={MOTION}
+        >
+          Câu hỏi thường gặp
+        </m.h2>
+        <m.p
+          className="mb-10 text-center text-zinc-500 dark:text-zinc-400"
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
+          viewport={{ once: true }}
+          transition={{ ...MOTION, delay: 0.05 }}
+        >
+          Giải đáp các thắc mắc phổ biến về PDFSignPro Cloud
+        </m.p>
+        <m.div
+          className={cn(
+            "rounded-xl border backdrop-blur-sm",
+            "border-zinc-200/80 bg-white/60 shadow-sm dark:border-white/10 dark:bg-white/5 dark:shadow-none"
+          )}
+          initial={{ opacity: 0, y: reduceMotion ? 0 : 12 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-30px" }}
+          transition={MOTION}
+        >
+          <div className="px-6">
+            {FAQ_HOME.map((item, i) => (
+              <div key={i} className="border-b border-zinc-200/80 last:border-b-0 dark:border-white/10">
+                <button
+                  type="button"
+                  onClick={() => setOpenIndex(openIndex === i ? null : i)}
+                  className="flex w-full items-center justify-between gap-4 py-5 text-left transition-colors hover:text-zinc-900 dark:hover:text-white"
+                >
+                  <span className="text-sm font-medium text-zinc-900 dark:text-white">{item.q}</span>
+                  <ChevronDown
+                    className={cn(
+                      "size-4 shrink-0 text-zinc-400 transition-transform duration-200 dark:text-zinc-500",
+                      openIndex === i && "rotate-180"
+                    )}
+                  />
+                </button>
+                <div
+                  className={cn(
+                    "grid transition-all duration-200 ease-in-out",
+                    openIndex === i ? "grid-rows-[1fr] pb-5 opacity-100" : "grid-rows-[0fr] opacity-0"
+                  )}
+                >
+                  <div className="overflow-hidden">
+                    <p className="text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">{item.a}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </m.div>
+        <m.div
+          className="mt-6 text-center"
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
+          viewport={{ once: true }}
+          transition={{ ...MOTION, delay: 0.1 }}
+        >
+          <Link
+            href="/faq"
+            className="text-sm text-zinc-500 underline-offset-4 hover:underline hover:text-zinc-700 dark:hover:text-zinc-300"
+          >
+            Xem tất cả câu hỏi thường gặp →
+          </Link>
+        </m.div>
+      </div>
+    </section>
   );
 }
 
@@ -620,6 +731,9 @@ export function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* FAQ */}
+      <FaqSection reduceMotion={!!reduceMotion} />
 
       {/* Liên hệ */}
       <ContactSection />
