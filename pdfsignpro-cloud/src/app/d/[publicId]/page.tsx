@@ -282,13 +282,6 @@ export default function SigningViewerPage() {
     pollStartRef.current = null;
   };
 
-  useEffect(() => {
-    const onVisibilityChange = () => {
-      if (document.hidden) userLeftTabRef.current = true;
-    };
-    document.addEventListener("visibilitychange", onVisibilityChange);
-    return () => document.removeEventListener("visibilitychange", onVisibilityChange);
-  }, []);
 
   useEffect(() => {
     if (!jobState || jobState.status !== "CREATED") return;
@@ -343,6 +336,14 @@ export default function SigningViewerPage() {
     poll();
     return () => clearInterval(id);
   }, [jobState?.jobId, jobState?.status, fetchDocument]);
+
+  useEffect(() => {
+    const onVisibilityChange = () => {
+      if (document.hidden) userLeftTabRef.current = true;
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", onVisibilityChange);
+  }, []);
 
   const activePlacement = placements[0];
   const activePage = activePlacement?.page ?? currentPage;
@@ -467,6 +468,7 @@ export default function SigningViewerPage() {
       documentTitle={doc.title ?? "signed.pdf"}
       showCreatedHint={showCreatedHint}
       signInfo={jobState.status === "COMPLETED" ? data.signInfo : undefined}
+      onShowDownloadHelp={() => setSignerDownloadModalOpen(true)}
       onSignNewDocument={isSigned ? () => setUploadModalOpen(true) : undefined}
     />
   ) : null;

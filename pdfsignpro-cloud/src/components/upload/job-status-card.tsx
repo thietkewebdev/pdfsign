@@ -69,6 +69,8 @@ interface JobStatusCardProps {
   signInfo?: SignInfo | null;
   /** When provided, shows "Ký tài liệu mới" button in COMPLETED state */
   onSignNewDocument?: () => void;
+  /** Khi bấm "Chưa mở được? Tải ứng dụng" - mở modal tải Signer */
+  onShowDownloadHelp?: () => void;
 }
 
 export function JobStatusCard({
@@ -88,6 +90,7 @@ export function JobStatusCard({
   showCreatedHint = false,
   signInfo,
   onSignNewDocument,
+  onShowDownloadHelp,
 }: JobStatusCardProps) {
   return (
     <div className="rounded-lg border border-border bg-card p-4 space-y-3 shadow-sm overflow-hidden min-w-0">
@@ -119,6 +122,15 @@ export function JobStatusCard({
               <p className="text-xs text-muted-foreground">
                 Nếu không tự mở, bấm để mở Signer
               </p>
+              {onShowDownloadHelp && (
+                <button
+                  type="button"
+                  onClick={onShowDownloadHelp}
+                  className="text-xs text-muted-foreground underline hover:text-foreground"
+                >
+                  Chưa mở được? Tải ứng dụng
+                </button>
+              )}
               <div className="flex gap-2 min-w-0">
                 <Button
                   variant="outline"

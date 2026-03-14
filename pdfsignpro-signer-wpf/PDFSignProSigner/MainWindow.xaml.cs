@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Net.Http;
 using System.Runtime.InteropServices;
 using Microsoft.Win32;
@@ -25,6 +26,10 @@ public partial class MainWindow : Window
     private ObservableCollection<CertInfo> _certs = new();
     private bool _pinVerified;
     private CancellationTokenSource? _loadCertsCts;
+    /// <summary>PIN đã lưu cho token hiện tại. Xóa khi đổi USB.</summary>
+    private string? _cachedPin;
+    /// <summary>Định danh token (dllPath + cert serials). Dùng để phát hiện đổi USB.</summary>
+    private string? _cachedTokenId;
 
     public MainWindow()
     {
@@ -71,7 +76,6 @@ public partial class MainWindow : Window
 
     private async Task RunFlowAsync(DeepLinkPayload payload)
     {
-        _payload = payload;
         ShowScreen(Screen.Loading);
         LoadingText.Text = "Đang xác thực...";
 
@@ -99,6 +103,7 @@ public partial class MainWindow : Window
             DocTitleText.Text = _job.DocumentTitle;
             ShowScreen(Screen.Sign);
             ResetSignState();
+            await TryAutoVerifyWithCachedPinAsync();
             if (!string.IsNullOrEmpty(payload.TemplateId))
                 _templateManager.SelectTemplateById(payload.TemplateId);
             SelectTemplateFromManager();
@@ -143,6 +148,68 @@ public partial class MainWindow : Window
         _loadCertsCts?.Cancel();
     }
 
+    private void ClearPinCache()
+    {
+        _cachedPin = null;
+        _cachedTokenId = null;
+    }
+
+    private static string ComputeTokenId(string dllPath, List<CertInfo> certs)
+    {
+        var serials = string.Join(",", certs.OrderBy(c => c.Serial).Select(c => c.Serial ?? ""));
+        return dllPath + "|" + serials;
+    }
+
+    private async Task TryAutoVerifyWithCachedPinAsync()
+    {
+        if (string.IsNullOrEmpty(_cachedPin)) return;
+
+        _loadCertsCts?.Cancel();
+        _loadCertsCts = new CancellationTokenSource();
+        var ct = _loadCertsCts.Token;
+
+        CertLoadingPanel.Visibility = Visibility.Visible;
+        try
+        {
+            var (dllPath, certs, stdout, stderr) = await _core.ListCertsAsync(null, _cachedPin);
+            if (ct.IsCancellationRequested) return;
+
+            var validCerts = certs.Where(c => c.IsValid).ToList();
+            if (validCerts.Count == 0)
+            {
+                ClearPinCache();
+                return;
+            }
+
+            var tokenId = ComputeTokenId(dllPath, validCerts);
+            if (tokenId != _cachedTokenId)
+            {
+                ClearPinCache();
+                return;
+            }
+
+            _dllPath = dllPath;
+            foreach (var c in validCerts) _certs.Add(c);
+            _pinVerified = true;
+            CertCombo.SelectedIndex = 0;
+            CertCombo.IsEnabled = true;
+            SignBtn.IsEnabled = true;
+            VerifyPinResultText.Text = "✓ Đã dùng PIN đã lưu.";
+            VerifyPinResultText.Foreground = new System.Windows.Media.SolidColorBrush(
+                (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#22C55E"));
+            VerifyPinResultText.Visibility = Visibility.Visible;
+        }
+        catch
+        {
+            ClearPinCache();
+        }
+        finally
+        {
+            if (!ct.IsCancellationRequested)
+                CertLoadingPanel.Visibility = Visibility.Collapsed;
+        }
+    }
+
     private void ShowError(string msg)
     {
         ShowScreen(Screen.Sign);
@@ -170,6 +237,7 @@ public partial class MainWindow : Window
         CertCombo.IsEnabled = false;
         SignBtn.IsEnabled = false;
         CertLoadingPanel.Visibility = Visibility.Collapsed;
+        ClearPinCache();
     }
 
     private async void VerifyPin_Click(object sender, RoutedEventArgs e)
@@ -214,6 +282,8 @@ public partial class MainWindow : Window
             if (validCerts.Count > 0)
             {
                 _pinVerified = true;
+                _cachedPin = pin;
+                _cachedTokenId = ComputeTokenId(dllPath, validCerts);
                 CertCombo.SelectedIndex = 0;
                 CertCombo.IsEnabled = true;
                 SignBtn.IsEnabled = true;
@@ -242,6 +312,7 @@ public partial class MainWindow : Window
                     (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#F87171"));
                 VerifyPinResultText.Visibility = Visibility.Visible;
                 PinBox.Focus();
+                ClearPinCache();
             }
         }
         catch (FileNotFoundException)
@@ -274,7 +345,7 @@ public partial class MainWindow : Window
     {
         if (_job == null) return;
 
-        var pin = PinBox.Password;
+        var pin = _cachedPin ?? PinBox.Password;
         if (!_pinVerified)
         {
             MessageBox.Show("Vui lòng nhấn \"Kiểm tra PIN\" trước khi ký.", "PDFSignPro Signer", MessageBoxButton.OK, MessageBoxImage.Information);
@@ -283,7 +354,7 @@ public partial class MainWindow : Window
 
         if (string.IsNullOrEmpty(pin))
         {
-            MessageBox.Show("Vui lòng nhập mã PIN.", "PDFSignPro Signer", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show("Vui lòng nhập mã PIN và nhấn \"Kiểm tra PIN\".", "PDFSignPro Signer", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
 
@@ -341,6 +412,7 @@ public partial class MainWindow : Window
 
             if (!result.Success)
             {
+                ClearPinCache();
                 ShowScreen(Screen.Sign);
                 SignErrorText.Text = result.Stderr ?? result.Stdout ?? $"Lỗi (exit {result.ExitCode})";
                 SignErrorText.Visibility = Visibility.Visible;

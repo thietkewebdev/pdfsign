@@ -315,6 +315,13 @@ export default function SignPage() {
                       </a>
                     </Button>
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => setSignerDownloadModalOpen(true)}
+                    className="text-xs text-muted-foreground underline hover:text-foreground"
+                  >
+                    Chưa mở được? Tải ứng dụng
+                  </button>
                 </div>
               )}
             </div>
