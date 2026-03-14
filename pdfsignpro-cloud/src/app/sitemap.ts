@@ -1,8 +1,24 @@
 import type { MetadataRoute } from "next";
+import { BLOG_POSTS } from "@/lib/blog-data";
 
 const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://pdfsign.vn";
 
 export default function sitemap(): MetadataRoute.Sitemap {
+  const blogEntries: MetadataRoute.Sitemap = [
+    {
+      url: `${baseUrl}/blog`,
+      lastModified: new Date(),
+      changeFrequency: "weekly",
+      priority: 0.9,
+    },
+    ...BLOG_POSTS.map((post) => ({
+      url: `${baseUrl}/blog/${post.slug}`,
+      lastModified: new Date(post.date),
+      changeFrequency: "monthly" as const,
+      priority: 0.7,
+    })),
+  ];
+
   return [
     {
       url: baseUrl,
@@ -16,6 +32,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "monthly",
       priority: 0.9,
     },
+    ...blogEntries,
     {
       url: `${baseUrl}/signer`,
       lastModified: new Date(),

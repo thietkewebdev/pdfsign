@@ -5,7 +5,7 @@ import Image from "next/image";
 import { Footer } from "@/components/footer";
 import { useTheme } from "next-themes";
 import { useSession, signIn, signOut } from "next-auth/react";
-import { Moon, Sun, Github, Monitor, Laptop, ChevronDown, LogIn, FileText, LogOut, HelpCircle, Scale, ShieldCheck } from "lucide-react";
+import { Moon, Sun, Github, Monitor, Laptop, ChevronDown, LogIn, FileText, LogOut, HelpCircle, Scale, ShieldCheck, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -70,6 +70,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                       Tải phần mềm ký offline
                     </Link>
                   )}
+                  <Link
+                    href="/blog"
+                    className="flex items-center gap-2 px-3 py-2 text-sm text-popover-foreground hover:bg-accent hover:text-accent-foreground"
+                  >
+                    <BookOpen className="size-4 shrink-0" />
+                    Blog & Hướng dẫn
+                  </Link>
                   <Link
                     href="/faq"
                     className="flex items-center gap-2 px-3 py-2 text-sm text-popover-foreground hover:bg-accent hover:text-accent-foreground"
