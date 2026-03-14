@@ -22,6 +22,8 @@ import {
   Loader2,
   Download,
   ChevronDown,
+  ArrowRight,
+  Calendar,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,6 +34,7 @@ import {
 } from "@/components/upload";
 import { FeatureMockStrip } from "@/components/home/FeatureMockStrip";
 import { ContactSection } from "@/components/home/ContactSection";
+import { BLOG_POSTS } from "@/lib/blog-data";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
 
@@ -729,6 +732,100 @@ export function HomePage() {
               </m.div>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* Blog */}
+      <section className="relative border-t border-zinc-200/80 px-6 py-20 dark:border-white/5 sm:py-28">
+        <div className="container mx-auto max-w-6xl">
+          <m.div
+            className="mb-4 flex items-center justify-between"
+            initial={{ opacity: 0, y: reduceMotion ? 0 : 12 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-50px" }}
+            transition={MOTION}
+          >
+            <h2 className="text-2xl font-semibold text-zinc-900 dark:text-white sm:text-3xl">
+              Blog & Hướng dẫn
+            </h2>
+            <Link
+              href="/blog"
+              className="hidden items-center gap-1 text-sm text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 sm:inline-flex"
+            >
+              Xem tất cả
+              <ArrowRight className="size-3.5" />
+            </Link>
+          </m.div>
+          <m.p
+            className="mb-10 text-zinc-500 dark:text-zinc-400"
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            viewport={{ once: true }}
+            transition={{ ...MOTION, delay: 0.05 }}
+          >
+            Kiến thức chữ ký số, hướng dẫn sử dụng
+          </m.p>
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {BLOG_POSTS.slice(0, 3).map((post, i) => (
+              <m.div
+                key={post.slug}
+                initial={{ opacity: 0, y: reduceMotion ? 0 : 12 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: "-30px" }}
+                transition={{ ...MOTION, delay: i * 0.06 }}
+              >
+                <Link href={`/blog/${post.slug}`} className="group block h-full">
+                  <div
+                    className={cn(
+                      "flex h-full flex-col overflow-hidden rounded-xl border backdrop-blur-sm transition-all duration-200",
+                      "border-zinc-200/80 bg-white/60 shadow-sm dark:border-white/10 dark:bg-white/5 dark:shadow-none",
+                      "hover:-translate-y-0.5 hover:shadow-md dark:hover:bg-white/[0.08]"
+                    )}
+                  >
+                    <div
+                      className="flex h-32 items-center justify-center"
+                      style={{
+                        background: `linear-gradient(135deg, ${post.gradient[0]}, ${post.gradient[1]})`,
+                      }}
+                    >
+                      <span className="text-4xl">{post.emoji}</span>
+                    </div>
+                    <div className="flex flex-1 flex-col p-5">
+                      <div className="mb-2 flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-500">
+                        <span className="rounded bg-zinc-100 px-1.5 py-0.5 font-medium text-zinc-600 dark:bg-white/10 dark:text-zinc-400">
+                          {post.category}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Calendar className="size-3" />
+                          {new Date(post.date).toLocaleDateString("vi-VN")}
+                        </span>
+                      </div>
+                      <h3 className="mb-2 font-semibold text-zinc-900 group-hover:text-violet-600 dark:text-white dark:group-hover:text-violet-400 transition-colors line-clamp-2">
+                        {post.title}
+                      </h3>
+                      <p className="flex-1 text-sm text-zinc-600 dark:text-zinc-400 line-clamp-2">
+                        {post.description}
+                      </p>
+                    </div>
+                  </div>
+                </Link>
+              </m.div>
+            ))}
+          </div>
+          <m.div
+            className="mt-6 text-center sm:hidden"
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            viewport={{ once: true }}
+            transition={{ ...MOTION, delay: 0.15 }}
+          >
+            <Link
+              href="/blog"
+              className="text-sm text-zinc-500 underline-offset-4 hover:underline hover:text-zinc-700 dark:hover:text-zinc-300"
+            >
+              Xem tất cả bài viết →
+            </Link>
+          </m.div>
         </div>
       </section>
 
