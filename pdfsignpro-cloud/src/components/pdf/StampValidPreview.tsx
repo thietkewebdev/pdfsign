@@ -39,7 +39,9 @@ export function StampValidPreview({
     <div
       className={cn(
         "flex items-stretch overflow-hidden rounded",
-        "bg-white/90 dark:bg-zinc-800/90 border border-emerald-500/30",
+        variant === "valid"
+          ? "bg-emerald-50/90 dark:bg-emerald-950/40 border border-emerald-500/50"
+          : "bg-white/90 dark:bg-zinc-800/90 border border-emerald-500/30",
         className
       )}
       style={{

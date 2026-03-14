@@ -16,6 +16,59 @@ interface SignatureBoxProps {
   isActive?: boolean;
 }
 
+function ClassicPreview({ className }: { className?: string }) {
+  return (
+    <div
+      className={cn(
+        "flex flex-col items-center justify-center gap-1 px-2 overflow-hidden",
+        "border-b-2 border-foreground/30 pb-1",
+        className
+      )}
+    >
+      <span className="text-xs font-semibold text-foreground leading-tight truncate w-full text-center">
+        Nguyễn Văn A
+      </span>
+      <span className="text-[9px] text-muted-foreground truncate w-full text-center">
+        10/12/2026 14:30
+      </span>
+    </div>
+  );
+}
+
+function ModernPreview({ className }: { className?: string }) {
+  return (
+    <div
+      className={cn(
+        "flex flex-col items-center justify-center gap-1 px-2 py-1.5 overflow-hidden rounded-md",
+        "bg-muted/60 dark:bg-muted/40",
+        className
+      )}
+    >
+      <span className="text-xs font-medium text-foreground leading-tight truncate w-full text-center">
+        Nguyễn Văn A
+      </span>
+      <span className="text-[9px] text-muted-foreground truncate w-full text-center">
+        Giám đốc
+      </span>
+    </div>
+  );
+}
+
+function MinimalPreview({ className }: { className?: string }) {
+  return (
+    <div
+      className={cn(
+        "flex items-center justify-center px-2 overflow-hidden",
+        className
+      )}
+    >
+      <span className="text-sm font-semibold text-foreground truncate w-full text-center">
+        Nguyễn Văn A
+      </span>
+    </div>
+  );
+}
+
 function TemplatePreview({
   templateId,
   boxWidth,
@@ -42,23 +95,17 @@ function TemplatePreview({
     );
   }
 
-  return (
-    <div
-      className={cn(
-        "flex flex-col items-center justify-center gap-0.5 text-center px-1 overflow-hidden",
-        className
-      )}
-    >
-      <span className="text-[9px] font-medium text-foreground leading-tight truncate w-full">
-        {templateId === "minimal" ? "Nguyễn Văn A" : "Nguyễn Văn A"}
-      </span>
-      {(templateId === "classic" || templateId === "modern") && (
-        <span className="text-[8px] text-muted-foreground truncate w-full">
-          {templateId === "classic" ? "10/12/2026 14:30" : "Giám đốc"}
-        </span>
-      )}
-    </div>
-  );
+  if (templateId === "classic") {
+    return <ClassicPreview className={cn("w-full h-full", className)} />;
+  }
+  if (templateId === "modern") {
+    return <ModernPreview className={cn("w-full h-full", className)} />;
+  }
+  if (templateId === "minimal") {
+    return <MinimalPreview className={cn("w-full h-full", className)} />;
+  }
+
+  return <ClassicPreview className={cn("w-full h-full", className)} />;
 }
 
 export function SignatureBox({
