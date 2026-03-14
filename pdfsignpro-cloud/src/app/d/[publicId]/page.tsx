@@ -316,6 +316,7 @@ export default function SigningViewerPage() {
               }
             : null
         );
+        setSignerDownloadModalOpen(false);
         toast.success("Đã ký xong. Có thể tải PDF đã ký.");
         return;
       }

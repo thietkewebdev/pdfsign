@@ -209,9 +209,9 @@ async def sign_pdf(
     try:
         import zoneinfo
         tz = zoneinfo.ZoneInfo("Asia/Ho_Chi_Minh")
-        ts_str = datetime.now(tz).strftime("%d/%m/%Y %H:%M")
+        ts_str = datetime.now(tz).strftime("%d/%m/%Y %H:%M:%S")
     except ImportError:
-        ts_str = datetime.now().strftime("%d/%m/%Y %H:%M")
+        ts_str = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
 
     with open_pkcs11_session(
         lib_path,

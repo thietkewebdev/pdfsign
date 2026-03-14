@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-Custom signature appearance: native PDF with embedded NotoSans font.
-Tick icon, word-wrapped text (via reportlab for correct spacing), green border.
+Custom signature appearance: stamp_valid template.
+Layout matches frontend StampValidPreview 1:1 (single source of truth: stamp_valid_config).
 """
 from __future__ import annotations
 
@@ -11,18 +11,36 @@ import sys
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import List, Tuple
 
-from pyhanko.pdf_utils import content, layout
+from pyhanko.pdf_utils import layout
 from pyhanko.pdf_utils.content import ImportedPdfPage
+from pyhanko.pdf_utils.font.opentype import GlyphAccumulatorFactory
+from pyhanko.pdf_utils.writer import PdfFileWriter
+from pyhanko.stamp import BaseStamp, BaseStampStyle
+
+from .stamp_valid_config import (
+    PADDING,
+    TITLE_STAMP,
+    SIGNER_PREFIX,
+    TS_PREFIX,
+    TITLE_SIZE_MAX,
+    CONTENT_SIZE_MAX,
+    LINE_HEIGHT,
+    MAX_SIGNER_LINES,
+    MAX_TS_LINES,
+    compute_layout as config_compute_layout,
+)
+
+logger = logging.getLogger(__name__)
+
+_FONT_PATH = Path(__file__).resolve().parent.parent / "assets" / "fonts" / "NotoSans-Regular.ttf"
 
 
 def _debug_print(*args, **kwargs) -> None:
-    """Print Unicode strings correctly; reconfigure stdout to UTF-8 if needed."""
     if not args and not kwargs:
         return
     try:
-        # Ensure stdout can handle Unicode (e.g. Vietnamese diacritics)
         if hasattr(sys.stdout, "reconfigure") and getattr(
             sys.stdout, "encoding", None
         ) not in ("utf-8", "utf8"):
@@ -33,24 +51,6 @@ def _debug_print(*args, **kwargs) -> None:
         print(*args, **kwargs)
     except UnicodeEncodeError:
         print(repr(args) if len(args) == 1 else args, **kwargs)
-from pyhanko.pdf_utils.font.opentype import GlyphAccumulatorFactory
-from pyhanko.pdf_utils.generic import pdf_name
-from pyhanko.pdf_utils.writer import PdfFileWriter
-from pyhanko.stamp import BaseStamp, BaseStampStyle
-
-logger = logging.getLogger(__name__)
-
-_FONT_PATH = Path(__file__).resolve().parent.parent / "assets" / "fonts" / "NotoSans-Regular.ttf"
-
-# Layout constants (all in top-left coords, y increases down)
-_PADDING = 8
-_TEXT_PADDING = 16
-_MAX_SIGNER_LINES = 3
-_MAX_TS_LINES = 3
-_MIN_FONT_SIZE = 8
-_MAX_FONT_SIZE = 10
-_LEADING_RATIO = 1.2  # leading = font_size * this
-_GAP_BEFORE_TIME = 2  # extra gap between signer block and time line
 
 
 def _ensure_font() -> Path:
@@ -63,7 +63,6 @@ def _ensure_font() -> Path:
 
 
 def _measure_width(font_engine, text: str, font_size: float) -> float:
-    """Measure text width in points (pt)."""
     if not text:
         return 0.0
     sr = font_engine.shape(text)
@@ -76,10 +75,7 @@ def _wrap_text(
     max_width_pt: float,
     font_size: float,
 ) -> List[str]:
-    """
-    Word-wrap text to fit max_width_pt. Breaks long words by character if needed.
-    Returns list of lines.
-    """
+    """Word-wrap text to fit max_width_pt. Breaks long words by character if needed."""
     if not text or max_width_pt <= 0:
         return []
 
@@ -97,12 +93,10 @@ def _wrap_text(
             if current:
                 lines.append(" ".join(current))
                 current = []
-            # Word alone
             ww = _measure_width(font_engine, word, font_size)
             if ww <= max_width_pt:
                 current = [word]
             else:
-                # Break long word by character
                 chars = list(word)
                 cur_line: List[str] = []
                 for c in chars:
@@ -121,74 +115,62 @@ def _wrap_text(
     return lines
 
 
-def _compute_layout(
+def _compute_stamp_layout(
     width: float,
     height: float,
     signer: str,
     ts: str,
-) -> Tuple[float, float, float, float, List[str], List[str], int]:
+) -> Tuple[float, float, float, int, int, List[str], List[str]]:
     """
-    Compute layout in top-left coords. Text area: [padding, W-padding] x [padding, H-padding].
-    Returns: icon_size, text_x, text_width, leading, signer_lines, ts_lines, font_size.
+    Compute layout matching StampValidPreview.
+    Returns: icon_size, text_x, text_max_width, title_size, content_size, signer_lines, ts_lines.
     """
     font_path = _ensure_font()
-    pad = _PADDING
-    text_area_w = width - 2 * pad
-    text_area_h = height - 2 * pad
-    icon_size = min(text_area_w * 0.25, text_area_h * 0.8)
-    text_x = pad + icon_size + _TEXT_PADDING
-    text_width = width - pad - text_x  # right edge at width - pad
-    text_height = text_area_h - pad  # reserve top for first baseline
+    layout_cfg = config_compute_layout(width, height)
+    icon_size = layout_cfg["icon_size"]
+    text_max_width = layout_cfg["text_max_width"]
+    text_x = layout_cfg["text_x"]
+    title_size = layout_cfg["title_size"]
+    content_size = layout_cfg["content_size"]
+    leading_ratio = layout_cfg["line_height"]
 
     w = PdfFileWriter(init_page_tree=False)
     factory = GlyphAccumulatorFactory(
-        str(font_path), font_size=_MAX_FONT_SIZE, bcp47_lang_code="vi"
+        str(font_path), font_size=max(TITLE_SIZE_MAX, CONTENT_SIZE_MAX), bcp47_lang_code="vi"
     )
     engine = factory.create_font_engine(w)
 
-    signer_text = f"Ký số bởi: {signer}" if signer else "Ký số bởi:"
-    ts_text = f"Thời gian: {ts}" if ts else "Thời gian:"
+    signer_text = f"{SIGNER_PREFIX}{signer}" if signer else SIGNER_PREFIX
+    ts_text = f"{TS_PREFIX}{ts}" if ts else TS_PREFIX
 
-    for sz in range(_MAX_FONT_SIZE, _MIN_FONT_SIZE - 1, -1):
-        leading = sz * _LEADING_RATIO
-        signer_lines = _wrap_text(engine, signer_text, text_width, float(sz))
-        if len(signer_lines) > _MAX_SIGNER_LINES:
-            continue
-        ts_lines = _wrap_text(engine, ts_text, text_width, float(sz))
-        ts_lines = ts_lines[:_MAX_TS_LINES]
-        total_lines = len(signer_lines) + len(ts_lines)
-        # First baseline at pad + font_size; block height = (n-1)*leading + font_size + gap
-        block_height = (total_lines - 1) * leading + sz + _GAP_BEFORE_TIME
-        if block_height <= text_height:
-            if os.environ.get("PDFSIGN_DEBUG"):
-                _debug_print(f"[sig_appearance] wrap: font_size={sz}, signer_lines={signer_lines}")
-            return icon_size, text_x, text_width, leading, signer_lines, ts_lines, sz
+    signer_lines = _wrap_text(engine, signer_text, text_max_width, float(content_size))
+    signer_lines = signer_lines[:MAX_SIGNER_LINES]
 
-    sz = _MIN_FONT_SIZE
-    leading = sz * _LEADING_RATIO
-    signer_lines = _wrap_text(engine, signer_text, text_width, float(sz))
-    signer_lines = signer_lines[:_MAX_SIGNER_LINES]
-    ts_lines = _wrap_text(engine, ts_text, text_width, float(sz))
-    ts_lines = ts_lines[:_MAX_TS_LINES]
+    ts_lines = _wrap_text(engine, ts_text, text_max_width, float(content_size))
+    ts_lines = ts_lines[:MAX_TS_LINES]
+
     if os.environ.get("PDFSIGN_DEBUG"):
-        _debug_print(f"[sig_appearance] wrap (fallback): font_size={sz}, signer_lines={signer_lines}, ts_lines={ts_lines}")
-    return icon_size, text_x, text_width, leading, signer_lines, ts_lines, sz
+        _debug_print(
+            f"[sig_appearance] stamp_valid: {width}x{height} icon={icon_size:.1f} "
+            f"text_x={text_x} signer_lines={signer_lines} ts_lines={ts_lines}"
+        )
+
+    return icon_size, text_x, text_max_width, title_size, content_size, signer_lines, ts_lines
 
 
 def _render_text_via_reportlab(
     width: float,
     height: float,
+    title: str,
     signer_lines: List[str],
     ts_lines: List[str],
     text_x: float,
     text_y_start: float,
-    font_size: int,
-    leading: float,
+    title_size: int,
+    content_size: int,
+    leading_ratio: float,
 ) -> str:
-    """
-    Render text with reportlab (correct spacing for Vietnamese).
-    Returns path to temp PDF file. Caller must delete.
-    """
+    """Render text with reportlab. Returns path to temp PDF file."""
     from reportlab.pdfbase import pdfmetrics
     from reportlab.pdfbase.ttfonts import TTFont
     from reportlab.pdfgen import canvas
@@ -202,15 +184,20 @@ def _render_text_via_reportlab(
     path = tmp.name
 
     c = canvas.Canvas(path, pagesize=(width, height))
-    c.setFont(font_name, font_size)
-    c.setFillColorRGB(1, 0, 0)  # red for signer
+    c.setFont(font_name, title_size)
+    c.setFillColorRGB(0.863, 0.149, 0.149)  # #dc2626 red
+    c.drawString(text_x, text_y_start, title)
 
-    y = text_y_start
+    leading = content_size * leading_ratio
+    y = text_y_start - title_size * leading_ratio - 2
+
+    c.setFont(font_name, content_size)
+    c.setFillColorRGB(0.29, 0.34, 0.39)  # #4b5563 gray
+
     for line in signer_lines:
         c.drawString(text_x, y, line)
         y -= leading
 
-    c.setFillColorRGB(0.145, 0.388, 0.922)
     for line in ts_lines:
         c.drawString(text_x, y, line)
         y -= leading
@@ -220,7 +207,6 @@ def _render_text_via_reportlab(
 
 
 def _pdf_circle_path(cx: float, cy: float, r: float) -> bytes:
-    """PDF path for circle (4 cubic Bezier approximation)."""
     k = 0.552284749831 * r
     return (
         b"%g %g m " % (cx + r, cy)
@@ -238,11 +224,10 @@ def _build_stamp_content(
     signer: str,
     ts: str,
     writer,
-    resource_target,  # object with import_resources() for merging fonts/xobjects
+    resource_target,
 ) -> bytes:
     """
-    Build PDF content stream for stamp. All drawing in top-left coords (y down).
-    Single transform at root: cm 1 0 0 -1 0 H. NotoSans embedded for Unicode.
+    Build PDF content stream for stamp_valid. Layout matches StampValidPreview 1:1.
     """
     if not _FONT_PATH.exists():
         raise FileNotFoundError(
@@ -250,54 +235,45 @@ def _build_stamp_content(
             "Download NotoSans-Regular.ttf to assets/fonts/ (see README)."
         )
 
-    debug = os.environ.get("PDFSIGN_DEBUG")
-    pad = _PADDING
-
-    icon_size, text_x, text_width, leading, signer_lines, ts_lines, font_size = _compute_layout(
+    pad = PADDING
+    icon_size, text_x, _, title_size, content_size, signer_lines, ts_lines = _compute_stamp_layout(
         width, height, signer, ts
     )
 
-    # Top-left coords: cm 1 0 0 -1 0 height cm
     flip_cm = b"1 0 0 -1 0 %g cm" % height
 
-    # Icon: center in left padded area
     icon_cx = pad + icon_size / 2
     icon_cy = height / 2
     icon_r = icon_size / 2 - 2
 
-    # Tick: ✓ shape in top-left coords (y down). y pattern small->large->small.
     r = icon_r
     tick_p1 = (icon_cx - 0.40 * r, icon_cy - 0.05 * r)
     tick_p2 = (icon_cx - 0.15 * r, icon_cy + 0.25 * r)
     tick_p3 = (icon_cx + 0.45 * r, icon_cy - 0.30 * r)
 
-    # Text baseline: first at pad + font_size, then +leading per line
-    text_y_baseline = pad + font_size
-    total_lines = len(signer_lines) + len(ts_lines)
-    text_block_height = (total_lines - 1) * leading + font_size
+    leading = content_size * LINE_HEIGHT
+    text_y_baseline = pad + title_size * LINE_HEIGHT
 
-    if debug:
-        _debug_print(
-            f"[sig_appearance] box: {width}x{height} | transform: 1 0 0 -1 0 {height}"
-        )
-        _debug_print(
-            f"[sig_appearance] font_size={font_size} leading={leading} | "
-            f"lines={total_lines} text_block_height={text_block_height:.1f}"
-        )
-        _debug_print(f"[sig_appearance] signer_lines={signer_lines} ts_lines={ts_lines}")
-        _debug_print(
-            f"[sig_appearance] tick (top-left coords): {tick_p1} -> {tick_p2} -> {tick_p3}"
-        )
+    text_form_y = height - text_y_baseline
+    text_pdf_path = _render_text_via_reportlab(
+        width, height,
+        TITLE_STAMP,
+        signer_lines, ts_lines,
+        text_x, text_form_y,
+        title_size, content_size,
+        LINE_HEIGHT,
+    )
 
+    border_r = 4
     ops = [
         b"q",
         flip_cm,
         b"1 w",
-        b"0.133 0.773 0.369 RG",
+        b"0.063 0.722 0.506 RG",
         b"%g %g %g %g re S" % (pad, pad, width - 2 * pad, height - 2 * pad),
     ]
 
-    ops.append(b"0.133 0.773 0.369 rg")
+    ops.append(b"0.063 0.722 0.506 rg")
     ops.append(_pdf_circle_path(icon_cx, icon_cy, icon_r))
     ops.append(b"f")
 
@@ -306,14 +282,8 @@ def _build_stamp_content(
         + b"%g %g m %g %g l %g %g l S"
         % (tick_p1[0], tick_p1[1], tick_p2[0], tick_p2[1], tick_p3[0], tick_p3[1])
     )
-    ops.append(b"Q")  # end flip block (tick/border/circle done)
+    ops.append(b"Q")
 
-    # Text: use reportlab for correct Vietnamese spacing (no glyph spacing issues)
-    text_form_y = height - text_y_baseline
-    text_pdf_path = _render_text_via_reportlab(
-        width, height, signer_lines, ts_lines,
-        text_x, text_form_y, font_size, leading,
-    )
     try:
         imported = ImportedPdfPage(text_pdf_path, page_ix=0)
         imported.set_writer(writer)
@@ -330,9 +300,9 @@ def _build_stamp_content(
 
 @dataclass(frozen=True)
 class SigAppearanceStampStyle(BaseStampStyle):
-    """Stamp style: tick icon, word-wrapped text, green border. No SVG."""
+    """Stamp_valid style: matches frontend StampValidPreview 1:1."""
 
-    timestamp_format: str = "%d/%m/%Y %H:%M"
+    timestamp_format: str = "%d/%m/%Y %H:%M:%S"
     border_width: int = 0
 
     def create_stamp(self, writer, box: layout.BoxConstraints, text_params: dict):
@@ -345,7 +315,7 @@ class SigAppearanceStampStyle(BaseStampStyle):
 
 
 class SigAppearanceStamp(BaseStamp):
-    """Custom stamp rendering native PDF with embedded NotoSans font."""
+    """Custom stamp rendering - layout matches StampValidPreview."""
 
     def __init__(self, writer, style: SigAppearanceStampStyle, box, text_params=None):
         super().__init__(writer=writer, style=style, box=box)

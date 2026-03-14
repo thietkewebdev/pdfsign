@@ -3,7 +3,7 @@
 import { Rnd } from "react-rnd";
 import { cn } from "@/lib/utils";
 import type { SignaturePlacement } from "@/lib/types";
-import { SignatureStamp } from "@/components/marketing/SignatureStamp";
+import { StampValidPreview } from "./StampValidPreview";
 
 interface SignatureBoxProps {
   placement: SignaturePlacement;
@@ -16,16 +16,28 @@ interface SignatureBoxProps {
   isActive?: boolean;
 }
 
-function TemplatePreview({ templateId, className }: { templateId: string; className?: string }) {
+function TemplatePreview({
+  templateId,
+  boxWidth,
+  boxHeight,
+  className,
+}: {
+  templateId: string;
+  boxWidth: number;
+  boxHeight: number;
+  className?: string;
+}) {
   const isStamp = templateId === "stamp" || templateId === "valid";
 
   if (isStamp) {
     return (
-      <SignatureStamp
+      <StampValidPreview
+        variant={templateId as "stamp" | "valid"}
         companyName="Công ty ABC"
-        signedAt="10/12/2026 14:30"
-        variant="light"
-        className={cn("w-full h-full min-w-0 min-h-0 object-contain", className)}
+        signedAt="14/03/2026 09:33:58"
+        boxWidth={boxWidth}
+        boxHeight={boxHeight}
+        className={cn("w-full h-full", className)}
       />
     );
   }
@@ -85,8 +97,13 @@ export function SignatureBox({
       )}
       style={{ zIndex: isActive ? 10 : 1 }}
     >
-      <div className="w-full h-full min-w-0 min-h-0 flex items-center justify-center pointer-events-none">
-        <TemplatePreview templateId={templateId} className="max-w-full max-h-full" />
+      <div className="w-full h-full min-w-0 min-h-0 flex items-center justify-center pointer-events-none overflow-hidden">
+        <TemplatePreview
+          templateId={templateId}
+          boxWidth={w}
+          boxHeight={h}
+          className="max-w-full max-h-full"
+        />
       </div>
     </Rnd>
   );
