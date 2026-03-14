@@ -210,12 +210,12 @@ def _render_text_via_reportlab(
     y = text_y_start - title_size * leading_ratio - 2
 
     c.setFont(font_name, content_size)
-    c.setFillColorRGB(0.29, 0.34, 0.39)  # #4b5563 gray
-
     for line in signer_lines:
+        c.setFillColorRGB(0.863, 0.149, 0.149)  # #dc2626 red - tên công ty
         c.drawString(text_x, y, line)
         y -= leading
 
+    c.setFillColorRGB(0.29, 0.34, 0.39)  # #4b5563 gray - thời gian
     for line in ts_lines:
         c.drawString(text_x, y, line)
         y -= leading
@@ -319,7 +319,7 @@ def _build_stamp_content(
 
 @dataclass(frozen=True)
 class SigAppearanceStampStyle(BaseStampStyle):
-    """Stamp_valid style: matches frontend StampValidPreview 1:1."""
+    """Stamp_valid style. Desktop-signer chỉ xác thực chứng thư, không nhận mẫu."""
 
     timestamp_format: str = "%d/%m/%Y %H:%M:%S"
     border_width: int = 0

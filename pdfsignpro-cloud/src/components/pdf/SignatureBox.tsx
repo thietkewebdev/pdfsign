@@ -16,6 +16,58 @@ interface SignatureBoxProps {
   isActive?: boolean;
 }
 
+function ClassicPreview({ className }: { className?: string }) {
+  return (
+    <div
+      className={cn(
+        "flex flex-col items-center justify-center gap-1 px-2 overflow-hidden w-full h-full",
+        "border-b-2 border-foreground/30 pb-1",
+        className
+      )}
+    >
+      <span className="text-xs font-semibold text-foreground leading-tight truncate w-full text-center">
+        Nguyễn Văn A
+      </span>
+      <span className="text-[9px] text-muted-foreground truncate w-full text-center">
+        10/12/2026 14:30
+      </span>
+    </div>
+  );
+}
+
+function ModernPreview({ className }: { className?: string }) {
+  return (
+    <div
+      className={cn(
+        "flex flex-col items-center justify-center gap-1 px-2 py-1.5 overflow-hidden rounded-md w-full h-full",
+        "bg-muted/60 dark:bg-muted/40"
+      )}
+    >
+      <span className="text-xs font-medium text-foreground leading-tight truncate w-full text-center">
+        Nguyễn Văn A
+      </span>
+      <span className="text-[9px] text-muted-foreground truncate w-full text-center">
+        Giám đốc
+      </span>
+    </div>
+  );
+}
+
+function MinimalPreview({ className }: { className?: string }) {
+  return (
+    <div
+      className={cn(
+        "flex items-center justify-center px-2 overflow-hidden w-full h-full",
+        className
+      )}
+    >
+      <span className="text-sm font-semibold text-foreground truncate w-full text-center">
+        Nguyễn Văn A
+      </span>
+    </div>
+  );
+}
+
 function TemplatePreview({
   templateId,
   boxWidth,
@@ -27,20 +79,40 @@ function TemplatePreview({
   boxHeight: number;
   className?: string;
 }) {
-  // Backend chỉ hỗ trợ stamp/valid. Classic/Modern/Minimal hiển thị dạng con dấu khi ký.
-  // Preview luôn dùng StampValidPreview để khớp với PDF đã ký.
-  const variant: "stamp" | "valid" =
-    templateId === "valid" ? "valid" : "stamp";
-  return (
-    <StampValidPreview
-      variant={variant}
-      companyName="Công ty TNHH Cổ phần Xây dựng và Thương mại Việt Nam"
-      signedAt="14/03/2026 09:33:58"
-      boxWidth={boxWidth}
-      boxHeight={boxHeight}
-      className={cn("w-full h-full", className)}
-    />
-  );
+  if (templateId === "stamp") {
+    return (
+      <StampValidPreview
+        variant="stamp"
+        companyName="Công ty TNHH Cổ phần Xây dựng và Thương mại Việt Nam"
+        signedAt="14/03/2026 09:33:58"
+        boxWidth={boxWidth}
+        boxHeight={boxHeight}
+        className={cn("w-full h-full", className)}
+      />
+    );
+  }
+  if (templateId === "valid") {
+    return (
+      <StampValidPreview
+        variant="valid"
+        companyName="Công ty TNHH Cổ phần Xây dựng và Thương mại Việt Nam"
+        signedAt="14/03/2026 09:33:58"
+        boxWidth={boxWidth}
+        boxHeight={boxHeight}
+        className={cn("w-full h-full", className)}
+      />
+    );
+  }
+  if (templateId === "classic") {
+    return <ClassicPreview className={className} />;
+  }
+  if (templateId === "modern") {
+    return <ModernPreview className={className} />;
+  }
+  if (templateId === "minimal") {
+    return <MinimalPreview className={className} />;
+  }
+  return <ClassicPreview className={className} />;
 }
 
 export function SignatureBox({

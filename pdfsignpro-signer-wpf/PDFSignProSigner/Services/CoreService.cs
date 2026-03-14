@@ -59,7 +59,7 @@ public class CoreService
         }
     }
 
-    /// <summary>Run sign mode. Returns success, stdout, stderr, exit code.</summary>
+    /// <summary>Run sign mode. Desktop-signer chỉ xác thực chứng thư số.</summary>
     public async Task<CoreSignResult> SignAsync(
         string inputPath,
         string outputPath,

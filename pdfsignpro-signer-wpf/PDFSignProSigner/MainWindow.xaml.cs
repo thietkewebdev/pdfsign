@@ -71,6 +71,7 @@ public partial class MainWindow : Window
 
     private async Task RunFlowAsync(DeepLinkPayload payload)
     {
+        _payload = payload;
         ShowScreen(Screen.Loading);
         LoadingText.Text = "Đang xác thực...";
 

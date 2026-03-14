@@ -200,6 +200,7 @@ async def sign_pdf(
 ) -> None:
     """
     Sign PDF with PAdES using PKCS#11 token.
+    Desktop-signer chỉ xác thực chứng thư số, không nhận mẫu chữ ký.
     """
     from pyhanko.sign.pkcs11 import open_pkcs11_session
 

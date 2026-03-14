@@ -91,7 +91,7 @@ export function StampValidPreview({
           {title}
         </div>
         <div
-          className="text-muted-foreground"
+          className="text-red-600 dark:text-red-400 font-medium"
           style={{
             fontSize: contentSize,
             lineHeight,

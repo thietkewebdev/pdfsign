@@ -2,6 +2,8 @@
 
 Ký số PDF bằng USB token (PKCS#11) trên Windows. Ứng dụng GUI PySide6, output PAdES chuẩn, xem được certificate trong Adobe Reader.
 
+**Vai trò**: Desktop-signer chỉ dùng để **xác thực chứng thư số** (PIN + cert). Không truyền mẫu chữ ký xuống; mẫu do bản web quy định.
+
 ## Yêu cầu
 
 - Windows 10/11
