@@ -1,14 +1,9 @@
 import { ImageResponse } from "next/og";
-import { getPostBySlug, getAllSlugs } from "@/lib/blog-data";
+import { getPostBySlug } from "@/lib/blog-data";
 
-export const runtime = "edge";
 export const alt = "PDFSignPro Cloud Blog";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
-
-export function generateStaticParams() {
-  return getAllSlugs().map((slug) => ({ slug }));
-}
 
 export default async function Image({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
