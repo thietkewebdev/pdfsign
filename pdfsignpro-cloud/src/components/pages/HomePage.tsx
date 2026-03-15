@@ -64,12 +64,12 @@ const STEPS = [
 ] as const;
 
 const FEATURES = [
-  "Ký số PDF chuẩn PKCS#7 với USB Token (Viettel, EasyCA, FastCA…)",
-  "Hợp đồng điện tử nhiều bên — ký theo thứ tự, email thông báo tự động",
-  "Signer chạy trên Windows, kết nối trực tiếp trình duyệt",
-  "Xem trước chữ ký, thông tin chứng thư, thời gian ký",
-  "Dashboard quản lý tài liệu & hợp đồng đã tạo",
-  "Chia sẻ liên kết đã ký, tải PDF đã ký",
+  "Ký số PDF bằng USB Token (Viettel, EasyCA, FastCA…)",
+  "Tạo hợp đồng điện tử nhiều bên, ký theo thứ tự, có email nhắc ký và báo hoàn tất",
+  "Phần mềm Signer nhỏ gọn trên Windows, kết nối trực tiếp với trình duyệt",
+  "Xem trước chữ ký, thông tin chứng thư số và thời gian ký",
+  "Dashboard quản lý tài liệu, hợp đồng và trạng thái ký",
+  "Chia sẻ link xem bản PDF đã ký, tải về bất cứ lúc nào",
 ] as const;
 
 const TRUST_ITEMS = [
@@ -211,7 +211,7 @@ function FaqSection({ reduceMotion }: { reduceMotion: boolean }) {
           viewport={{ once: true, margin: "-50px" }}
           transition={MOTION}
         >
-          Câu hỏi thường gặp
+          Câu hỏi thường gặp khi bắt đầu ký số
         </m.h2>
         <m.p
           className="mb-10 text-center text-zinc-500 dark:text-zinc-400"
@@ -220,7 +220,7 @@ function FaqSection({ reduceMotion }: { reduceMotion: boolean }) {
           viewport={{ once: true }}
           transition={{ ...MOTION, delay: 0.05 }}
         >
-          Giải đáp các thắc mắc phổ biến về PDFSignPro Cloud
+          Giải đáp nhanh những thắc mắc phổ biến: chữ ký có hợp lệ không, Adobe có kiểm tra được không, dữ liệu có an toàn không…
         </m.p>
         <m.div
           className={cn(
@@ -646,7 +646,10 @@ export function HomePage() {
       </section>
 
       {/* Cách hoạt động */}
-      <section className="relative border-t border-zinc-200/80 bg-zinc-50/50 px-6 py-20 dark:border-white/5 dark:bg-transparent sm:py-28">
+      <section
+        id="how-it-works"
+        className="relative border-t border-zinc-200/80 bg-zinc-50/50 px-6 py-20 dark:border-white/5 dark:bg-transparent sm:py-28"
+      >
         <div className="container mx-auto max-w-6xl">
           <m.h2
             className="text-left text-2xl font-semibold text-zinc-900 dark:text-white sm:text-3xl"
@@ -764,7 +767,7 @@ export function HomePage() {
           <div className="grid gap-16 lg:grid-cols-2 lg:items-start lg:gap-24">
             <div>
               <h2 className="mb-10 text-2xl font-semibold text-zinc-900 dark:text-white sm:text-3xl">
-                Tính năng
+                Những gì bạn làm được với PDFSignPro
               </h2>
               <ul className="space-y-5">
                 {FEATURES.map((text, i) => (
@@ -790,7 +793,7 @@ export function HomePage() {
               transition={MOTION}
             >
               <h3 className="mb-6 text-lg font-semibold text-zinc-900 dark:text-white">
-                Đáng tin cậy
+                Đáng tin cậy về mặt pháp lý
               </h3>
               <div className="flex flex-wrap gap-3">
                 {TRUST_ITEMS.map(({ icon: Icon, label }) => (
@@ -896,7 +899,7 @@ export function HomePage() {
             viewport={{ once: true, margin: "-50px" }}
             transition={MOTION}
           >
-            Khách hàng nói gì
+            Khách hàng đang sử dụng nói gì
           </m.h2>
           <m.p
             className="mb-14 text-center text-zinc-500 dark:text-zinc-400"
@@ -905,7 +908,7 @@ export function HomePage() {
             viewport={{ once: true }}
             transition={{ ...MOTION, delay: 0.05 }}
           >
-            Được tin dùng bởi doanh nghiệp và cá nhân trên toàn quốc
+            Chia sẻ từ kế toán, pháp chế, chủ doanh nghiệp và đội ngũ vận hành đang dùng PDFSignPro hằng ngày
           </m.p>
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {TESTIMONIALS.map((t, i) => (
@@ -956,7 +959,7 @@ export function HomePage() {
             transition={MOTION}
           >
             <h2 className="text-2xl font-semibold text-zinc-900 dark:text-white sm:text-3xl">
-              Blog & Hướng dẫn
+              Hướng dẫn & kiến thức về chữ ký số
             </h2>
             <Link
               href="/blog"
@@ -973,7 +976,7 @@ export function HomePage() {
             viewport={{ once: true }}
             transition={{ ...MOTION, delay: 0.05 }}
           >
-            Kiến thức chữ ký số, hướng dẫn sử dụng
+            Giải thích rõ ràng các khái niệm như chữ ký số, USB Token, PAdES… bằng tiếng Việt dễ hiểu.
           </m.p>
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {BLOG_POSTS.slice(0, 3).map((post, i) => (
