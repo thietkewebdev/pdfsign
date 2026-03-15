@@ -14,7 +14,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     const parsed = bodySchema.safeParse(body);
     if (!parsed.success) {
-      const msg = parsed.error.errors[0]?.message ?? "Dữ liệu không hợp lệ";
+      const msg = parsed.error.issues[0]?.message ?? "Dữ liệu không hợp lệ";
       return NextResponse.json({ error: msg }, { status: 400 });
     }
     const { email, password, name } = parsed.data;
