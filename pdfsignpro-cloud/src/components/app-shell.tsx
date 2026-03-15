@@ -5,7 +5,7 @@ import Image from "next/image";
 import { Footer } from "@/components/footer";
 import { useTheme } from "next-themes";
 import { useSession, signIn, signOut } from "next-auth/react";
-import { Moon, Sun, Github, Monitor, Laptop, ChevronDown, LogIn, FileText, LogOut, HelpCircle, Scale, ShieldCheck, BookOpen } from "lucide-react";
+import { Moon, Sun, Github, Monitor, Laptop, ChevronDown, LogIn, FileText, LogOut, HelpCircle, Scale, ShieldCheck, BookOpen, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -147,6 +147,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     <Link href="/dashboard" className="cursor-pointer">
                       <FileText className="size-4" />
                       Tài liệu của tôi
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/dashboard?tab=contracts" className="cursor-pointer">
+                      <Users className="size-4" />
+                      Hợp đồng điện tử
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />

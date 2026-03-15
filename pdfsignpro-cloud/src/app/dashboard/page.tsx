@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { Suspense, useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   FileText,
@@ -55,11 +55,22 @@ const CONTRACT_STATUS: Record<string, { label: string; color: string }> = {
   IN_PROGRESS: { label: "Đang ký", color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400" },
   COMPLETED: { label: "Hoàn tất", color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" },
   EXPIRED: { label: "Hết hạn", color: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400" },
+  CANCELED: { label: "Đã hủy", color: "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400" },
 };
 
 export default function DashboardPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-[60vh]"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>}>
+      <DashboardContent />
+    </Suspense>
+  );
+}
+
+function DashboardContent() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const defaultTab = searchParams.get("tab") === "contracts" ? "contracts" : "documents";
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
   const [contracts, setContracts] = useState<ContractItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -158,7 +169,7 @@ export default function DashboardPage() {
         </Card>
       )}
 
-      <Tabs defaultValue="documents">
+      <Tabs defaultValue={defaultTab}>
         <TabsList className="mb-6">
           <TabsTrigger value="documents" className="gap-1.5">
             <FileText className="size-4" />

@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { getStorageDriver } from "@/storage";
 import { verifyJobToken } from "@/lib/job-token";
 import { sendSigningInvitation, sendContractCompleted } from "@/lib/email";
+import { logContractEvent } from "@/lib/contract-events";
 
 function parseMultipart(request: Request): Promise<{
   fileBuffer: Buffer;
@@ -229,6 +230,13 @@ async function advanceContractIfNeeded(jobId: string, publicId: string) {
       data: { status: "COMPLETED", completedAt: new Date() },
     });
 
+    await logContractEvent(
+      contractSigner.contractId,
+      "SIGNED",
+      contractSigner.name,
+      `${contractSigner.name} (${contractSigner.email}) đã ký - bên thứ ${contractSigner.order}`
+    );
+
     const { contract } = contractSigner;
     const nextSigner = contract.signers.find(
       (s) => s.order > contractSigner.order && s.status === "PENDING"
@@ -255,11 +263,25 @@ async function advanceContractIfNeeded(jobId: string, publicId: string) {
         where: { id: nextSigner.id },
         data: { status: "INVITED", invitedAt: new Date() },
       });
+
+      await logContractEvent(
+        contract.id,
+        "INVITED",
+        undefined,
+        `Mời ${nextSigner.name} (${nextSigner.email}) - bên thứ ${nextSigner.order}`
+      );
     } else {
       await prisma.contract.update({
         where: { id: contract.id },
         data: { status: "COMPLETED", completedAt: new Date() },
       });
+
+      await logContractEvent(
+        contract.id,
+        "COMPLETED",
+        undefined,
+        `Tất cả ${contract.signers.length} bên đã ký thành công`
+      );
 
       const viewUrl = `${appUrl}/contract/${contract.id}`;
       const allSigners = contract.signers;

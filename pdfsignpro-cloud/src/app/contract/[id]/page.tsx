@@ -14,6 +14,8 @@ import {
   PenLine,
   AlertCircle,
   ArrowLeft,
+  XCircle,
+  Bell,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -64,6 +66,16 @@ interface ContractData {
   totalSigners: number;
   canSign: boolean;
   currentSignerToken: string | null;
+  isOwner: boolean;
+  events: ContractEvent[];
+}
+
+interface ContractEvent {
+  id: string;
+  type: string;
+  actor: string | null;
+  detail: string | null;
+  createdAt: string;
 }
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: typeof Clock }> = {
@@ -71,6 +83,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; icon: typeof
   IN_PROGRESS: { label: "Đang ký", color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400", icon: PenLine },
   COMPLETED: { label: "Hoàn tất", color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400", icon: CheckCircle2 },
   EXPIRED: { label: "Hết hạn", color: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400", icon: AlertCircle },
+  CANCELED: { label: "Đã hủy", color: "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400", icon: XCircle },
 };
 
 const SIGNER_STATUS_CONFIG: Record<string, { label: string; color: string }> = {
@@ -82,6 +95,21 @@ const SIGNER_STATUS_CONFIG: Record<string, { label: string; color: string }> = {
 const POLL_INTERVAL_MS = 2000;
 const POLL_TIMEOUT_MS = 5 * 60 * 1000;
 
+const EVENT_TYPE_LABELS: Record<string, string> = {
+  CREATED: "Tạo hợp đồng",
+  INVITED: "Gửi lời mời ký",
+  VIEWED: "Xem hợp đồng",
+  SIGNED: "Đã ký",
+  COMPLETED: "Hoàn tất",
+  CANCELED: "Đã hủy",
+  REMINDED: "Nhắc nhở",
+  EXPIRED: "Hết hạn",
+};
+
+function eventTypeLabel(type: string): string {
+  return EVENT_TYPE_LABELS[type] || type;
+}
+
 export default function ContractPage() {
   const { id } = useParams<{ id: string }>();
   const searchParams = useSearchParams();
@@ -91,6 +119,8 @@ export default function ContractPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [signing, setSigning] = useState(false);
+  const [canceling, setCanceling] = useState(false);
+  const [reminding, setReminding] = useState(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -275,6 +305,50 @@ export default function ContractPage() {
     }
   };
 
+  const handleCancel = async () => {
+    if (!contract || !confirm("Bạn có chắc muốn hủy hợp đồng này?")) return;
+    setCanceling(true);
+    try {
+      const res = await fetch(`/api/contracts/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "cancel" }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error || "Failed to cancel");
+      }
+      toast.success("Đã hủy hợp đồng");
+      await fetchContract();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Có lỗi xảy ra");
+    } finally {
+      setCanceling(false);
+    }
+  };
+
+  const handleRemind = async () => {
+    if (!contract) return;
+    setReminding(true);
+    try {
+      const res = await fetch(`/api/contracts/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "remind" }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error || "Failed to send reminder");
+      }
+      const data = await res.json();
+      toast.success(`Đã gửi nhắc nhở cho ${data.remindedSigner}`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Có lỗi xảy ra");
+    } finally {
+      setReminding(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-950 dark:to-gray-900 flex items-center justify-center">
@@ -369,6 +443,32 @@ export default function ContractPage() {
                   </p>
                 </CardContent>
               </Card>
+            )}
+
+            {/* Owner actions */}
+            {contract.isOwner && contract.status !== "COMPLETED" && contract.status !== "EXPIRED" && (
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRemind}
+                  disabled={reminding}
+                  className="flex-1 text-xs"
+                >
+                  <Bell className="size-3.5" />
+                  {reminding ? "Đang gửi..." : "Nhắc nhở"}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleCancel}
+                  disabled={canceling}
+                  className="flex-1 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/20"
+                >
+                  <XCircle className="size-3.5" />
+                  {canceling ? "Đang hủy..." : "Hủy hợp đồng"}
+                </Button>
+              </div>
             )}
 
             {/* Signing panel for current signer */}
@@ -497,6 +597,31 @@ export default function ContractPage() {
               <div className="text-sm text-muted-foreground bg-muted/50 rounded-lg p-3">
                 <p className="font-medium text-xs mb-1">Lời nhắn:</p>
                 {contract.message}
+              </div>
+            )}
+
+            {/* Audit trail */}
+            {contract.isOwner && contract.events && contract.events.length > 0 && (
+              <div className="space-y-2">
+                <h3 className="text-sm font-semibold flex items-center gap-2">
+                  <Clock className="h-4 w-4" />
+                  Nhật ký ({contract.events.length})
+                </h3>
+                <div className="space-y-1 max-h-48 overflow-y-auto">
+                  {contract.events.map((event) => (
+                    <div key={event.id} className="flex gap-2 text-xs py-1.5 border-b border-border/50 last:border-0">
+                      <span className="text-muted-foreground shrink-0 w-14">
+                        {new Date(event.createdAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}
+                      </span>
+                      <div className="min-w-0">
+                        <span className="font-medium">{eventTypeLabel(event.type)}</span>
+                        {event.detail && (
+                          <span className="text-muted-foreground ml-1">— {event.detail}</span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </div>

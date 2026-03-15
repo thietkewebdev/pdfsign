@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { logContractEvent } from "@/lib/contract-events";
 
 export async function GET(
   request: NextRequest,
@@ -41,6 +42,16 @@ export async function GET(
         },
         user: {
           select: { name: true, email: true },
+        },
+        events: {
+          orderBy: { createdAt: "desc" },
+          select: {
+            id: true,
+            type: true,
+            actor: true,
+            detail: true,
+            createdAt: true,
+          },
         },
       },
     });
@@ -99,6 +110,16 @@ export async function GET(
         ? matchedSigner.status === "INVITED"
         : false,
       currentSignerToken: matchedSigner?.token ?? null,
+      isOwner,
+      events: isOwner
+        ? contract.events.map((e) => ({
+            id: e.id,
+            type: e.type,
+            actor: e.actor,
+            detail: e.detail,
+            createdAt: e.createdAt.toISOString(),
+          }))
+        : [],
     });
   } catch (err) {
     console.error("GET /api/contracts/[id] error:", err);
@@ -106,6 +127,83 @@ export async function GET(
       { error: "Internal server error" },
       { status: 500 }
     );
+  }
+}
+
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const body = await request.json();
+    const { action } = body;
+
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+    }
+
+    const contract = await prisma.contract.findUnique({
+      where: { id },
+      include: { signers: true },
+    });
+
+    if (!contract) {
+      return NextResponse.json({ error: "Contract not found" }, { status: 404 });
+    }
+
+    if (contract.userId !== session.user.id) {
+      return NextResponse.json({ error: "Access denied" }, { status: 403 });
+    }
+
+    if (action === "cancel") {
+      if (contract.status === "COMPLETED") {
+        return NextResponse.json({ error: "Cannot cancel a completed contract" }, { status: 400 });
+      }
+
+      await prisma.contract.update({
+        where: { id },
+        data: { status: "EXPIRED" },
+      });
+
+      await logContractEvent(id, "CANCELED", session.user.name ?? session.user.email ?? undefined, "Hủy hợp đồng bởi chủ sở hữu");
+
+      return NextResponse.json({ success: true, status: "EXPIRED" });
+    }
+
+    if (action === "remind") {
+      const currentSigner = contract.signers.find((s) => s.status === "INVITED");
+      if (!currentSigner) {
+        return NextResponse.json({ error: "No signer awaiting signature" }, { status: 400 });
+      }
+
+      const { sendSigningInvitation } = await import("@/lib/email");
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+      const signingUrl = `${appUrl}/contract/${contract.id}?token=${currentSigner.token}`;
+
+      try {
+        await sendSigningInvitation(
+          currentSigner.email,
+          currentSigner.name,
+          contract.title,
+          signingUrl,
+          session.user.name ?? undefined
+        );
+      } catch (emailErr) {
+        console.error("Failed to send reminder:", emailErr);
+        return NextResponse.json({ error: "Failed to send reminder email" }, { status: 500 });
+      }
+
+      await logContractEvent(id, "REMINDED", session.user.name ?? session.user.email ?? undefined, `Nhắc nhở ${currentSigner.name} (${currentSigner.email})`);
+
+      return NextResponse.json({ success: true, remindedSigner: currentSigner.name });
+    }
+
+    return NextResponse.json({ error: "Unknown action" }, { status: 400 });
+  } catch (err) {
+    console.error("PATCH /api/contracts/[id] error:", err);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
 

@@ -24,6 +24,10 @@ import {
   ChevronDown,
   ArrowRight,
   Calendar,
+  Users,
+  Mail,
+  ClipboardCheck,
+  Send,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -60,8 +64,10 @@ const STEPS = [
 
 const FEATURES = [
   "Ký số PDF chuẩn PKCS#7 với USB Token (Viettel, EasyCA, FastCA…)",
+  "Hợp đồng điện tử nhiều bên — ký theo thứ tự, email thông báo tự động",
   "Signer chạy trên Windows, kết nối trực tiếp trình duyệt",
   "Xem trước chữ ký, thông tin chứng thư, thời gian ký",
+  "Dashboard quản lý tài liệu & hợp đồng đã tạo",
   "Chia sẻ liên kết đã ký, tải PDF đã ký",
 ] as const;
 
@@ -134,6 +140,14 @@ const FAQ_HOME = [
   {
     q: "PDFSignPro Signer là gì?",
     a: "Phần mềm nhỏ trên Windows, cầu nối trình duyệt với USB Token. Nhấn \"Ký số\" trên web → Signer tự mở, đọc chứng thư và ký. Bắt buộc cài vì trình duyệt không truy cập USB Token trực tiếp.",
+  },
+  {
+    q: "Hợp đồng điện tử nhiều bên hoạt động như thế nào?",
+    a: "Bạn tải PDF lên, thêm email từng bên ký theo thứ tự. Bên ký đầu tiên nhận email mời, ký xong thì bên tiếp theo tự động nhận email. Khi tất cả ký xong, mọi bên đều nhận thông báo hoàn tất.",
+  },
+  {
+    q: "Người ký hợp đồng có cần đăng nhập không?",
+    a: "Không. Mỗi bên ký nhận link riêng qua email, chỉ cần mở link và ký bằng USB Token. Chỉ người tạo hợp đồng cần đăng nhập.",
   },
 ] as const;
 
@@ -367,10 +381,10 @@ export function HomePage() {
                 transition={{ ...MOTION, delay: 0.05 }}
               >
                 <h1 className="text-4xl font-semibold tracking-tight text-zinc-900 dark:text-white sm:text-5xl md:text-6xl md:leading-[1.1]">
-                  Ký số PDF — nhanh, chuẩn, an toàn
+                  Ký số PDF & Hợp đồng điện tử
                 </h1>
                 <p className="text-lg text-zinc-600 dark:text-zinc-400 sm:text-xl">
-                  Tải PDF lên, đặt vị trí chữ ký, ký số bằng USB Token trên Windows.
+                  Ký số bằng USB Token, gửi hợp đồng cho nhiều bên ký — theo thứ tự, có email thông báo.
                 </p>
               </m.div>
 
@@ -618,6 +632,90 @@ export function HomePage() {
               />
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* Hợp đồng điện tử */}
+      <section className="relative border-t border-zinc-200/80 px-6 py-20 dark:border-white/5 sm:py-28">
+        <div className="container mx-auto max-w-6xl">
+          <m.div
+            className="mb-4 text-center"
+            initial={{ opacity: 0, y: reduceMotion ? 0 : 12 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-50px" }}
+            transition={MOTION}
+          >
+            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-violet-200/80 bg-violet-50/80 px-4 py-1.5 dark:border-violet-500/20 dark:bg-violet-500/10">
+              <Users className="size-4 text-violet-600 dark:text-violet-400" />
+              <span className="text-sm font-medium text-violet-700 dark:text-violet-300">Mới</span>
+            </div>
+            <h2 className="text-2xl font-semibold text-zinc-900 dark:text-white sm:text-3xl">
+              Hợp đồng điện tử nhiều bên
+            </h2>
+          </m.div>
+          <m.p
+            className="mx-auto mb-14 max-w-2xl text-center text-zinc-500 dark:text-zinc-400"
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            viewport={{ once: true }}
+            transition={{ ...MOTION, delay: 0.05 }}
+          >
+            Gửi hợp đồng cho nhiều bên ký số theo thứ tự. Mỗi bên nhận email mời, tự chọn vị trí ký và ký bằng USB Token. Theo dõi tiến độ realtime.
+          </m.p>
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            {([
+              { icon: FileUp, title: "Tải PDF lên", desc: "Upload hợp đồng, đặt tên và thêm lời nhắn" },
+              { icon: Users, title: "Thêm bên ký", desc: "Nhập email, tên và thứ tự ký cho từng bên" },
+              { icon: Send, title: "Gửi email mời", desc: "Bên ký nhận email với link riêng, ký bằng USB Token" },
+              { icon: ClipboardCheck, title: "Hoàn tất", desc: "Tất cả bên ký xong → email thông báo & PDF có đầy đủ chữ ký" },
+            ] as const).map((step, i) => (
+              <m.div
+                key={step.title}
+                className={cn(
+                  "relative rounded-xl border p-6 backdrop-blur-sm transition-colors",
+                  "border-zinc-200/80 bg-white/60 shadow-sm dark:border-white/10 dark:bg-white/5 dark:shadow-none",
+                  "hover:border-violet-200 dark:hover:border-violet-500/20"
+                )}
+                initial={{ opacity: 0, y: reduceMotion ? 0 : 12 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: "-30px" }}
+                transition={{ ...MOTION, delay: i * 0.06 }}
+              >
+                <div className="mb-4 flex items-center gap-3">
+                  <div className="flex size-10 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500/20 to-blue-500/10">
+                    <step.icon className="size-5 text-violet-600 dark:text-violet-300" />
+                  </div>
+                  <span className="flex size-6 items-center justify-center rounded-full bg-zinc-100 text-xs font-bold text-zinc-500 dark:bg-white/10 dark:text-zinc-400">
+                    {i + 1}
+                  </span>
+                </div>
+                <h3 className="mb-2 text-sm font-semibold text-zinc-900 dark:text-white">{step.title}</h3>
+                <p className="text-sm text-zinc-500 dark:text-zinc-400">{step.desc}</p>
+              </m.div>
+            ))}
+          </div>
+          <m.div
+            className="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center"
+            initial={{ opacity: 0, y: reduceMotion ? 0 : 8 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ ...MOTION, delay: 0.2 }}
+          >
+            <Button
+              size="lg"
+              onClick={scrollToUpload}
+              className="rounded-lg bg-gradient-to-r from-violet-600 to-blue-600 text-white hover:from-violet-700 hover:to-blue-700"
+            >
+              <Users className="size-4" />
+              Tạo hợp đồng điện tử
+            </Button>
+            <Link
+              href="/blog"
+              className="text-sm text-zinc-500 underline-offset-4 hover:underline hover:text-zinc-700 dark:hover:text-zinc-300"
+            >
+              Tìm hiểu thêm →
+            </Link>
+          </m.div>
         </div>
       </section>
 

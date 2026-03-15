@@ -118,6 +118,7 @@ model Contract {
   expiresAt   DateTime
   completedAt DateTime?
   signers     ContractSigner[]
+  events      ContractEvent[]
 
   @@index([userId])
   @@index([documentId])
@@ -141,4 +142,16 @@ model ContractSigner {
 
   @@unique([contractId, order])
   @@index([token])
+}
+
+model ContractEvent {
+  id          String   @id @default(cuid())
+  contractId  String
+  contract    Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  type        String   // CREATED, INVITED, VIEWED, SIGNED, COMPLETED, CANCELLED, REMINDED
+  actor       String?  // email or name of who triggered this event
+  detail      String?  // extra info (e.g. signer name, order)
+  createdAt   DateTime @default(now())
+
+  @@index([contractId])
 }

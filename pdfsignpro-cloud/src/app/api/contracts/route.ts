@@ -4,6 +4,7 @@ import { randomBytes } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { sendSigningInvitation } from "@/lib/email";
+import { logContractEvent } from "@/lib/contract-events";
 
 const SignerSchema = z.object({
   email: z.string().email(),
@@ -128,6 +129,11 @@ export async function POST(request: Request) {
         where: { id: contract.id },
         data: { status: "IN_PROGRESS" },
       });
+    }
+
+    await logContractEvent(contract.id, "CREATED", session.user.name ?? session.user.email ?? undefined, `Tạo hợp đồng với ${signers.length} bên ký`);
+    if (firstSigner) {
+      await logContractEvent(contract.id, "INVITED", undefined, `Mời ${firstSigner.name} (${firstSigner.email})`);
     }
 
     return NextResponse.json({
