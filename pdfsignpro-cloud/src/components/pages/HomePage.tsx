@@ -43,7 +43,9 @@ import { BLOG_POSTS } from "@/lib/blog-data";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
 
-const MOTION = { duration: 0.2, ease: [0, 0, 0.2, 1] as const };
+const MOTION = { duration: 0.25, ease: [0.22, 1, 0.36, 1] as const };
+const MOTION_SLOW = { duration: 0.4, ease: [0.22, 1, 0.36, 1] as const };
+const STAGGER = 0.08;
 
 const STEPS = [
   {
@@ -182,9 +184,9 @@ function StepCard({
         opacity,
         y: isInView ? 0 : y,
       }}
-      transition={{ ...MOTION, delay: index * 0.06 }}
+      transition={{ ...MOTION_SLOW, delay: index * STAGGER }}
       whileHover={
-        reduceMotion ? undefined : { y: -2, transition: MOTION }
+        reduceMotion ? undefined : { y: -4, scale: 1.02, transition: MOTION }
       }
     >
       <div className="mb-5 flex size-12 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500/20 to-blue-500/10">
@@ -368,47 +370,71 @@ export function HomePage() {
   return (
     <div className="relative min-h-screen home-bg">
       {/* Clean background — two subtle radial glows only */}
-      <div className="home-glow-hero" />
-      <div className="home-glow-upload" />
+      <m.div
+        className="home-glow-hero"
+        initial={reduceMotion ? false : { opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.8, ease: "easeOut" }}
+      />
+      <m.div
+        className="home-glow-upload"
+        initial={reduceMotion ? false : { opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.8, delay: 0.2, ease: "easeOut" }}
+      />
 
       {/* Hero — single column: headline + subtitle + upload */}
-      <section className="relative px-6 pb-12 pt-16 sm:pb-16 sm:pt-20 md:pb-20 md:pt-24">
+      <section className="relative px-4 pb-10 pt-14 sm:px-6 sm:pb-16 sm:pt-20 md:pb-20 md:pt-24">
         <div ref={uploadRef} className="container relative mx-auto max-w-2xl">
-          <div className="space-y-8">
-              <m.div
-                className="space-y-5"
-                initial={{ opacity: 0, y: reduceMotion ? 0 : 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ ...MOTION, delay: 0.05 }}
-              >
-                <h1 className="text-4xl font-semibold tracking-tight text-zinc-900 dark:text-white sm:text-5xl md:text-6xl md:leading-[1.1]">
+          <div className="space-y-7 sm:space-y-8">
+              <div className="space-y-5">
+                <m.h1
+                  className="text-3xl font-semibold tracking-tight text-zinc-900 dark:text-white sm:text-5xl md:text-6xl md:leading-[1.1]"
+                  initial={{ opacity: 0, y: reduceMotion ? 0 : 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ ...MOTION_SLOW, delay: 0.05 }}
+                >
                   Ký số PDF & Hợp đồng điện tử
-                </h1>
-                <p className="max-w-xl text-lg text-zinc-600 dark:text-zinc-400 sm:text-xl">
+                </m.h1>
+                <m.p
+                  className="max-w-xl text-base text-zinc-600 dark:text-zinc-400 sm:text-lg sm:text-xl"
+                  initial={{ opacity: 0, y: reduceMotion ? 0 : 14 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ ...MOTION_SLOW, delay: 0.14 }}
+                >
                   Cho kế toán, pháp chế, chủ doanh nghiệp: tải PDF lên, đặt vị trí chữ ký và ký bằng USB Token. Gửi hợp đồng cho nhiều bên ký theo thứ tự, có email thông báo.
-                </p>
-                <div className="flex flex-wrap gap-3">
-                  <Button
-                    size="lg"
-                    className="rounded-lg bg-zinc-900 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-100"
-                    onClick={scrollToUpload}
-                  >
-                    <Upload className="size-4" />
-                    Ký 1 file PDF ngay
-                  </Button>
-                  <Button
-                    size="lg"
-                    variant="outline"
-                    asChild
-                    className="rounded-lg border-zinc-200 bg-white/80 text-zinc-700 hover:bg-zinc-50 hover:text-zinc-900 dark:border-white/20 dark:bg-white/5 dark:text-zinc-300 dark:hover:bg-white/10 dark:hover:text-white"
-                  >
-                    <Link href="/contract/create">
-                      <Users className="size-4" />
-                      Tạo hợp đồng điện tử nhiều bên
-                    </Link>
-                  </Button>
-                </div>
-              </m.div>
+                </m.p>
+                <m.div
+                  className="flex flex-col gap-3 sm:flex-row sm:flex-wrap"
+                  initial={{ opacity: 0, y: reduceMotion ? 0 : 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ ...MOTION_SLOW, delay: 0.24 }}
+                >
+                  <m.div whileHover={reduceMotion ? undefined : { scale: 1.02 }} whileTap={reduceMotion ? undefined : { scale: 0.98 }} transition={MOTION}>
+                    <Button
+                      size="lg"
+                      className="rounded-lg bg-zinc-900 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-100"
+                      onClick={scrollToUpload}
+                    >
+                      <Upload className="size-4" />
+                      Ký 1 file PDF ngay
+                    </Button>
+                  </m.div>
+                  <m.div whileHover={reduceMotion ? undefined : { scale: 1.02 }} whileTap={reduceMotion ? undefined : { scale: 0.98 }} transition={MOTION}>
+                    <Button
+                      size="lg"
+                      variant="outline"
+                      asChild
+                      className="rounded-lg border-zinc-200 bg-white/80 text-zinc-700 hover:bg-zinc-50 hover:text-zinc-900 dark:border-white/20 dark:bg-white/5 dark:text-zinc-300 dark:hover:bg-white/10 dark:hover:text-white"
+                    >
+                      <Link href="/contract/create">
+                        <Users className="size-4" />
+                        Tạo hợp đồng điện tử nhiều bên
+                      </Link>
+                    </Button>
+                  </m.div>
+                </m.div>
+              </div>
 
               {/* Upload card */}
               <m.div
@@ -416,9 +442,9 @@ export function HomePage() {
                   "rounded-xl border p-1 shadow-lg backdrop-blur-sm",
                   "border-zinc-200/80 bg-white/70 dark:border-white/15 dark:bg-white/[0.08] dark:shadow-xl dark:shadow-black/20"
                 )}
-                initial={{ opacity: 0, y: reduceMotion ? 0 : 12 }}
+                initial={{ opacity: 0, y: reduceMotion ? 0 : 16 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ ...MOTION, delay: 0.1 }}
+                transition={{ ...MOTION_SLOW, delay: 0.32 }}
               >
                 {!selectedFile ? (
                   <UploadDropzoneCard
@@ -553,13 +579,25 @@ export function HomePage() {
       {/* Chọn phiên bản */}
       <section className="relative border-t border-zinc-200/80 bg-zinc-50/30 px-6 py-20 dark:border-white/5 dark:bg-transparent sm:py-24">
         <div className="container mx-auto max-w-4xl">
-          <h2 className="mb-3 text-center text-2xl font-semibold text-zinc-900 dark:text-white sm:text-3xl">
+          <m.h2
+            className="mb-3 text-center text-2xl font-semibold text-zinc-900 dark:text-white sm:text-3xl"
+            initial={{ opacity: 0, y: reduceMotion ? 0 : 14 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-60px" }}
+            transition={MOTION_SLOW}
+          >
             Chọn cách ký phù hợp
-          </h2>
-          <p className="mb-10 text-center text-sm text-zinc-500 dark:text-zinc-400">
+          </m.h2>
+          <m.p
+            className="mb-10 text-center text-sm text-zinc-500 dark:text-zinc-400"
+            initial={{ opacity: 0, y: reduceMotion ? 0 : 10 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-40px" }}
+            transition={{ ...MOTION_SLOW, delay: STAGGER }}
+          >
             Nếu bạn chỉ cần ký nhanh vài file hoặc hợp đồng đơn giản → chọn Cloud. Nếu môi trường nội bộ
             yêu cầu không lên Internet → dùng bản Offline.
-          </p>
+          </m.p>
           <div
             className={cn(
               "grid gap-6",
@@ -573,12 +611,13 @@ export function HomePage() {
               className={cn(
                 "group relative flex flex-col rounded-xl border p-6 backdrop-blur-sm transition-all duration-200",
                 "border-zinc-200/80 bg-white/70 shadow-sm dark:border-white/10 dark:bg-white/[0.06] dark:shadow-none",
-                "hover:-translate-y-0.5 hover:border-violet-300/50 hover:shadow-md hover:shadow-violet-500/5 dark:hover:border-violet-400/30 dark:hover:bg-white/[0.08]"
+                "hover:border-violet-300/50 hover:shadow-md hover:shadow-violet-500/5 dark:hover:border-violet-400/30 dark:hover:bg-white/[0.08]"
               )}
-              initial={{ opacity: 0, y: reduceMotion ? 0 : 12 }}
+              initial={{ opacity: 0, y: reduceMotion ? 0 : 16 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: "-40px" }}
-              transition={MOTION}
+              transition={{ ...MOTION_SLOW, delay: STAGGER * 2 }}
+              whileHover={reduceMotion ? undefined : { y: -6, scale: 1.02, transition: MOTION }}
             >
               <div className="mb-4 flex items-center justify-between gap-3">
                 <div className="flex size-12 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500/25 to-blue-500/15">
@@ -611,12 +650,13 @@ export function HomePage() {
                 className={cn(
                   "group relative flex flex-col rounded-xl border p-6 backdrop-blur-sm transition-all duration-200",
                   "border-zinc-200/80 bg-white/70 shadow-sm dark:border-white/10 dark:bg-white/[0.06] dark:shadow-none",
-                  "hover:-translate-y-0.5 hover:border-zinc-300 hover:shadow-md dark:hover:border-white/20 dark:hover:bg-white/[0.08]"
+                  "hover:border-zinc-300 hover:shadow-md dark:hover:border-white/20 dark:hover:bg-white/[0.08]"
                 )}
-                initial={{ opacity: 0, y: reduceMotion ? 0 : 12 }}
+                initial={{ opacity: 0, y: reduceMotion ? 0 : 16 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: "-40px" }}
-                transition={{ ...MOTION, delay: 0.05 }}
+                transition={{ ...MOTION_SLOW, delay: STAGGER * 3 }}
+                whileHover={reduceMotion ? undefined : { y: -6, scale: 1.02, transition: MOTION }}
               >
                 <div className="mb-4 flex size-12 items-center justify-center rounded-xl bg-gradient-to-br from-zinc-500/20 to-zinc-400/10 dark:from-white/15 dark:to-white/5">
                   <Laptop className="size-6 text-zinc-600 dark:text-zinc-300" />
@@ -654,13 +694,23 @@ export function HomePage() {
           <m.h2
             className="text-left text-2xl font-semibold text-zinc-900 dark:text-white sm:text-3xl"
             ref={stepsRef}
+            initial={{ opacity: 0, y: reduceMotion ? 0 : 12 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-50px" }}
+            transition={MOTION_SLOW}
           >
             Cách hoạt động (3 bước)
           </m.h2>
-          <p className="mb-10 max-w-2xl text-sm text-zinc-500 dark:text-zinc-400">
+          <m.p
+            className="mb-10 max-w-2xl text-sm text-zinc-500 dark:text-zinc-400"
+            initial={{ opacity: 0, y: reduceMotion ? 0 : 8 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-30px" }}
+            transition={{ ...MOTION_SLOW, delay: STAGGER }}
+          >
             Dành cho người không rành công nghệ: chỉ cần làm lần lượt 3 bước dưới đây là ký xong. Không
             cần hiểu khái niệm PAdES hay PKCS#11.
-          </p>
+          </m.p>
           <div className="grid gap-6 sm:grid-cols-3">
             {STEPS.map((step, i) => (
               <StepCard
@@ -716,10 +766,11 @@ export function HomePage() {
                   "border-zinc-200/80 bg-white/60 shadow-sm dark:border-white/10 dark:bg-white/5 dark:shadow-none",
                   "hover:border-violet-200 dark:hover:border-violet-500/20"
                 )}
-                initial={{ opacity: 0, y: reduceMotion ? 0 : 12 }}
+                initial={{ opacity: 0, y: reduceMotion ? 0 : 14 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: "-30px" }}
-                transition={{ ...MOTION, delay: i * 0.06 }}
+                transition={{ ...MOTION_SLOW, delay: i * STAGGER }}
+                whileHover={reduceMotion ? undefined : { y: -3, scale: 1.02, transition: MOTION }}
               >
                 <div className="mb-4 flex items-center gap-3">
                   <div className="flex size-10 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500/20 to-blue-500/10">
@@ -766,19 +817,32 @@ export function HomePage() {
         <div className="container mx-auto max-w-6xl">
           <div className="grid gap-16 lg:grid-cols-2 lg:items-start lg:gap-24">
             <div>
-              <h2 className="mb-10 text-2xl font-semibold text-zinc-900 dark:text-white sm:text-3xl">
+              <m.h2
+                className="mb-10 text-2xl font-semibold text-zinc-900 dark:text-white sm:text-3xl"
+                initial={{ opacity: 0, y: reduceMotion ? 0 : 12 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: "-50px" }}
+                transition={MOTION_SLOW}
+              >
                 Những gì bạn làm được với PDFSignPro
-              </h2>
+              </m.h2>
               <ul className="space-y-5">
                 {FEATURES.map((text, i) => (
-                  <li key={i} className="flex items-start gap-3">
+                  <m.li
+                    key={i}
+                    className="flex items-start gap-3"
+                    initial={{ opacity: 0, x: reduceMotion ? 0 : -8 }}
+                    whileInView={{ opacity: 1, x: 0 }}
+                    viewport={{ once: true, margin: "-20px" }}
+                    transition={{ ...MOTION_SLOW, delay: i * STAGGER }}
+                  >
                     <span className="mt-1.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-violet-500/20">
                       <Check className="size-3 text-violet-600 dark:text-violet-400" />
                     </span>
                     <span className="text-zinc-600 dark:text-zinc-400">
                       {text}
                     </span>
-                  </li>
+                  </m.li>
                 ))}
               </ul>
             </div>
@@ -787,10 +851,11 @@ export function HomePage() {
                 "rounded-xl border p-6 backdrop-blur-sm sm:p-8",
                 "border-zinc-200/80 bg-white/60 shadow-sm dark:border-white/10 dark:bg-white/5 dark:shadow-none"
               )}
-              initial={{ opacity: 0, y: reduceMotion ? 0 : 12 }}
+              initial={{ opacity: 0, y: reduceMotion ? 0 : 14 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: "-50px" }}
-              transition={MOTION}
+              transition={{ ...MOTION_SLOW, delay: STAGGER * 4 }}
+              whileHover={reduceMotion ? undefined : { scale: 1.02, transition: MOTION }}
             >
               <h3 className="mb-6 text-lg font-semibold text-zinc-900 dark:text-white">
                 Đáng tin cậy về mặt pháp lý
@@ -846,10 +911,11 @@ export function HomePage() {
           </m.p>
           <m.div
             className="mx-auto max-w-md rounded-2xl border-2 border-violet-200/80 bg-white/80 p-8 shadow-sm dark:border-violet-500/30 dark:bg-white/5"
-            initial={{ opacity: 0, y: reduceMotion ? 0 : 12 }}
+            initial={{ opacity: 0, y: reduceMotion ? 0 : 16 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            transition={{ ...MOTION, delay: 0.1 }}
+            transition={{ ...MOTION_SLOW, delay: 0.15 }}
+            whileHover={reduceMotion ? undefined : { scale: 1.02, y: -2, transition: MOTION }}
           >
             <div className="mb-6 flex items-center justify-between">
               <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">Free</h3>
@@ -918,10 +984,11 @@ export function HomePage() {
                   "flex flex-col rounded-xl border p-6 backdrop-blur-sm",
                   "border-zinc-200/80 bg-white/60 shadow-sm dark:border-white/10 dark:bg-white/5 dark:shadow-none"
                 )}
-                initial={{ opacity: 0, y: reduceMotion ? 0 : 12 }}
+                initial={{ opacity: 0, y: reduceMotion ? 0 : 14 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: "-30px" }}
-                transition={{ ...MOTION, delay: i * 0.06 }}
+                transition={{ ...MOTION_SLOW, delay: i * STAGGER }}
+                whileHover={reduceMotion ? undefined : { y: -4, scale: 1.02, transition: MOTION }}
               >
                 <div className="mb-3 flex gap-0.5">
                   {Array.from({ length: 5 }).map((_, s) => (
@@ -982,10 +1049,11 @@ export function HomePage() {
             {BLOG_POSTS.slice(0, 3).map((post, i) => (
               <m.div
                 key={post.slug}
-                initial={{ opacity: 0, y: reduceMotion ? 0 : 12 }}
+                initial={{ opacity: 0, y: reduceMotion ? 0 : 14 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: "-30px" }}
-                transition={{ ...MOTION, delay: i * 0.06 }}
+                transition={{ ...MOTION_SLOW, delay: i * STAGGER }}
+                whileHover={reduceMotion ? undefined : { y: -4, scale: 1.02, transition: MOTION }}
               >
                 <Link href={`/blog/${post.slug}`} className="group block h-full">
                   <div
