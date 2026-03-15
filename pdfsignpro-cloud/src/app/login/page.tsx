@@ -1,12 +1,7 @@
 "use client";
 
-<<<<<<< HEAD
-import { useState } from "react";
-import Link from "next/link";
-=======
 import Link from "next/link";
 import { Suspense, useMemo, useState } from "react";
->>>>>>> 498c8d4 (feat: add email/password signup and login flow)
 import { useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { Button } from "@/components/ui/button";
@@ -21,34 +16,6 @@ import {
 } from "@/components/ui/card";
 
 export default function LoginPage() {
-  const searchParams = useSearchParams();
-  const registered = searchParams.get("registered") === "1";
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
-
-  async function handleCredentialsSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setError("");
-    setLoading(true);
-    try {
-      const res = await signIn("credentials", {
-        email: email.trim().toLowerCase(),
-        password,
-        redirect: false,
-        callbackUrl: "/dashboard",
-      });
-      if (res?.error) {
-        setError("Email hoặc mật khẩu không đúng.");
-        return;
-      }
-      if (res?.url) window.location.href = res.url;
-    } finally {
-      setLoading(false);
-    }
-  }
-
   return (
     <Suspense fallback={null}>
       <LoginContent />
@@ -91,32 +58,12 @@ function LoginContent() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-<<<<<<< HEAD
-          {registered && (
-            <p className="text-center text-sm text-green-600 dark:text-green-400">
-              Đăng ký thành công. Vui lòng đăng nhập.
-            </p>
-          )}
-          <form onSubmit={handleCredentialsSubmit} className="space-y-4">
-            <div className="space-y-2">
-=======
           <form onSubmit={handleCredentialsLogin} className="space-y-3">
             <div className="space-y-1.5">
->>>>>>> 498c8d4 (feat: add email/password signup and login flow)
               <Label htmlFor="email">Email</Label>
               <Input
                 id="email"
                 type="email"
-<<<<<<< HEAD
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                autoComplete="email"
-              />
-            </div>
-            <div className="space-y-2">
-=======
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 autoComplete="email"
@@ -124,33 +71,10 @@ function LoginContent() {
               />
             </div>
             <div className="space-y-1.5">
->>>>>>> 498c8d4 (feat: add email/password signup and login flow)
               <Label htmlFor="password">Mật khẩu</Label>
               <Input
                 id="password"
                 type="password"
-<<<<<<< HEAD
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                autoComplete="current-password"
-              />
-            </div>
-            {error && <p className="text-sm text-destructive">{error}</p>}
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Đang đăng nhập..." : "Đăng nhập bằng email"}
-            </Button>
-          </form>
-          <div className="relative">
-            <span className="absolute inset-0 flex items-center">
-              <span className="w-full border-t" />
-            </span>
-            <span className="relative flex justify-center text-xs uppercase text-muted-foreground">
-              hoặc
-            </span>
-          </div>
-=======
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 autoComplete="current-password"
@@ -174,16 +98,11 @@ function LoginContent() {
             </div>
           </div>
 
->>>>>>> 498c8d4 (feat: add email/password signup and login flow)
           <Button
             className="w-full gap-2"
             size="lg"
             variant="outline"
-<<<<<<< HEAD
-            onClick={() => signIn("google", { callbackUrl: "/dashboard" })}
-=======
             onClick={() => signIn("google", { callbackUrl })}
->>>>>>> 498c8d4 (feat: add email/password signup and login flow)
           >
             <svg className="size-5" viewBox="0 0 24 24">
               <path
@@ -207,14 +126,10 @@ function LoginContent() {
           </Button>
           <p className="text-center text-sm text-muted-foreground">
             Chưa có tài khoản?{" "}
-<<<<<<< HEAD
-            <Link href="/register" className="underline text-foreground">
-=======
             <Link
               href={`/register?callbackUrl=${encodeURIComponent(callbackUrl)}`}
               className="font-medium text-primary hover:underline"
             >
->>>>>>> 498c8d4 (feat: add email/password signup and login flow)
               Đăng ký
             </Link>
           </p>
