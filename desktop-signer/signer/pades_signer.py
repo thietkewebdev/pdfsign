@@ -187,6 +187,34 @@ def _create_pkcs11_signer(
     )
 
 
+def _next_sig_field_name(writer: IncrementalPdfFileWriter) -> str:
+    """Find next available signature field name (Signature1, Signature2, ...)."""
+    existing = set()
+    try:
+        reader = writer.prev
+        root = reader.root
+        acroform = root.get("/AcroForm")
+        if acroform:
+            field_list = acroform.get("/Fields")
+            if field_list:
+                for field_ref in field_list:
+                    try:
+                        field = field_ref.get_object()
+                        ft = field.get("/FT")
+                        name = field.get("/T")
+                        if ft == "/Sig" and name:
+                            existing.add(str(name))
+                    except Exception:
+                        pass
+    except Exception:
+        pass
+
+    n = 1
+    while f"Signature{n}" in existing:
+        n += 1
+    return f"Signature{n}"
+
+
 async def sign_pdf(
     input_path: Path,
     output_path: Path,
@@ -252,16 +280,18 @@ async def sign_pdf(
 
         page_idx, box = _get_page_index_and_box(page_spec, x_pct, y_pct, w_pct, h_pct)
 
+        sig_field_name = _next_sig_field_name(w)
+
         fields.append_signature_field(
             w,
             sig_field_spec=SigFieldSpec(
-                sig_field_name="Signature1",
+                sig_field_name=sig_field_name,
                 box=box,
                 on_page=page_idx,
             ),
         )
 
-        meta = PdfSignatureMetadata(field_name="Signature1")
+        meta = PdfSignatureMetadata(field_name=sig_field_name)
         stamp_style = get_stamp_style_for_template(template_id, seal_image_path=seal_image_path)
         pdf_signer = signers.PdfSigner(
             meta,

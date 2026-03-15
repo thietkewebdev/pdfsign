@@ -12,7 +12,7 @@ export async function POST(
   try {
     const { id: contractId } = await params;
     const body = await request.json();
-    const { token } = body;
+    const { token, placement, templateId } = body;
 
     if (!token || typeof token !== "string") {
       return NextResponse.json(
@@ -114,6 +114,11 @@ export async function POST(
     const jobId = `job_${randomBytes(8).toString("hex")}`;
     const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
 
+    const finalPlacement = placement
+      ? JSON.stringify(placement)
+      : signer.placementJson;
+    const finalTemplateId = templateId || signer.templateId;
+
     await prisma.signingJob.create({
       data: {
         id: jobId,
@@ -123,7 +128,7 @@ export async function POST(
         jobToken,
         claimCodeHash,
         status: "CREATED",
-        placementJson: signer.placementJson,
+        placementJson: finalPlacement,
         expiresAt,
       },
     });
@@ -141,7 +146,7 @@ export async function POST(
       c: claimCode,
       h: hostname,
     };
-    if (signer.templateId) payload.t = signer.templateId;
+    if (finalTemplateId) payload.t = finalTemplateId;
     const deepLink = `pdfsignpro://sign?p=${base64urlEncode(payload)}`;
 
     return NextResponse.json({

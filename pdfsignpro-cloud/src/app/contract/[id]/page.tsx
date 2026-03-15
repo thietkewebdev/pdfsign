@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams, useSearchParams } from "next/navigation";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import {
@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import {
   Card,
@@ -25,6 +26,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { PdfViewer } from "@/components/pdf/PdfViewer";
+import { SignatureTemplateSelector } from "@/components/signature/SignatureTemplateSelector";
+import { SIGNATURE_TEMPLATES } from "@/lib/signature-templates";
+import { useSignaturePlacement } from "@/hooks/use-signature-placement";
+import { JobStatusResponseSchema } from "@/lib/job-status";
 
 interface Signer {
   id: string;
@@ -73,6 +79,9 @@ const SIGNER_STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   COMPLETED: { label: "Đã ký", color: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" },
 };
 
+const POLL_INTERVAL_MS = 2000;
+const POLL_TIMEOUT_MS = 5 * 60 * 1000;
+
 export default function ContractPage() {
   const { id } = useParams<{ id: string }>();
   const searchParams = useSearchParams();
@@ -82,6 +91,28 @@ export default function ContractPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [signing, setSigning] = useState(false);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const [scale, setScale] = useState(1);
+  const [totalPages, setTotalPages] = useState(0);
+  const [selectedTemplateId, setSelectedTemplateId] = useState("classic");
+  const [sealImageBase64, setSealImageBase64] = useState<string | null>(null);
+
+  const [jobState, setJobState] = useState<{
+    jobId: string;
+    deepLink: string;
+    status: "CREATED" | "COMPLETED" | "EXPIRED" | "CANCELED";
+  } | null>(null);
+  const pollStartRef = useRef<number | null>(null);
+
+  const {
+    placements,
+    defaultPlacementEnabled,
+    toggleDefaultPlacement,
+    addSignatureBox,
+    updatePlacementFromPixels,
+  } = useSignaturePlacement(totalPages);
 
   const fetchContract = useCallback(async () => {
     try {
@@ -106,21 +137,125 @@ export default function ContractPage() {
   }, [fetchContract]);
 
   useEffect(() => {
-    if (!contract || contract.status === "COMPLETED" || contract.status === "EXPIRED") return;
+    if (!contract) return;
+    const fetchPdf = async () => {
+      try {
+        const res = await fetch(`/api/documents/${contract.document.publicId}`);
+        if (res.ok) {
+          const data = await res.json();
+          const url = data.viewUrl ?? data.presignedUrl;
+          setPdfUrl(url);
+        }
+      } catch {
+        /* PDF preview not critical */
+      }
+    };
+    fetchPdf();
+  }, [contract?.document.publicId, contract?.document.latestVersion]);
 
-    const interval = setInterval(fetchContract, 5000);
+  useEffect(() => {
+    if (!contract || contract.status === "COMPLETED" || contract.status === "EXPIRED") return;
+    if (jobState) return;
+    const interval = setInterval(fetchContract, 8000);
     return () => clearInterval(interval);
-  }, [contract, fetchContract]);
+  }, [contract, fetchContract, jobState]);
+
+  // Poll job status after signing starts
+  useEffect(() => {
+    if (!jobState || jobState.status !== "CREATED") return;
+
+    const poll = async () => {
+      const res = await fetch(`/api/jobs/${jobState.jobId}/status`);
+      if (!res.ok) return;
+      const raw = await res.json();
+      const parsed = JobStatusResponseSchema.safeParse(raw);
+      if (!parsed.success) return;
+
+      const { status } = parsed.data;
+
+      if (status === "COMPLETED") {
+        setJobState(null);
+        pollStartRef.current = null;
+        toast.success("Đã ký thành công! Đang cập nhật hợp đồng...");
+        await fetchContract();
+        // Refresh PDF
+        if (contract) {
+          const res2 = await fetch(`/api/documents/${contract.document.publicId}`);
+          if (res2.ok) {
+            const data2 = await res2.json();
+            setPdfUrl((data2.viewUrl ?? data2.presignedUrl) + "?t=" + Date.now());
+          }
+        }
+        return;
+      }
+
+      if (status === "EXPIRED") {
+        setJobState(null);
+        pollStartRef.current = null;
+        toast.error("Phiên ký đã hết hạn. Vui lòng thử lại.");
+        return;
+      }
+
+      const elapsed = Date.now() - (pollStartRef.current ?? Date.now());
+      if (elapsed >= POLL_TIMEOUT_MS) {
+        setJobState(null);
+        pollStartRef.current = null;
+        toast.error("Hết thời gian chờ ký.");
+        return;
+      }
+    };
+
+    const intervalId = setInterval(poll, POLL_INTERVAL_MS);
+    poll();
+    return () => clearInterval(intervalId);
+  }, [jobState?.jobId, jobState?.status, fetchContract, contract]);
+
+  const handleTotalPagesChange = useCallback((n: number) => {
+    setTotalPages(n);
+  }, []);
+
+  const handlePlacementUpdate = useCallback(
+    (
+      index: number,
+      pageWidth: number,
+      pageHeight: number,
+      x: number,
+      y: number,
+      w: number,
+      h: number
+    ) => {
+      updatePlacementFromPixels(index, pageWidth, pageHeight, x, y, w, h);
+    },
+    [updatePlacementFromPixels]
+  );
 
   const handleSign = async () => {
-    if (!contract || !token) return;
+    if (!contract || !token || placements.length === 0) return;
     setSigning(true);
 
     try {
+      const placement = placements[0];
+      const page =
+        placement.page === totalPages ? ("LAST" as const) : placement.page;
+
+      const pdfY = 1 - placement.yPct - placement.hPct;
+
       const res = await fetch(`/api/contracts/${id}/sign`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token }),
+        body: JSON.stringify({
+          token,
+          templateId: selectedTemplateId,
+          placement: {
+            page,
+            rectPct: {
+              x: placement.xPct,
+              y: Math.max(0, Math.min(1, pdfY)),
+              w: placement.wPct,
+              h: placement.hPct,
+            },
+          },
+        }),
       });
 
       if (!res.ok) {
@@ -128,7 +263,9 @@ export default function ContractPage() {
         throw new Error(data?.error || "Failed to initialize signing");
       }
 
-      const { deepLink } = await res.json();
+      const { jobId, deepLink } = await res.json();
+      setJobState({ jobId, deepLink, status: "CREATED" });
+      pollStartRef.current = Date.now();
       toast.success("Đang mở ứng dụng ký số...");
       window.location.href = deepLink;
     } catch (err) {
@@ -173,177 +310,225 @@ export default function ContractPage() {
       ? Math.round((contract.signedCount / contract.totalSigners) * 100)
       : 0;
 
+  const activePlacement = placements[0];
+  const activePage = activePlacement?.page ?? currentPage;
+  const showSigningUI = contract.canSign && token && !jobState;
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-950 dark:to-gray-900">
-      <div className="max-w-3xl mx-auto px-4 py-8">
-        <div className="mb-6">
+    <div className="flex h-screen flex-col">
+      {/* Top bar */}
+      <div className="flex items-center justify-between gap-4 border-b border-border px-5 py-2.5 bg-background/95 shrink-0">
+        <div className="flex items-center gap-3 min-w-0">
           <Link
             href="/dashboard"
-            className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            className="shrink-0 text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
           >
             <ArrowLeft className="h-4 w-4" />
             Dashboard
           </Link>
+          <span className="text-muted-foreground/50">/</span>
+          <h2 className="truncate text-[15px] font-medium">{contract.title}</h2>
+          <Badge className={`${statusConfig.color} shrink-0`}>
+            <StatusIcon className="h-3 w-3 mr-1" />
+            {statusConfig.label}
+          </Badge>
         </div>
+        <div className="text-sm text-muted-foreground shrink-0">
+          {contract.signedCount}/{contract.totalSigners} đã ký
+        </div>
+      </div>
 
-        {/* Header */}
-        <Card className="mb-6">
-          <CardHeader>
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-3 mb-2">
-                  <FileText className="h-6 w-6 text-blue-600 dark:text-blue-400 shrink-0" />
-                  <CardTitle className="text-xl truncate">{contract.title}</CardTitle>
+      <div className="flex-1 overflow-hidden">
+        <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] h-full">
+          {/* Left sidebar */}
+          <div className="border-r border-border p-4 overflow-y-auto space-y-4">
+            {/* Progress */}
+            <Card>
+              <CardContent className="pt-4 pb-3 space-y-3">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Tiến độ</span>
+                  <span className="font-medium">{contract.signedCount}/{contract.totalSigners}</span>
                 </div>
-                <CardDescription>
-                  Tạo bởi {contract.owner.name ?? "Ẩn danh"} &middot;{" "}
-                  {new Date(contract.createdAt).toLocaleDateString("vi-VN")}
-                </CardDescription>
-              </div>
-              <Badge className={`${statusConfig.color} shrink-0`}>
-                <StatusIcon className="h-3.5 w-3.5 mr-1" />
-                {statusConfig.label}
-              </Badge>
-            </div>
-            {contract.message && (
-              <p className="mt-3 text-sm text-muted-foreground bg-muted/50 rounded-lg p-3">
-                {contract.message}
-              </p>
-            )}
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Tiến độ ký</span>
-                <span className="font-medium">
-                  {contract.signedCount}/{contract.totalSigners} bên đã ký
-                </span>
-              </div>
-              <Progress value={progressPercent} className="h-2" />
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>
+                <Progress value={progressPercent} className="h-2" />
+                <div className="text-xs text-muted-foreground">
                   Hạn ký: {new Date(contract.expiresAt).toLocaleDateString("vi-VN")}
-                </span>
-                {contract.completedAt && (
-                  <span>
-                    Hoàn tất: {new Date(contract.completedAt).toLocaleDateString("vi-VN")}
-                  </span>
-                )}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Sign CTA for current signer */}
-        {contract.canSign && token && (
-          <Card className="mb-6 border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/20">
-            <CardContent className="pt-6">
-              <div className="flex flex-col sm:flex-row items-center gap-4">
-                <div className="flex-1">
-                  <h3 className="text-lg font-semibold mb-1">Đến lượt bạn ký</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Nhấn nút bên dưới để mở ứng dụng ký số và ký bằng USB Token.
-                    Đảm bảo đã cài đặt PDFSignPro Signer trên máy tính.
-                  </p>
                 </div>
+              </CardContent>
+            </Card>
+
+            {/* Job polling status */}
+            {jobState && (
+              <Card className="border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/20">
+                <CardContent className="pt-4 pb-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
+                    <span className="text-sm font-medium">Đang chờ ký...</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Ứng dụng PDFSignPro Signer đã được mở. Hoàn tất ký số trên ứng dụng.
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Signing panel for current signer */}
+            {showSigningUI && (
+              <div className="rounded-lg border border-border bg-card p-4 space-y-4 shadow-sm">
+                <h3 className="text-sm font-semibold">Chữ ký số</h3>
+                <SignatureTemplateSelector
+                  templates={SIGNATURE_TEMPLATES}
+                  selectedId={selectedTemplateId}
+                  onSelect={(tmplId) => {
+                    setSelectedTemplateId(tmplId);
+                    if (placements.length === 0 && totalPages > 0) addSignatureBox();
+                  }}
+                  sealImageBase64={sealImageBase64}
+                  onSealImageChange={setSealImageBase64}
+                />
                 <Button
-                  size="lg"
-                  onClick={handleSign}
-                  disabled={signing}
-                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shrink-0"
+                  variant="outline"
+                  size="sm"
+                  onClick={addSignatureBox}
+                  className="w-full rounded-md"
                 >
-                  <PenLine className="h-5 w-5 mr-2" />
+                  Thêm ô chữ ký
+                </Button>
+                <div className="flex items-center justify-between gap-2">
+                  <Label htmlFor="default-placement">Vị trí mặc định</Label>
+                  <button
+                    id="default-placement"
+                    type="button"
+                    role="switch"
+                    aria-checked={defaultPlacementEnabled}
+                    onClick={toggleDefaultPlacement}
+                    className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border border-border transition-colors ${
+                      defaultPlacementEnabled ? "bg-primary" : "bg-muted"
+                    }`}
+                  >
+                    <span
+                      className={`${
+                        defaultPlacementEnabled ? "translate-x-4" : "translate-x-1"
+                      } inline-block size-3.5 rounded-full bg-background transition-transform`}
+                    />
+                  </button>
+                </div>
+                {activePlacement && (
+                  <div className="flex flex-col gap-1 text-sm text-muted-foreground">
+                    <p>Trang: {activePlacement.page}</p>
+                    <p>
+                      Ô: {Math.round(activePlacement.wPct * 100)}% ×{" "}
+                      {Math.round(activePlacement.hPct * 100)}%
+                    </p>
+                  </div>
+                )}
+                <Button
+                  onClick={handleSign}
+                  disabled={placements.length === 0 || signing}
+                  className="w-full rounded-md bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
+                >
+                  <PenLine className="size-4" />
                   {signing ? "Đang xử lý..." : "Ký hợp đồng"}
                 </Button>
               </div>
-            </CardContent>
-          </Card>
-        )}
+            )}
 
-        {/* Signers list */}
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <Users className="h-5 w-5" />
-              Danh sách bên ký ({contract.totalSigners})
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
+            {/* Signers list */}
+            <div className="space-y-2">
+              <h3 className="text-sm font-semibold flex items-center gap-2">
+                <Users className="h-4 w-4" />
+                Bên ký ({contract.totalSigners})
+              </h3>
               {contract.signers.map((signer) => {
                 const signerStatus =
                   SIGNER_STATUS_CONFIG[signer.status] || SIGNER_STATUS_CONFIG.PENDING;
-
                 return (
                   <div
                     key={signer.id}
-                    className={`flex items-center gap-4 rounded-lg border p-4 transition-colors ${
+                    className={`flex items-center gap-3 rounded-lg border p-3 transition-colors ${
                       signer.isCurrentUser
                         ? "border-blue-300 bg-blue-50/50 dark:border-blue-700 dark:bg-blue-950/20"
                         : ""
                     }`}
                   >
-                    <div className="flex items-center justify-center h-10 w-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 text-white text-sm font-bold shrink-0">
+                    <div className="flex items-center justify-center h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 text-white text-xs font-bold shrink-0">
                       {signer.order}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p className="font-medium truncate">{signer.name}</p>
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-sm font-medium truncate">{signer.name}</p>
                         {signer.isCurrentUser && (
-                          <Badge variant="outline" className="text-xs shrink-0">
+                          <Badge variant="outline" className="text-[10px] px-1 py-0 shrink-0">
                             Bạn
                           </Badge>
                         )}
                       </div>
-                      <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                        <Mail className="h-3.5 w-3.5" />
-                        <span className="truncate">{signer.email}</span>
-                      </div>
+                      <p className="text-xs text-muted-foreground truncate flex items-center gap-1">
+                        <Mail className="h-3 w-3 shrink-0" />
+                        {signer.email}
+                      </p>
                     </div>
-                    <div className="flex flex-col items-end gap-1 shrink-0">
-                      <Badge className={signerStatus.color}>
-                        {signer.status === "COMPLETED" && (
-                          <CheckCircle2 className="h-3 w-3 mr-1" />
-                        )}
-                        {signerStatus.label}
-                      </Badge>
-                      {signer.completedAt && (
-                        <span className="text-xs text-muted-foreground">
-                          {new Date(signer.completedAt).toLocaleDateString("vi-VN")}
-                        </span>
-                      )}
-                    </div>
+                    <Badge className={`${signerStatus.color} text-[10px] shrink-0`}>
+                      {signer.status === "COMPLETED" && <CheckCircle2 className="h-3 w-3 mr-0.5" />}
+                      {signerStatus.label}
+                    </Badge>
                   </div>
                 );
               })}
             </div>
-          </CardContent>
-        </Card>
 
-        {/* Document preview link */}
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <FileText className="h-5 w-5 text-muted-foreground" />
-                <div>
-                  <p className="font-medium">{contract.document.title}</p>
-                  <p className="text-sm text-muted-foreground">
-                    Phiên bản {contract.document.latestVersion}
-                  </p>
-                </div>
-              </div>
+            {/* Document info */}
+            <div className="rounded-lg border p-3">
               <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" asChild>
+                <FileText className="h-4 w-4 text-muted-foreground" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium truncate">{contract.document.title}</p>
+                  <p className="text-xs text-muted-foreground">v{contract.document.latestVersion}</p>
+                </div>
+                <Button variant="outline" size="sm" className="h-7 text-xs" asChild>
                   <Link href={`/d/${contract.document.publicId}`}>
-                    <Download className="h-4 w-4 mr-1.5" />
-                    Xem tài liệu
+                    <Download className="h-3 w-3 mr-1" />
+                    Xem
                   </Link>
                 </Button>
               </div>
             </div>
-          </CardContent>
-        </Card>
+
+            {contract.message && (
+              <div className="text-sm text-muted-foreground bg-muted/50 rounded-lg p-3">
+                <p className="font-medium text-xs mb-1">Lời nhắn:</p>
+                {contract.message}
+              </div>
+            )}
+          </div>
+
+          {/* PDF Viewer */}
+          <div className="overflow-hidden">
+            {pdfUrl ? (
+              <PdfViewer
+                pdfUrl={pdfUrl}
+                currentPage={currentPage}
+                onPageChange={setCurrentPage}
+                scale={scale}
+                onScaleChange={setScale}
+                totalPages={totalPages}
+                onTotalPagesChange={handleTotalPagesChange}
+                placements={showSigningUI ? placements : []}
+                onPlacementUpdate={handlePlacementUpdate}
+                activePageForPlacement={activePage}
+                readOnly={!showSigningUI}
+                selectedTemplateId={selectedTemplateId}
+                sealImageBase64={sealImageBase64}
+              />
+            ) : (
+              <div className="flex items-center justify-center h-full text-muted-foreground">
+                <div className="text-center">
+                  <FileText className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                  <p>Đang tải tài liệu...</p>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
