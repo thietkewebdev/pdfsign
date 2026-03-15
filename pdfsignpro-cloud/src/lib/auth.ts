@@ -14,6 +14,9 @@ const CredentialsSchema = z.object({
 export const { handlers, auth, signIn, signOut } = NextAuth({
   trustHost: true,
   adapter: PrismaAdapter(prisma),
+  session: {
+    strategy: "jwt",
+  },
   providers: [
     Google,
     Credentials({
@@ -34,9 +37,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             email: true,
             image: true,
             passwordHash: true,
+            emailVerified: true,
           },
         });
         if (!user?.passwordHash || !user.email) return null;
+        if (!user.emailVerified) return null;
 
         const valid = await compare(parsed.data.password, user.passwordHash);
         if (!valid) return null;
@@ -54,8 +59,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     signIn: "/login",
   },
   callbacks: {
-    session({ session, user }) {
-      session.user.id = user.id;
+    jwt({ token, user }) {
+      if (user?.id) token.id = user.id;
+      return token;
+    },
+    session({ session, token, user }) {
+      const idFromToken = typeof token.id === "string" ? token.id : undefined;
+      const idFromUser = user?.id;
+      if (idFromToken || idFromUser) {
+        session.user.id = (idFromToken ?? idFromUser)!;
+      }
       return session;
     },
   },

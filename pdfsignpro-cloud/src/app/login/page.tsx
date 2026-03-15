@@ -27,14 +27,44 @@ function LoginContent() {
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
   const authError = searchParams.get("error");
+  const verifyStatus = searchParams.get("verify");
+  const checkEmail = searchParams.get("checkEmail") === "1";
+  const queryEmail = searchParams.get("email") || "";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [resendEmail, setResendEmail] = useState(queryEmail);
+  const [resending, setResending] = useState(false);
+  const [resendResult, setResendResult] = useState("");
   const errorMessage = useMemo(() => {
     if (!authError) return "";
-    if (authError === "CredentialsSignin") return "Email hoặc mật khẩu không đúng.";
+    if (authError === "CredentialsSignin") {
+      return "Email/mật khẩu không đúng hoặc tài khoản chưa xác thực email.";
+    }
     return "Đăng nhập thất bại. Vui lòng thử lại.";
   }, [authError]);
+
+  const verifyMessage = useMemo(() => {
+    if (verifyStatus === "success") {
+      return {
+        text: "Xác thực email thành công. Bạn có thể đăng nhập ngay.",
+        cls: "text-green-600 dark:text-green-400",
+      };
+    }
+    if (verifyStatus === "expired") {
+      return {
+        text: "Link xác thực đã hết hạn hoặc đã dùng. Vui lòng gửi lại email xác thực.",
+        cls: "text-amber-600 dark:text-amber-400",
+      };
+    }
+    if (verifyStatus === "invalid") {
+      return {
+        text: "Link xác thực không hợp lệ.",
+        cls: "text-red-600 dark:text-red-400",
+      };
+    }
+    return null;
+  }, [verifyStatus]);
 
   async function handleCredentialsLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -48,6 +78,27 @@ function LoginContent() {
     setLoading(false);
   }
 
+  async function handleResendVerification(e: React.FormEvent) {
+    e.preventDefault();
+    setResendResult("");
+    setResending(true);
+    try {
+      const res = await fetch("/api/auth/resend-verification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: resendEmail.trim().toLowerCase() }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setResendResult(data?.error || "Không thể gửi lại email xác thực.");
+        return;
+      }
+      setResendResult("Đã gửi lại email xác thực (nếu tài khoản tồn tại và chưa xác thực).");
+    } finally {
+      setResending(false);
+    }
+  }
+
   return (
     <div className="flex min-h-[calc(100vh-3.5rem)] items-center justify-center px-4">
       <Card className="w-full max-w-sm">
@@ -58,6 +109,14 @@ function LoginContent() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {checkEmail && (
+            <p className="text-xs text-amber-600 dark:text-amber-400">
+              Tài khoản đã tạo. Vui lòng kiểm tra email để xác thực trước khi đăng nhập.
+            </p>
+          )}
+          {verifyMessage && (
+            <p className={`text-xs ${verifyMessage.cls}`}>{verifyMessage.text}</p>
+          )}
           <form onSubmit={handleCredentialsLogin} className="space-y-3">
             <div className="space-y-1.5">
               <Label htmlFor="email">Email</Label>
@@ -88,6 +147,25 @@ function LoginContent() {
               {loading ? "Đang đăng nhập..." : "Đăng nhập bằng email"}
             </Button>
           </form>
+
+          {(checkEmail || verifyStatus === "expired") && (
+            <form onSubmit={handleResendVerification} className="space-y-2 rounded-md border p-3">
+              <p className="text-xs font-medium">Gửi lại email xác thực</p>
+              <Input
+                type="email"
+                value={resendEmail}
+                onChange={(e) => setResendEmail(e.target.value)}
+                placeholder="you@example.com"
+                required
+              />
+              <Button type="submit" variant="outline" size="sm" disabled={resending}>
+                {resending ? "Đang gửi..." : "Gửi lại email xác thực"}
+              </Button>
+              {resendResult && (
+                <p className="text-xs text-muted-foreground">{resendResult}</p>
+              )}
+            </form>
+          )}
 
           <div className="relative">
             <div className="absolute inset-0 flex items-center">

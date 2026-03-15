@@ -110,3 +110,45 @@ export async function sendContractCompleted(
     html,
   });
 }
+
+export async function sendEmailVerification(
+  to: string,
+  recipientName: string | null | undefined,
+  verifyUrl: string
+) {
+  const html = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="font-family:'Segoe UI',Roboto,sans-serif;background:#f9fafb;padding:40px 0">
+  <div style="max-width:560px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.1)">
+    <div style="background:linear-gradient(135deg,#2563eb,#7c3aed);padding:32px 40px;text-align:center">
+      <h1 style="color:#fff;margin:0;font-size:22px">🔐 Xác thực email</h1>
+    </div>
+    <div style="padding:32px 40px">
+      <p style="color:#374151;font-size:16px;line-height:1.6">
+        Xin chào <strong>${recipientName || to}</strong>,
+      </p>
+      <p style="color:#374151;font-size:16px;line-height:1.6">
+        Vui lòng xác thực email để kích hoạt tài khoản và đăng nhập.
+      </p>
+      <div style="text-align:center;margin:32px 0">
+        <a href="${verifyUrl}" style="display:inline-block;background:linear-gradient(135deg,#2563eb,#7c3aed);color:#fff;text-decoration:none;padding:14px 40px;border-radius:8px;font-size:16px;font-weight:600">
+          Xác thực email
+        </a>
+      </div>
+      <p style="color:#9ca3af;font-size:13px;line-height:1.5;border-top:1px solid #e5e7eb;padding-top:20px">
+        Link này có hiệu lực trong 24 giờ. Nếu bạn không tạo tài khoản, vui lòng bỏ qua email này.
+      </p>
+    </div>
+  </div>
+</body>
+</html>`;
+
+  await getResend().emails.send({
+    from: EMAIL_FROM,
+    to,
+    subject: "Xác thực email tài khoản PDFSignPro",
+    html,
+  });
+}

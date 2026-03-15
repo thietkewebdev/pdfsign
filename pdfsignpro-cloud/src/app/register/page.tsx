@@ -2,8 +2,7 @@
 
 import Link from "next/link";
 import { Suspense, useState } from "react";
-import { useSearchParams } from "next/navigation";
-import { signIn } from "next-auth/react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,6 +23,7 @@ export default function RegisterPage() {
 }
 
 function RegisterContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
   const [name, setName] = useState("");
@@ -59,15 +59,12 @@ function RegisterContent() {
         setError(data?.error || "Đăng ký thất bại.");
         return;
       }
-
-      await signIn("credentials", {
-        email: email.trim().toLowerCase(),
-        password,
-        callbackUrl,
-        redirect: true,
-      });
+      const encodedEmail = encodeURIComponent(email.trim().toLowerCase());
+      const encodedCb = encodeURIComponent(callbackUrl);
+      router.push(`/login?checkEmail=1&email=${encodedEmail}&callbackUrl=${encodedCb}`);
     } catch {
       setError("Không thể đăng ký lúc này.");
+    } finally {
       setLoading(false);
     }
   }
