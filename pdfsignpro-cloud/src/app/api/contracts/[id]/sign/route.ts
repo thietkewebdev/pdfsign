@@ -81,12 +81,24 @@ export async function POST(
         where: { id: signer.signingJobId },
       });
       if (existingJob && existingJob.status === "CREATED" && existingJob.expiresAt > new Date()) {
+        // Always issue a fresh claim code for reused jobs.
+        // Desktop signer requires a non-empty claim code in deep link payload.
+        const claimCode = generateClaimCode();
+        const claimCodeHash = hashClaimCode(claimCode);
+        await prisma.signingJob.update({
+          where: { id: existingJob.id },
+          data: {
+            claimCodeHash,
+            claimedAt: null,
+          },
+        });
+
         const apiBaseUrl =
           process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
         const hostname = new URL(apiBaseUrl).hostname;
         const payload: Record<string, string> = {
           j: existingJob.id,
-          c: "",
+          c: claimCode,
           h: hostname,
         };
         if (signer.templateId) payload.t = signer.templateId;

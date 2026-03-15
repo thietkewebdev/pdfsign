@@ -190,6 +190,24 @@ def _create_pkcs11_signer(
 def _next_sig_field_name(writer: IncrementalPdfFileWriter) -> str:
     """Find next available signature field name (Signature1, Signature2, ...)."""
     existing = set()
+    def _collect_sig_fields(field_obj):
+        try:
+            ft = field_obj.get("/FT")
+            name = field_obj.get("/T")
+            if ft == "/Sig" and name:
+                existing.add(str(name))
+
+            kids = field_obj.get("/Kids")
+            if kids:
+                for kid_ref in kids:
+                    try:
+                        kid = kid_ref.get_object()
+                        _collect_sig_fields(kid)
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+
     try:
         reader = writer.prev
         root = reader.root
@@ -200,10 +218,7 @@ def _next_sig_field_name(writer: IncrementalPdfFileWriter) -> str:
                 for field_ref in field_list:
                     try:
                         field = field_ref.get_object()
-                        ft = field.get("/FT")
-                        name = field.get("/T")
-                        if ft == "/Sig" and name:
-                            existing.add(str(name))
+                        _collect_sig_fields(field)
                     except Exception:
                         pass
     except Exception:
