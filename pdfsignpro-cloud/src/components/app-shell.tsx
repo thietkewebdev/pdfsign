@@ -5,8 +5,13 @@ import Link from "next/link";
 import Image from "next/image";
 import { Footer } from "@/components/footer";
 import { useTheme } from "next-themes";
+<<<<<<< HEAD
 import { useSession, signIn, signOut } from "next-auth/react";
 import { Moon, Sun, Github, Monitor, Laptop, ChevronDown, LogIn, FileText, LogOut, HelpCircle, Scale, ShieldCheck, BookOpen, Users, FilePlus, BarChart3 } from "lucide-react";
+=======
+import { useSession, signOut } from "next-auth/react";
+import { Moon, Sun, Github, Monitor, Laptop, ChevronDown, LogIn, FileText, LogOut, HelpCircle, Scale, ShieldCheck, BookOpen, Users, FilePlus } from "lucide-react";
+>>>>>>> 498c8d4 (feat: add email/password signup and login flow)
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -222,11 +227,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => signIn("google")}
+                asChild
                 className="gap-1.5 text-muted-foreground hover:text-foreground"
               >
-                <LogIn className="size-4" />
-                Đăng nhập
+                <Link href="/login">
+                  <LogIn className="size-4" />
+                  Đăng nhập
+                </Link>
               </Button>
             ) : null}
             <Button variant="ghost" size="icon" asChild aria-label="GitHub">

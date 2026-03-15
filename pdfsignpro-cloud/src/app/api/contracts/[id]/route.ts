@@ -66,7 +66,7 @@ export async function GET(
     const session = await auth();
     const isOwner = session?.user?.id === contract.userId;
     const matchedSigner = token
-      ? contract.signers.find((s) => s.token === token)
+      ? contract.signers.find((s: { token: string }) => s.token === token)
       : null;
 
     if (!isOwner && !matchedSigner) {
@@ -76,7 +76,16 @@ export async function GET(
       );
     }
 
-    const signers = contract.signers.map((s) => ({
+    const signers = contract.signers.map((s: {
+      id: string;
+      email: string;
+      name: string;
+      order: number;
+      status: string;
+      templateId: string;
+      invitedAt: Date | null;
+      completedAt: Date | null;
+    }) => ({
       id: s.id,
       email: isOwner ? s.email : maskEmail(s.email),
       name: s.name,
@@ -104,7 +113,7 @@ export async function GET(
         latestVersion: contract.document.versions[0]?.version ?? 1,
       },
       signers,
-      signedCount: signers.filter((s) => s.status === "COMPLETED").length,
+      signedCount: signers.filter((s: { status: string }) => s.status === "COMPLETED").length,
       totalSigners: signers.length,
       canSign: matchedSigner
         ? matchedSigner.status === "INVITED"
@@ -112,7 +121,13 @@ export async function GET(
       currentSignerToken: matchedSigner?.token ?? null,
       isOwner,
       events: isOwner
-        ? contract.events.map((e) => ({
+        ? contract.events.map((e: {
+            id: string;
+            type: string;
+            actor: string | null;
+            detail: string | null;
+            createdAt: Date;
+          }) => ({
             id: e.id,
             type: e.type,
             actor: e.actor,
@@ -173,7 +188,7 @@ export async function PATCH(
     }
 
     if (action === "remind") {
-      const currentSigner = contract.signers.find((s) => s.status === "INVITED");
+      const currentSigner = contract.signers.find((s: { status: string }) => s.status === "INVITED");
       if (!currentSigner) {
         return NextResponse.json({ error: "No signer awaiting signature" }, { status: 400 });
       }
