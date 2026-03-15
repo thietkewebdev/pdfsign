@@ -1,11 +1,12 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Footer } from "@/components/footer";
 import { useTheme } from "next-themes";
 import { useSession, signIn, signOut } from "next-auth/react";
-import { Moon, Sun, Github, Monitor, Laptop, ChevronDown, LogIn, FileText, LogOut, HelpCircle, Scale, ShieldCheck, BookOpen, Users, FilePlus } from "lucide-react";
+import { Moon, Sun, Github, Monitor, Laptop, ChevronDown, LogIn, FileText, LogOut, HelpCircle, Scale, ShieldCheck, BookOpen, Users, FilePlus, BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -21,6 +22,43 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+
+function UsagePill() {
+  const [usage, setUsage] = useState<{ used: number; limit: number } | null>(null);
+  useEffect(() => {
+    fetch("/api/usage")
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => d && setUsage({ used: d.used, limit: d.limit }))
+      .catch(() => {});
+  }, []);
+  if (!usage) return null;
+  const pct = usage.limit > 0 ? (usage.used / usage.limit) * 100 : 0;
+  const isWarning = pct >= 80;
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Link
+            href="/dashboard?tab=usage"
+            className={cn(
+              "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition-colors",
+              isWarning
+                ? "bg-amber-100 text-amber-800 hover:bg-amber-200 dark:bg-amber-900/40 dark:text-amber-300 dark:hover:bg-amber-900/60"
+                : "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+            )}
+          >
+            <BarChart3 className="size-3.5" />
+            <span>{usage.used}/{usage.limit}</span>
+          </Link>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>File ký trong tháng (gói Free)</p>
+          <p className="text-xs text-muted-foreground">Bấm để xem chi tiết</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { theme, setTheme } = useTheme();
@@ -119,7 +157,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </Tooltip>
             </TooltipProvider>
             {status === "authenticated" && session?.user ? (
-              <DropdownMenu>
+              <>
+                <UsagePill />
+                <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon" className="rounded-full">
                     {session.user.image ? (
@@ -161,6 +201,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                       Hợp đồng của tôi
                     </Link>
                   </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/dashboard?tab=usage" className="cursor-pointer">
+                      <BarChart3 className="size-4" />
+                      Gói & Sử dụng
+                    </Link>
+                  </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
                     className="cursor-pointer text-destructive focus:text-destructive"
@@ -171,6 +217,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
+              </>
             ) : status === "unauthenticated" ? (
               <Button
                 variant="ghost"

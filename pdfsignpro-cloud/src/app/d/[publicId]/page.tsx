@@ -230,7 +230,13 @@ export default function SigningViewerPage() {
     });
 
     if (!res.ok) {
-      const err = await res.json();
+      const err = await res.json().catch(() => ({}));
+      if (res.status === 402 && err.code === "QUOTA_EXCEEDED") {
+        toast.error(err.error ?? "Đã đạt giới hạn 50 file/tháng", {
+          action: { label: "Xem gói", onClick: () => window.open("/dashboard?tab=usage", "_self") },
+        });
+        return;
+      }
       toast.error(err.error ?? "Tạo phiên ký thất bại");
       return;
     }

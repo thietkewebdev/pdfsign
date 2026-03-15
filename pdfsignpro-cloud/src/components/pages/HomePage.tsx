@@ -28,6 +28,7 @@ import {
   Mail,
   ClipboardCheck,
   Send,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -773,6 +774,78 @@ export function HomePage() {
               </div>
             </m.div>
           </div>
+        </div>
+      </section>
+
+      {/* Gói & Bảng giá */}
+      <section id="pricing" className="relative border-t border-zinc-200/80 px-6 py-20 dark:border-white/5 sm:py-28">
+        <div className="container mx-auto max-w-6xl">
+          <m.div
+            className="mb-4 text-center"
+            initial={{ opacity: 0, y: reduceMotion ? 0 : 12 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-50px" }}
+            transition={MOTION}
+          >
+            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-zinc-200/80 bg-zinc-50/80 px-4 py-1.5 dark:border-white/10 dark:bg-zinc-800/50">
+              <Sparkles className="size-4 text-violet-600 dark:text-violet-400" />
+              <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Đơn giản, rõ ràng</span>
+            </div>
+            <h2 className="text-2xl font-semibold text-zinc-900 dark:text-white sm:text-3xl">
+              Gói miễn phí
+            </h2>
+          </m.div>
+          <m.p
+            className="mx-auto mb-12 max-w-xl text-center text-zinc-500 dark:text-zinc-400"
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            viewport={{ once: true }}
+            transition={{ ...MOTION, delay: 0.05 }}
+          >
+            50 file ký thành công mỗi tháng. Reset đầu tháng. Không cần thẻ tín dụng.
+          </m.p>
+          <m.div
+            className="mx-auto max-w-md rounded-2xl border-2 border-violet-200/80 bg-white/80 p-8 shadow-sm dark:border-violet-500/30 dark:bg-white/5"
+            initial={{ opacity: 0, y: reduceMotion ? 0 : 12 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ ...MOTION, delay: 0.1 }}
+          >
+            <div className="mb-6 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">Free</h3>
+              <span className="rounded-full bg-violet-100 px-3 py-1 text-sm font-medium text-violet-700 dark:bg-violet-900/50 dark:text-violet-300">Hiện tại</span>
+            </div>
+            <p className="mb-6 text-3xl font-bold text-zinc-900 dark:text-white">
+              0₫<span className="text-sm font-normal text-muted-foreground">/tháng</span>
+            </p>
+            <ul className="mb-8 space-y-3 text-sm text-zinc-600 dark:text-zinc-400">
+              <li className="flex items-center gap-2">
+                <Check className="size-4 text-violet-600 dark:text-violet-400" />
+                50 file PDF ký thành công / tháng
+              </li>
+              <li className="flex items-center gap-2">
+                <Check className="size-4 text-violet-600 dark:text-violet-400" />
+                Ký đơn & hợp đồng nhiều bên
+              </li>
+              <li className="flex items-center gap-2">
+                <Check className="size-4 text-violet-600 dark:text-violet-400" />
+                Email mời ký & thông báo hoàn tất
+              </li>
+              <li className="flex items-center gap-2">
+                <Check className="size-4 text-violet-600 dark:text-violet-400" />
+                Dashboard quản lý tài liệu & gói sử dụng
+              </li>
+            </ul>
+            <Button
+              size="lg"
+              className="w-full rounded-lg bg-gradient-to-r from-violet-600 to-blue-600 text-white hover:from-violet-700 hover:to-blue-700"
+              asChild
+            >
+              <Link href="/dashboard">
+                Bắt đầu miễn phí <ArrowRight className="ml-1 size-4" />
+              </Link>
+            </Button>
+          </m.div>
         </div>
       </section>
 

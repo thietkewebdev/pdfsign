@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { generateJobToken, hashJobToken } from "@/lib/job-token";
 import { generateClaimCode, hashClaimCode } from "@/lib/claim-code";
 import { base64urlEncode } from "@/lib/base64url";
+import { checkQuota } from "@/lib/usage";
 
 export async function POST(
   request: Request,
@@ -104,6 +105,19 @@ export async function POST(
       return NextResponse.json(
         { error: "No document version found" },
         { status: 500 }
+      );
+    }
+
+    const quota = await checkQuota(signer.contract.userId);
+    if (!quota.allowed) {
+      return NextResponse.json(
+        {
+          error: "Chủ hợp đồng đã đạt giới hạn 50 file ký/tháng. Vui lòng liên hệ hoặc chờ tháng sau.",
+          code: "QUOTA_EXCEEDED",
+          used: quota.used,
+          limit: quota.limit,
+        },
+        { status: 402 }
       );
     }
 

@@ -6,6 +6,7 @@ import { generateJobToken, hashJobToken } from "@/lib/job-token";
 import { generateClaimCode, hashClaimCode } from "@/lib/claim-code";
 import { base64urlEncode } from "@/lib/base64url";
 import { getStorageDriver } from "@/storage";
+import { checkQuota } from "@/lib/usage";
 
 const rectPctSchema = z.object({
   x: z.number().min(0).max(1),
@@ -75,6 +76,21 @@ export async function POST(request: Request) {
         { error: "No version found for document" },
         { status: 404 }
       );
+    }
+
+    if (document.userId) {
+      const quota = await checkQuota(document.userId);
+      if (!quota.allowed) {
+        return NextResponse.json(
+          {
+            error: "Bạn đã đạt giới hạn 50 file ký/tháng. Vui lòng nâng cấp gói hoặc chờ reset tháng sau.",
+            code: "QUOTA_EXCEEDED",
+            used: quota.used,
+            limit: quota.limit,
+          },
+          { status: 402 }
+        );
+      }
     }
 
     const jobToken = generateJobToken();

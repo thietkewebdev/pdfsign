@@ -14,6 +14,7 @@ const SERVICES = [
 const LEGAL_LINKS = [
   { label: "Blog & Hướng dẫn", href: "/blog" },
   { label: "Câu hỏi thường gặp", href: "/faq" },
+  { label: "Gói & Bảng giá", href: "/#pricing" },
   { label: "Điều khoản dịch vụ", href: "/terms" },
   { label: "Chính sách bảo mật", href: "/privacy" },
 ] as const;

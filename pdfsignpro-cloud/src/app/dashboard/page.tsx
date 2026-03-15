@@ -13,6 +13,8 @@ import {
   Users,
   PenLine,
   AlertCircle,
+  BarChart3,
+  ExternalLink,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -70,9 +72,17 @@ function DashboardContent() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const defaultTab = searchParams.get("tab") === "contracts" ? "contracts" : "documents";
+  const tabParam = searchParams.get("tab");
+  const defaultTab = tabParam === "contracts" ? "contracts" : tabParam === "usage" ? "usage" : "documents";
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
   const [contracts, setContracts] = useState<ContractItem[]>([]);
+  const [usage, setUsage] = useState<{
+    used: number;
+    limit: number;
+    resetAt: string;
+    plan: string;
+    recent: { id: string; completedAt: string | null; documentTitle: string; documentPublicId: string; contractTitle?: string; contractId?: string; signerName?: string }[];
+  } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -80,9 +90,10 @@ function DashboardContent() {
     try {
       setLoading(true);
       setError(null);
-      const [docsRes, contractsRes] = await Promise.all([
+      const [docsRes, contractsRes, usageRes] = await Promise.all([
         fetch("/api/documents?mine=1"),
         fetch("/api/contracts"),
+        fetch("/api/usage"),
       ]);
       if (docsRes.status === 401 || contractsRes.status === 401) {
         router.push("/login");
@@ -95,6 +106,11 @@ function DashboardContent() {
       if (contractsRes.ok) {
         const contractsData = await contractsRes.json();
         setContracts(contractsData.contracts);
+      }
+
+      if (usageRes.ok) {
+        const usageData = await usageRes.json();
+        setUsage(usageData);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Có lỗi xảy ra");
@@ -177,6 +193,18 @@ function DashboardContent() {
         </Card>
       )}
 
+      {usage && usage.used >= usage.limit * 0.8 && (
+        <div className="mb-6 flex items-center justify-between gap-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-800/50 dark:bg-amber-950/30">
+          <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
+            Bạn đã dùng <strong>{usage.used}/{usage.limit}</strong> file ký trong tháng.
+            {usage.used >= usage.limit ? " Đã đạt giới hạn gói Free." : " Sắp đạt giới hạn."}
+          </p>
+          <Button variant="outline" size="sm" asChild className="shrink-0 border-amber-300 dark:border-amber-700">
+            <Link href="/dashboard?tab=usage">Xem gói & Sử dụng</Link>
+          </Button>
+        </div>
+      )}
+
       <Tabs defaultValue={defaultTab}>
         <TabsList className="mb-6">
           <TabsTrigger value="documents" className="gap-1.5">
@@ -186,6 +214,10 @@ function DashboardContent() {
           <TabsTrigger value="contracts" className="gap-1.5">
             <Users className="size-4" />
             Hợp đồng ({contracts.length})
+          </TabsTrigger>
+          <TabsTrigger value="usage" className="gap-1.5">
+            <BarChart3 className="size-4" />
+            Gói & Sử dụng
           </TabsTrigger>
         </TabsList>
 
@@ -316,6 +348,72 @@ function DashboardContent() {
                 );
               })}
             </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="usage">
+          {usage ? (
+            <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <BarChart3 className="size-5" />
+                    Gói Free
+                  </CardTitle>
+                  <CardDescription>
+                    Giới hạn 50 file ký thành công mỗi tháng. Reset vào đầu tháng sau.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Đã dùng trong tháng</span>
+                    <span className="font-medium">{usage.used} / {usage.limit}</span>
+                  </div>
+                  <Progress value={Math.min(100, (usage.used / usage.limit) * 100)} className="h-3" />
+                  <p className="text-xs text-muted-foreground">
+                    Reset vào ngày {new Date(usage.resetAt).toLocaleDateString("vi-VN", { day: "numeric", month: "long", year: "numeric" })}
+                  </p>
+                </CardContent>
+              </Card>
+
+              <div>
+                <h3 className="text-sm font-semibold mb-3">Lịch sử ký gần đây</h3>
+                {usage.recent.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Chưa có lần ký nào trong tháng.</p>
+                ) : (
+                  <ul className="space-y-2">
+                    {usage.recent.map((r) => (
+                      <li key={r.id} className="flex items-center justify-between gap-2 rounded-lg border p-3 text-sm">
+                        <div className="min-w-0">
+                          <p className="font-medium truncate">{r.documentTitle}</p>
+                          {r.contractTitle && (
+                            <p className="text-xs text-muted-foreground truncate">Hợp đồng: {r.contractTitle}{r.signerName ? ` · ${r.signerName}` : ""}</p>
+                          )}
+                        </div>
+                        <div className="shrink-0 flex items-center gap-2">
+                          <span className="text-muted-foreground text-xs">
+                            {r.completedAt ? new Date(r.completedAt).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : ""}
+                          </span>
+                          {r.documentPublicId && (
+                            <Button variant="ghost" size="sm" asChild>
+                              <Link href={`/d/${r.documentPublicId}`}>
+                                <ExternalLink className="size-3.5" />
+                              </Link>
+                            </Button>
+                          )}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          ) : (
+            <Card>
+              <CardContent className="py-8 text-center text-muted-foreground">
+                Không tải được thông tin sử dụng.
+              </CardContent>
+            </Card>
           )}
         </TabsContent>
       </Tabs>
