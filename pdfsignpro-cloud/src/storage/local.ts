@@ -42,6 +42,18 @@ class LocalStorageDriver implements StorageDriver {
       return false;
     }
   }
+
+  async delete(key: string): Promise<void> {
+    const fullPath = path.join(UPLOAD_DIR, key);
+    try {
+      await fs.unlink(fullPath);
+    } catch (err: unknown) {
+      const e = err as { code?: string };
+      if (e.code !== "ENOENT") {
+        throw err;
+      }
+    }
+  }
 }
 
 export function createLocalStorageDriver(): StorageDriver {

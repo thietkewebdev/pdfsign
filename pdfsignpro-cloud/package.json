@@ -7,6 +7,7 @@
     "build": "prisma generate && next build",
     "start": "next start",
     "lint": "eslint",
+    "admin:smoke": "node scripts/admin-smoke.cjs",
     "postinstall": "prisma generate && node scripts/copy-pdf-worker.cjs",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev"

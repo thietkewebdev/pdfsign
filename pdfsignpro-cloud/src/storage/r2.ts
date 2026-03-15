@@ -3,6 +3,7 @@ import {
   PutObjectCommand,
   GetObjectCommand,
   HeadObjectCommand,
+  DeleteObjectCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
@@ -94,4 +95,9 @@ export async function getR2Buffer(key: string): Promise<Buffer> {
     chunks.push(chunk);
   }
   return Buffer.concat(chunks);
+}
+
+export async function deleteR2Object(key: string): Promise<void> {
+  const client = getClient();
+  await client.send(new DeleteObjectCommand({ Bucket: bucketName, Key: key }));
 }
