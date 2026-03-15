@@ -14,10 +14,16 @@ model User {
   passwordHash  String?   // for email/password sign-up (salt.hash in one string)
   emailVerified DateTime?
   image         String?
+  isDisabled    Boolean   @default(false)
+  plan          String    @default("free")
+  role          String    @default("USER")
   accounts      Account[]
   sessions      Session[]
   documents     Document[]
   contracts     Contract[]
+  adminAuditLogs   AdminAuditLog[] @relation("AdminAuditActor")
+  adminEvents      AdminAnalyticsEvent[] @relation("AdminEventActor")
+  analyticsEvents  AdminAnalyticsEvent[] @relation("AdminEventUser")
   verificationTokens EmailVerificationToken[]
   createdAt     DateTime  @default(now())
 }
@@ -169,4 +175,38 @@ model ContractEvent {
   createdAt   DateTime @default(now())
 
   @@index([contractId])
+}
+
+model AdminAuditLog {
+  id          String   @id @default(cuid())
+  actorUserId String?
+  actorUser   User?    @relation("AdminAuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+  action      String
+  resource    String
+  resourceId  String?
+  detail      String?
+  metadataJson String?
+  createdAt   DateTime @default(now())
+
+  @@index([actorUserId])
+  @@index([resource, action])
+  @@index([createdAt])
+}
+
+model AdminAnalyticsEvent {
+  id          String   @id @default(cuid())
+  eventType   String
+  path        String?
+  method      String?
+  actorUserId String?
+  actorUser   User?    @relation("AdminEventActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+  subjectUserId String?
+  subjectUser User?    @relation("AdminEventUser", fields: [subjectUserId], references: [id], onDelete: SetNull)
+  metadataJson String?
+  createdAt   DateTime @default(now())
+
+  @@index([eventType])
+  @@index([actorUserId])
+  @@index([subjectUserId])
+  @@index([createdAt])
 }

@@ -5,6 +5,7 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import { compare } from "bcryptjs";
 import { z } from "zod";
 import { prisma } from "./prisma";
+import { isAdminEmail } from "./admin";
 
 const CredentialsSchema = z.object({
   email: z.email(),
@@ -38,10 +39,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             image: true,
             passwordHash: true,
             emailVerified: true,
+            isDisabled: true,
           },
         });
         if (!user?.passwordHash || !user.email) return null;
         if (!user.emailVerified) return null;
+        if (user.isDisabled) return null;
 
         const valid = await compare(parsed.data.password, user.passwordHash);
         if (!valid) return null;
@@ -61,6 +64,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   callbacks: {
     jwt({ token, user }) {
       if (user?.id) token.id = user.id;
+      const email = user?.email ?? token.email;
+      token.isAdmin = isAdminEmail(email);
       return token;
     },
     session({ session, token, user }) {
@@ -69,6 +74,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (idFromToken || idFromUser) {
         session.user.id = (idFromToken ?? idFromUser)!;
       }
+      session.user.isAdmin = token.isAdmin === true;
       return session;
     },
   },
