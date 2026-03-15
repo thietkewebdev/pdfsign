@@ -67,7 +67,7 @@ export function PdfViewer({
   onPlacementUpdate,
   activePageForPlacement,
   readOnly = false,
-  selectedTemplateId = "classic",
+  selectedTemplateId = "valid",
   sealImageBase64,
   toolbarActions,
 }: PdfViewerProps) {
@@ -163,6 +163,8 @@ export function PdfViewer({
     .filter(({ placement }) => placement.page === currentPage);
   const pageWidth = pageDimensions?.width ?? 0;
   const pageHeight = pageDimensions?.height ?? 0;
+  const safeTotalPages = Math.max(totalPages, 1);
+  const isLastPage = currentPage === safeTotalPages;
 
   const handleDragStop = useCallback(
     (globalIndex: number) => (x: number, y: number) => {
@@ -199,7 +201,7 @@ export function PdfViewer({
   return (
     <div className="flex flex-col size-full bg-muted/30">
       <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-2 bg-background/80">
-        <div className="flex items-center gap-2 min-w-0">
+        <div className="flex items-center gap-2 min-w-0 flex-wrap">
           <button
             type="button"
             onClick={() => onPageChange(Math.max(1, currentPage - 1))}
@@ -208,13 +210,35 @@ export function PdfViewer({
           >
             ←
           </button>
-          <span className="text-sm text-muted-foreground tabular-nums shrink-0">
-            Trang {currentPage} / {totalPages}
-          </span>
+          <div className="flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-2.5 py-1.5 shrink-0">
+            <span className="text-[11px] font-medium uppercase tracking-wide text-primary/90">
+              Trang hiện tại
+            </span>
+            <span className="rounded-md bg-primary px-2 py-0.5 text-xs font-bold tabular-nums text-primary-foreground">
+              {currentPage}
+            </span>
+            <span className="text-xs text-muted-foreground">/</span>
+            <span className="rounded-md bg-background px-2 py-0.5 text-xs font-semibold tabular-nums text-foreground border border-border">
+              {safeTotalPages}
+            </span>
+          </div>
           <button
             type="button"
-            onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
-            disabled={currentPage >= totalPages}
+            onClick={() => onPageChange(safeTotalPages)}
+            disabled={safeTotalPages <= 1 || isLastPage}
+            className="rounded-md border border-amber-300/70 bg-amber-50 px-2.5 py-1.5 text-xs font-medium text-amber-900 hover:bg-amber-100 disabled:opacity-50 transition-colors shrink-0 dark:border-amber-700/60 dark:bg-amber-900/20 dark:text-amber-300 dark:hover:bg-amber-900/30"
+          >
+            Tới trang cuối: {safeTotalPages}
+          </button>
+          {isLastPage && (
+            <span className="hidden sm:inline-flex rounded-md border border-emerald-300/70 bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-800 shrink-0 dark:border-emerald-700/70 dark:bg-emerald-900/20 dark:text-emerald-300">
+              Bạn đang ở trang cuối
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={() => onPageChange(Math.min(safeTotalPages, currentPage + 1))}
+            disabled={currentPage >= safeTotalPages}
             className="rounded-md border border-border px-2.5 py-1.5 text-sm hover:bg-accent disabled:opacity-50 transition-colors shrink-0"
           >
             →

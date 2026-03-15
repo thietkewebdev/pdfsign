@@ -114,7 +114,7 @@ export function CreateContractModal({
           email: s.email.trim(),
           name: s.name.trim(),
           order: s.order,
-          templateId: "classic",
+          templateId: "valid",
           placement: {
             page: "LAST" as const,
             rectPct: {

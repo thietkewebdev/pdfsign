@@ -136,7 +136,7 @@ export default function SigningViewerPage() {
   const [signerDownloadModalOpen, setSignerDownloadModalOpen] = useState(false);
   const pollStartRef = useRef<number | null>(null);
   const userLeftTabRef = useRef(false);
-  const [selectedTemplateId, setSelectedTemplateId] = useState("classic");
+  const [selectedTemplateId, setSelectedTemplateId] = useState("valid");
   const [sealImageBase64, setSealImageBase64] = useState<string | null>(null);
   const [contractModalOpen, setContractModalOpen] = useState(false);
   const searchParams = useSearchParams();
@@ -434,7 +434,14 @@ export default function SigningViewerPage() {
       </div>
       {activePlacement && (
         <div className="flex flex-col gap-1 text-sm text-muted-foreground">
-          <p>Trang: {activePlacement.page}</p>
+          <div className="flex items-center gap-2">
+            <p>Trang: {activePlacement.page}</p>
+            {totalPages > 0 && activePlacement.page === totalPages && (
+              <span className="rounded-md bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
+                Trang cuối
+              </span>
+            )}
+          </div>
           <p>
             Ô: {Math.round(activePlacement.wPct * 100)}% ×{" "}
             {Math.round(activePlacement.hPct * 100)}%
@@ -602,7 +609,14 @@ export default function SigningViewerPage() {
                       <div className="size-12 shrink-0 rounded-md bg-muted flex items-center justify-center text-xs font-medium text-muted-foreground">
                         {i + 1}
                       </div>
-                      <span className="text-sm">Trang {i + 1}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm">Trang {i + 1}</span>
+                        {totalPages > 0 && i + 1 === totalPages && (
+                          <span className="rounded-md bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
+                            Trang cuối
+                          </span>
+                        )}
+                      </div>
                     </button>
                   ))}
                 </div>
@@ -692,7 +706,14 @@ export default function SigningViewerPage() {
                           <div className="size-12 shrink-0 rounded-md bg-muted flex items-center justify-center text-xs font-medium text-muted-foreground">
                             {i + 1}
                           </div>
-                          <span className="text-sm">Trang {i + 1}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm">Trang {i + 1}</span>
+                            {totalPages > 0 && i + 1 === totalPages && (
+                              <span className="rounded-md bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
+                                Trang cuối
+                              </span>
+                            )}
+                          </div>
                         </button>
                       ))}
                     </div>

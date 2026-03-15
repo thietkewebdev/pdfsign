@@ -10,7 +10,7 @@ const SignerSchema = z.object({
   email: z.string().email(),
   name: z.string().min(1).max(200),
   order: z.number().int().positive(),
-  templateId: z.string().optional().default("classic"),
+  templateId: z.string().optional().default("valid"),
   placement: z.object({
     page: z.union([z.literal("LAST"), z.number().int().positive()]),
     rectPct: z.object({
@@ -94,7 +94,7 @@ export async function POST(request: Request) {
               order: s.order,
               token: randomBytes(24).toString("hex"),
               placementJson: JSON.stringify(s.placement),
-              templateId: s.templateId ?? "classic",
+              templateId: s.templateId ?? "valid",
               status: "PENDING",
             })),
         },

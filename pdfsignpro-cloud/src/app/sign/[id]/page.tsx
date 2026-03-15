@@ -58,7 +58,7 @@ export default function SignPage() {
   const [copied, setCopied] = useState(false);
   const [signerDownloadModalOpen, setSignerDownloadModalOpen] = useState(false);
   const userLeftTabRef = useRef(false);
-  const [selectedTemplateId, setSelectedTemplateId] = useState("classic");
+  const [selectedTemplateId, setSelectedTemplateId] = useState("valid");
   const [sealImageBase64, setSealImageBase64] = useState<string | null>(null);
 
   const {
@@ -272,7 +272,14 @@ export default function SignPage() {
               </div>
               {activePlacement && (
                 <div className="flex flex-col gap-1 text-sm text-muted-foreground">
-                  <p>Page: {activePlacement.page}</p>
+                  <div className="flex items-center gap-2">
+                    <p>Page: {activePlacement.page}</p>
+                    {totalPages > 0 && activePlacement.page === totalPages && (
+                      <span className="rounded-md bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
+                        Trang cuối
+                      </span>
+                    )}
+                  </div>
                   <p>
                     Box: {Math.round(activePlacement.wPct * 100)}% ×{" "}
                     {Math.round(activePlacement.hPct * 100)}%

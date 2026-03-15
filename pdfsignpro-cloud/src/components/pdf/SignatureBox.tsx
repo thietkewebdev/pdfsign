@@ -155,7 +155,16 @@ function TemplatePreview({
   if (templateId === "minimal") {
     return <MinimalPreview className={className} />;
   }
-  return <ClassicPreview className={className} />;
+  return (
+    <StampValidPreview
+      variant="valid"
+      companyName="Công ty TNHH Cổ phần Xây dựng và Thương mại Việt Nam"
+      signedAt="14/03/2026 09:33:58"
+      boxWidth={boxWidth}
+      boxHeight={boxHeight}
+      className={cn("w-full h-full", className)}
+    />
+  );
 }
 
 export function SignatureBox({
@@ -163,7 +172,7 @@ export function SignatureBox({
   pageWidth,
   pageHeight,
   scale,
-  templateId = "classic",
+  templateId = "valid",
   sealImageBase64,
   onDragStop,
   onResizeStop,
