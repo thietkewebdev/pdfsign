@@ -1,7 +1,12 @@
 "use client";
 
+import { useState } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Card,
   CardContent,
@@ -11,6 +16,34 @@ import {
 } from "@/components/ui/card";
 
 export default function LoginPage() {
+  const searchParams = useSearchParams();
+  const registered = searchParams.get("registered") === "1";
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function handleCredentialsSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+    try {
+      const res = await signIn("credentials", {
+        email: email.trim().toLowerCase(),
+        password,
+        redirect: false,
+        callbackUrl: "/dashboard",
+      });
+      if (res?.error) {
+        setError("Email hoặc mật khẩu không đúng.");
+        return;
+      }
+      if (res?.url) window.location.href = res.url;
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <div className="flex min-h-[calc(100vh-3.5rem)] items-center justify-center px-4">
       <Card className="w-full max-w-sm">
@@ -20,10 +53,54 @@ export default function LoginPage() {
             Đăng nhập để quản lý tài liệu và xem lịch sử ký số
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
+          {registered && (
+            <p className="text-center text-sm text-green-600 dark:text-green-400">
+              Đăng ký thành công. Vui lòng đăng nhập.
+            </p>
+          )}
+          <form onSubmit={handleCredentialsSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="you@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                autoComplete="email"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="password">Mật khẩu</Label>
+              <Input
+                id="password"
+                type="password"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                autoComplete="current-password"
+              />
+            </div>
+            {error && <p className="text-sm text-destructive">{error}</p>}
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? "Đang đăng nhập..." : "Đăng nhập bằng email"}
+            </Button>
+          </form>
+          <div className="relative">
+            <span className="absolute inset-0 flex items-center">
+              <span className="w-full border-t" />
+            </span>
+            <span className="relative flex justify-center text-xs uppercase text-muted-foreground">
+              hoặc
+            </span>
+          </div>
           <Button
             className="w-full gap-2"
             size="lg"
+            variant="outline"
             onClick={() => signIn("google", { callbackUrl: "/dashboard" })}
           >
             <svg className="size-5" viewBox="0 0 24 24">
@@ -46,6 +123,12 @@ export default function LoginPage() {
             </svg>
             Đăng nhập bằng Google
           </Button>
+          <p className="text-center text-sm text-muted-foreground">
+            Chưa có tài khoản?{" "}
+            <Link href="/register" className="underline text-foreground">
+              Đăng ký
+            </Link>
+          </p>
         </CardContent>
       </Card>
     </div>
