@@ -703,11 +703,13 @@ export function HomePage() {
           >
             <Button
               size="lg"
-              onClick={scrollToUpload}
+              asChild
               className="rounded-lg bg-gradient-to-r from-violet-600 to-blue-600 text-white hover:from-violet-700 hover:to-blue-700"
             >
-              <Users className="size-4" />
-              Tạo hợp đồng điện tử
+              <Link href="/contract/create">
+                <Users className="size-4" />
+                Tạo hợp đồng điện tử
+              </Link>
             </Button>
             <Link
               href="/blog"
