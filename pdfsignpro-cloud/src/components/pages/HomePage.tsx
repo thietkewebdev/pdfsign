@@ -376,7 +376,7 @@ export function HomePage() {
         <div ref={uploadRef} className="container relative mx-auto max-w-2xl">
           <div className="space-y-8">
               <m.div
-                className="space-y-4"
+                className="space-y-5"
                 initial={{ opacity: 0, y: reduceMotion ? 0 : 16 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ ...MOTION, delay: 0.05 }}
@@ -384,9 +384,30 @@ export function HomePage() {
                 <h1 className="text-4xl font-semibold tracking-tight text-zinc-900 dark:text-white sm:text-5xl md:text-6xl md:leading-[1.1]">
                   Ký số PDF & Hợp đồng điện tử
                 </h1>
-                <p className="text-lg text-zinc-600 dark:text-zinc-400 sm:text-xl">
-                  Ký số bằng USB Token, gửi hợp đồng cho nhiều bên ký — theo thứ tự, có email thông báo.
+                <p className="max-w-xl text-lg text-zinc-600 dark:text-zinc-400 sm:text-xl">
+                  Cho kế toán, pháp chế, chủ doanh nghiệp: tải PDF lên, đặt vị trí chữ ký và ký bằng USB Token. Gửi hợp đồng cho nhiều bên ký theo thứ tự, có email thông báo.
                 </p>
+                <div className="flex flex-wrap gap-3">
+                  <Button
+                    size="lg"
+                    className="rounded-lg bg-zinc-900 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-100"
+                    onClick={scrollToUpload}
+                  >
+                    <Upload className="size-4" />
+                    Ký 1 file PDF ngay
+                  </Button>
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    asChild
+                    className="rounded-lg border-zinc-200 bg-white/80 text-zinc-700 hover:bg-zinc-50 hover:text-zinc-900 dark:border-white/20 dark:bg-white/5 dark:text-zinc-300 dark:hover:bg-white/10 dark:hover:text-white"
+                  >
+                    <Link href="/contract/create">
+                      <Users className="size-4" />
+                      Tạo hợp đồng điện tử nhiều bên
+                    </Link>
+                  </Button>
+                </div>
               </m.div>
 
               {/* Upload card */}
