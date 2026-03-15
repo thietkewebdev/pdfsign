@@ -155,10 +155,18 @@ function DashboardContent() {
             Quản lý tài liệu và hợp đồng điện tử
           </p>
         </div>
-        <Button onClick={handleUpload} className="gap-2">
-          <Upload className="size-4" />
-          Tải PDF lên
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" asChild>
+            <Link href="/contract/create" className="gap-2">
+              <Users className="size-4" />
+              Tạo hợp đồng
+            </Link>
+          </Button>
+          <Button onClick={handleUpload} className="gap-2">
+            <Upload className="size-4" />
+            Tải PDF lên
+          </Button>
+        </div>
       </div>
 
       {error && (
@@ -246,12 +254,20 @@ function DashboardContent() {
                 <Users className="mb-4 size-12 text-muted-foreground/50" />
                 <CardTitle className="mb-2 text-lg">Chưa có hợp đồng nào</CardTitle>
                 <CardDescription className="mb-6">
-                  Tải PDF lên và chọn &quot;Gửi ký nhiều bên&quot; để tạo hợp đồng điện tử
+                  Tạo hợp đồng điện tử mới để gửi cho nhiều bên ký theo thứ tự
                 </CardDescription>
-                <Button onClick={handleUpload} className="gap-2">
-                  <Upload className="size-4" />
-                  Tải PDF lên
-                </Button>
+                <div className="flex gap-2">
+                  <Button asChild className="gap-2">
+                    <Link href="/contract/create">
+                      <Users className="size-4" />
+                      Tạo hợp đồng mới
+                    </Link>
+                  </Button>
+                  <Button variant="outline" onClick={handleUpload} className="gap-2">
+                    <Upload className="size-4" />
+                    Tải PDF lên
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           ) : (
