@@ -48,18 +48,18 @@ const MOTION = { duration: 0.2, ease: [0, 0, 0.2, 1] as const };
 const STEPS = [
   {
     icon: FileUp,
-    title: "Tải lên PDF",
-    copy: "Kéo thả hoặc chọn file. Tối đa 50MB.",
+    title: "Bước 1: Tải PDF hoặc hợp đồng",
+    copy: "Kéo thả file lên web. Không cần cài gì thêm ngoài Signer nhỏ trên Windows.",
   },
   {
     icon: MousePointer,
-    title: "Đặt vị trí chữ ký",
-    copy: "Chọn vị trí ô ký trên tài liệu.",
+    title: "Bước 2: Đặt vị trí & người ký",
+    copy: "Chọn chỗ đặt ô ký. Với hợp đồng nhiều bên, nhập email từng bên và thứ tự ký.",
   },
   {
     icon: Shield,
-    title: "Ký số USB Token",
-    copy: "Cắm Token, mở Signer và ký. PDF lưu tự động.",
+    title: "Bước 3: Ký số bằng USB Token",
+    copy: "Cắm USB Token, mở Signer và bấm ký. PDF đã ký được lưu và có thể chia sẻ qua link.",
   },
 ] as const;
 
@@ -553,9 +553,13 @@ export function HomePage() {
       {/* Chọn phiên bản */}
       <section className="relative border-t border-zinc-200/80 bg-zinc-50/30 px-6 py-20 dark:border-white/5 dark:bg-transparent sm:py-24">
         <div className="container mx-auto max-w-4xl">
-          <h2 className="mb-12 text-center text-2xl font-semibold text-zinc-900 dark:text-white sm:text-3xl">
-            Chọn cách ký
+          <h2 className="mb-3 text-center text-2xl font-semibold text-zinc-900 dark:text-white sm:text-3xl">
+            Chọn cách ký phù hợp
           </h2>
+          <p className="mb-10 text-center text-sm text-zinc-500 dark:text-zinc-400">
+            Nếu bạn chỉ cần ký nhanh vài file hoặc hợp đồng đơn giản → chọn Cloud. Nếu môi trường nội bộ
+            yêu cầu không lên Internet → dùng bản Offline.
+          </p>
           <div
             className={cn(
               "grid gap-6",
@@ -576,14 +580,20 @@ export function HomePage() {
               viewport={{ once: true, margin: "-40px" }}
               transition={MOTION}
             >
-              <div className="mb-4 flex size-12 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500/25 to-blue-500/15">
-                <Cloud className="size-6 text-violet-600 dark:text-violet-400" />
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <div className="flex size-12 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500/25 to-blue-500/15">
+                  <Cloud className="size-6 text-violet-600 dark:text-violet-400" />
+                </div>
+                <span className="rounded-full bg-violet-100 px-2.5 py-1 text-xs font-medium text-violet-700 dark:bg-violet-900/40 dark:text-violet-200">
+                  Đề xuất
+                </span>
               </div>
-              <h3 className="mb-2 text-lg font-semibold text-zinc-900 dark:text-white">
-                PDFSignPro Cloud
+              <h3 className="mb-1 text-lg font-semibold text-zinc-900 dark:text-white">
+                Ký online trên trình duyệt
               </h3>
               <p className="mb-6 flex-1 text-sm text-zinc-600 dark:text-zinc-400">
-                Ký số PDF trực tuyến. Tải lên, đặt vị trí chữ ký, ký bằng USB Token qua Signer — không cần cài app.
+                Dùng cho đa số trường hợp: tải PDF/hợp đồng lên, đặt vị trí ký, ký bằng USB Token qua Signer.
+                Không cần cài thêm phần mềm phức tạp, chỉ cần trình duyệt + USB Token.
               </p>
               <Button
                 size="lg"
@@ -611,11 +621,12 @@ export function HomePage() {
                 <div className="mb-4 flex size-12 items-center justify-center rounded-xl bg-gradient-to-br from-zinc-500/20 to-zinc-400/10 dark:from-white/15 dark:to-white/5">
                   <Laptop className="size-6 text-zinc-600 dark:text-zinc-300" />
                 </div>
-                <h3 className="mb-2 text-lg font-semibold text-zinc-900 dark:text-white">
-                  PDFSignPro Offline
+                <h3 className="mb-1 text-lg font-semibold text-zinc-900 dark:text-white">
+                  Ký offline trong mạng nội bộ
                 </h3>
                 <p className="mb-6 flex-1 text-sm text-zinc-600 dark:text-zinc-400">
-                  Ứng dụng Windows độc lập. Ký PDF offline, không cần trình duyệt. Phù hợp môi trường nội bộ.
+                  Ứng dụng Windows độc lập. Ký PDF khi không kết nối Internet hoặc trong mạng nội bộ khép
+                  kín. Phù hợp cho đơn vị có quy định bảo mật nghiêm ngặt.
                 </p>
                 <Button
                   size="lg"
@@ -638,11 +649,15 @@ export function HomePage() {
       <section className="relative border-t border-zinc-200/80 bg-zinc-50/50 px-6 py-20 dark:border-white/5 dark:bg-transparent sm:py-28">
         <div className="container mx-auto max-w-6xl">
           <m.h2
-            className="mb-14 text-left text-2xl font-semibold text-zinc-900 dark:text-white sm:text-3xl"
+            className="text-left text-2xl font-semibold text-zinc-900 dark:text-white sm:text-3xl"
             ref={stepsRef}
           >
-            Cách hoạt động
+            Cách hoạt động (3 bước)
           </m.h2>
+          <p className="mb-10 max-w-2xl text-sm text-zinc-500 dark:text-zinc-400">
+            Dành cho người không rành công nghệ: chỉ cần làm lần lượt 3 bước dưới đây là ký xong. Không
+            cần hiểu khái niệm PAdES hay PKCS#11.
+          </p>
           <div className="grid gap-6 sm:grid-cols-3">
             {STEPS.map((step, i) => (
               <StepCard
@@ -682,7 +697,7 @@ export function HomePage() {
             viewport={{ once: true }}
             transition={{ ...MOTION, delay: 0.05 }}
           >
-            Gửi hợp đồng cho nhiều bên ký số theo thứ tự. Mỗi bên nhận email mời, tự chọn vị trí ký và ký bằng USB Token. Theo dõi tiến độ realtime.
+            Gửi hợp đồng cho nhiều bên ký số theo thứ tự. Mỗi bên nhận email mời, mở link riêng và ký bằng USB Token — không cần đăng nhập tài khoản. Bạn theo dõi tiến độ và lịch sử ký ở một nơi.
           </m.p>
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {([
@@ -813,7 +828,7 @@ export function HomePage() {
               <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Đơn giản, rõ ràng</span>
             </div>
             <h2 className="text-2xl font-semibold text-zinc-900 dark:text-white sm:text-3xl">
-              Gói miễn phí
+              Gói miễn phí cho cá nhân & thử nghiệm
             </h2>
           </m.div>
           <m.p
@@ -823,7 +838,8 @@ export function HomePage() {
             viewport={{ once: true }}
             transition={{ ...MOTION, delay: 0.05 }}
           >
-            50 file ký thành công mỗi tháng. Reset đầu tháng. Không cần thẻ tín dụng.
+            50 file ký thành công mỗi tháng. Reset đầu tháng. Không cần thẻ tín dụng. Phù hợp để thử nghiệm
+            hoặc dùng cho cá nhân/nhóm nhỏ trước khi nâng cấp gói doanh nghiệp.
           </m.p>
           <m.div
             className="mx-auto max-w-md rounded-2xl border-2 border-violet-200/80 bg-white/80 p-8 shadow-sm dark:border-violet-500/30 dark:bg-white/5"
