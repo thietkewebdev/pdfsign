@@ -16,6 +16,7 @@ model User {
   accounts      Account[]
   sessions      Session[]
   documents     Document[]
+  contracts     Contract[]
   createdAt     DateTime  @default(now())
 }
 
@@ -55,6 +56,7 @@ model Document {
   createdAt DateTime @default(now())
   versions  DocumentVersion[]
   jobs      SigningJob[]
+  contracts Contract[]
 
   @@index([userId])
 }
@@ -95,8 +97,48 @@ model SigningJob {
   claimedAt           DateTime? // when claim code was exchanged for token
   expiresAt           DateTime  // job expires after 30m
 
+  contractSigner  ContractSigner?
+
   @@index([documentVersionId])
   @@index([documentId])
   @@index([jobTokenHash])
   @@index([claimCodeHash])
+}
+
+model Contract {
+  id          String    @id @default(cuid())
+  documentId  String
+  document    Document  @relation(fields: [documentId], references: [id])
+  userId      String
+  user        User      @relation(fields: [userId], references: [id])
+  title       String
+  message     String?
+  status      String    @default("PENDING") // PENDING, IN_PROGRESS, COMPLETED, EXPIRED
+  createdAt   DateTime  @default(now())
+  expiresAt   DateTime
+  completedAt DateTime?
+  signers     ContractSigner[]
+
+  @@index([userId])
+  @@index([documentId])
+}
+
+model ContractSigner {
+  id            String     @id @default(cuid())
+  contractId    String
+  contract      Contract   @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  email         String
+  name          String
+  order         Int
+  status        String     @default("PENDING") // PENDING, INVITED, COMPLETED
+  token         String     @unique
+  placementJson String
+  templateId    String     @default("classic")
+  signingJobId  String?    @unique
+  signingJob    SigningJob? @relation(fields: [signingJobId], references: [id])
+  invitedAt     DateTime?
+  completedAt   DateTime?
+
+  @@unique([contractId, order])
+  @@index([token])
 }

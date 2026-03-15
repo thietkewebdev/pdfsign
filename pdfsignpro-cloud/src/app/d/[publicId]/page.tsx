@@ -4,7 +4,7 @@ import { useParams, useSearchParams } from "next/navigation";
 import { useEffect, useState, useRef, useCallback } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { FilePlus, PenLine, Download } from "lucide-react";
+import { FilePlus, PenLine, Download, Users } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -33,6 +33,7 @@ import {
 } from "@/lib/job-status";
 import { SIGNATURE_TEMPLATES } from "@/lib/signature-templates";
 import { SignatureTemplateSelector } from "@/components/signature/SignatureTemplateSelector";
+import { CreateContractModal } from "@/components/contract/CreateContractModal";
 
 const POLL_INTERVAL_MS = 2000;
 const POLL_TIMEOUT_MS = 5 * 60 * 1000;
@@ -137,6 +138,7 @@ export default function SigningViewerPage() {
   const userLeftTabRef = useRef(false);
   const [selectedTemplateId, setSelectedTemplateId] = useState("classic");
   const [sealImageBase64, setSealImageBase64] = useState<string | null>(null);
+  const [contractModalOpen, setContractModalOpen] = useState(false);
   const searchParams = useSearchParams();
 
   const {
@@ -441,6 +443,14 @@ export default function SigningViewerPage() {
         <PenLine className="size-4" />
         Ký số
       </Button>
+      <Button
+        variant="outline"
+        onClick={() => setContractModalOpen(true)}
+        className="w-full rounded-md"
+      >
+        <Users className="size-4" />
+        Gửi ký nhiều bên
+      </Button>
     </div>
   );
 
@@ -690,6 +700,14 @@ export default function SigningViewerPage() {
       <UploadModal
         open={uploadModalOpen}
         onOpenChange={setUploadModalOpen}
+      />
+
+      <CreateContractModal
+        open={contractModalOpen}
+        onOpenChange={setContractModalOpen}
+        documentId={doc.id}
+        documentTitle={doc.title ?? "Hợp đồng"}
+        totalPages={totalPages}
       />
 
       <Dialog open={signerDownloadModalOpen} onOpenChange={setSignerDownloadModalOpen}>

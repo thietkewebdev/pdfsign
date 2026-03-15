@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getStorageDriver } from "@/storage";
 import { verifyJobToken } from "@/lib/job-token";
+import { sendSigningInvitation, sendContractCompleted } from "@/lib/email";
 
 function parseMultipart(request: Request): Promise<{
   fileBuffer: Buffer;
@@ -176,6 +177,8 @@ export async function POST(
 
     revalidatePath("/d/" + job.document.publicId);
 
+    await advanceContractIfNeeded(jobId, job.document.publicId);
+
     const appUrl =
       process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
     const signedPublicUrl = `${appUrl}/d/${job.document.publicId}`;
@@ -202,5 +205,89 @@ export async function POST(
       { error: "Internal server error" },
       { status: 500 }
     );
+  }
+}
+
+async function advanceContractIfNeeded(jobId: string, publicId: string) {
+  try {
+    const contractSigner = await prisma.contractSigner.findUnique({
+      where: { signingJobId: jobId },
+      include: {
+        contract: {
+          include: {
+            signers: { orderBy: { order: "asc" } },
+            user: { select: { name: true, email: true } },
+          },
+        },
+      },
+    });
+
+    if (!contractSigner) return;
+
+    await prisma.contractSigner.update({
+      where: { id: contractSigner.id },
+      data: { status: "COMPLETED", completedAt: new Date() },
+    });
+
+    const { contract } = contractSigner;
+    const nextSigner = contract.signers.find(
+      (s) => s.order > contractSigner.order && s.status === "PENDING"
+    );
+
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+
+    if (nextSigner) {
+      const signingUrl = `${appUrl}/contract/${contract.id}?token=${nextSigner.token}`;
+
+      try {
+        await sendSigningInvitation(
+          nextSigner.email,
+          nextSigner.name,
+          contract.title,
+          signingUrl,
+          contract.user.name ?? undefined
+        );
+      } catch (emailErr) {
+        console.error("Failed to send next signer invitation:", emailErr);
+      }
+
+      await prisma.contractSigner.update({
+        where: { id: nextSigner.id },
+        data: { status: "INVITED", invitedAt: new Date() },
+      });
+    } else {
+      await prisma.contract.update({
+        where: { id: contract.id },
+        data: { status: "COMPLETED", completedAt: new Date() },
+      });
+
+      const viewUrl = `${appUrl}/contract/${contract.id}`;
+      const allSigners = contract.signers;
+      const ownerEmail = contract.user.email;
+
+      const recipients = [
+        ...allSigners.map((s) => ({ email: s.email, name: s.name })),
+      ];
+      if (ownerEmail && !recipients.find((r) => r.email === ownerEmail)) {
+        recipients.push({ email: ownerEmail, name: contract.user.name ?? "Chủ hợp đồng" });
+      }
+
+      for (const r of recipients) {
+        try {
+          await sendContractCompleted(
+            r.email,
+            r.name,
+            contract.title,
+            viewUrl
+          );
+        } catch (emailErr) {
+          console.error(`Failed to send completion email to ${r.email}:`, emailErr);
+        }
+      }
+
+      revalidatePath(`/contract/${contract.id}`);
+    }
+  } catch (err) {
+    console.error("advanceContractIfNeeded error:", err);
   }
 }
