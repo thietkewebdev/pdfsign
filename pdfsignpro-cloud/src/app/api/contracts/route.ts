@@ -168,8 +168,29 @@ export async function GET() {
       );
     }
 
+    const sessionEmail = session.user.email?.trim();
+    const canMatchByEmail = !!sessionEmail;
+
     const contracts = await prisma.contract.findMany({
-      where: { userId: session.user.id },
+      where: {
+        OR: [
+          { userId: session.user.id },
+          ...(canMatchByEmail
+            ? [
+                {
+                  signers: {
+                    some: {
+                      email: {
+                        equals: sessionEmail,
+                        mode: "insensitive" as const,
+                      },
+                    },
+                  },
+                },
+              ]
+            : []),
+        ],
+      },
       orderBy: { createdAt: "desc" },
       include: {
         signers: {
@@ -180,6 +201,7 @@ export async function GET() {
             name: true,
             order: true,
             status: true,
+            token: true,
           },
         },
         document: {
@@ -190,6 +212,7 @@ export async function GET() {
 
     return NextResponse.json({
       contracts: contracts.map((c) => ({
+        isOwner: c.userId === session.user.id,
         id: c.id,
         title: c.title,
         status: c.status,
@@ -197,7 +220,18 @@ export async function GET() {
         expiresAt: c.expiresAt.toISOString(),
         completedAt: c.completedAt?.toISOString() ?? null,
         document: c.document,
-        signers: c.signers,
+        signers: c.signers.map((s) => ({
+          id: s.id,
+          email: s.email,
+          name: s.name,
+          order: s.order,
+          status: s.status,
+        })),
+        viewerToken: c.signers.find(
+          (s) =>
+            !!sessionEmail &&
+            s.email?.toLowerCase() === sessionEmail.toLowerCase()
+        )?.token ?? null,
         signedCount: c.signers.filter((s) => s.status === "COMPLETED").length,
         totalSigners: c.signers.length,
       })),

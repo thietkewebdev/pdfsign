@@ -65,9 +65,17 @@ export async function GET(
 
     const session = await auth();
     const isOwner = session?.user?.id === contract.userId;
-    const matchedSigner = token
+    const tokenMatchedSigner = token
       ? contract.signers.find((s: { token: string }) => s.token === token)
       : null;
+    const sessionEmail = session?.user?.email?.trim().toLowerCase();
+    const emailMatchedSigner =
+      !tokenMatchedSigner && sessionEmail
+        ? contract.signers.find(
+            (s: { email: string }) => s.email?.toLowerCase() === sessionEmail
+          )
+        : null;
+    const matchedSigner = tokenMatchedSigner ?? emailMatchedSigner ?? null;
 
     if (!isOwner && !matchedSigner) {
       return NextResponse.json(

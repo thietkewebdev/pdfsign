@@ -260,7 +260,8 @@ export default function ContractPage() {
   );
 
   const handleSign = async () => {
-    if (!contract || !token || placements.length === 0) return;
+    const effectiveToken = token ?? contract?.currentSignerToken ?? null;
+    if (!contract || !effectiveToken || placements.length === 0) return;
     setSigning(true);
 
     try {
@@ -274,7 +275,7 @@ export default function ContractPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          token,
+          token: effectiveToken,
           templateId: selectedTemplateId,
           placement: {
             page,

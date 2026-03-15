@@ -283,15 +283,20 @@ async function advanceContractIfNeeded(jobId: string, publicId: string) {
         `Tất cả ${contract.signers.length} bên đã ký thành công`
       );
 
-      const viewUrl = `${appUrl}/contract/${contract.id}`;
       const allSigners = contract.signers;
       const ownerEmail = contract.user.email;
 
-      const recipients = [
-        ...allSigners.map((s) => ({ email: s.email, name: s.name })),
-      ];
+      const recipients = allSigners.map((s) => ({
+        email: s.email,
+        name: s.name,
+        viewUrl: `${appUrl}/contract/${contract.id}?token=${s.token}`,
+      }));
       if (ownerEmail && !recipients.find((r) => r.email === ownerEmail)) {
-        recipients.push({ email: ownerEmail, name: contract.user.name ?? "Chủ hợp đồng" });
+        recipients.push({
+          email: ownerEmail,
+          name: contract.user.name ?? "Chủ hợp đồng",
+          viewUrl: `${appUrl}/contract/${contract.id}`,
+        });
       }
 
       for (const r of recipients) {
@@ -300,7 +305,7 @@ async function advanceContractIfNeeded(jobId: string, publicId: string) {
             r.email,
             r.name,
             contract.title,
-            viewUrl
+            r.viewUrl
           );
         } catch (emailErr) {
           console.error(`Failed to send completion email to ${r.email}:`, emailErr);

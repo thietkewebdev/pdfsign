@@ -46,6 +46,8 @@ interface ContractItem {
   createdAt: string;
   expiresAt: string;
   completedAt: string | null;
+  isOwner?: boolean;
+  viewerToken?: string | null;
   document: { publicId: string; title: string };
   signers: { id: string; name: string; email: string; order: number; status: string }[];
   signedCount: number;
@@ -312,7 +314,14 @@ function DashboardContent() {
                     : 0;
 
                 return (
-                  <Link key={contract.id} href={`/contract/${contract.id}`}>
+                  <Link
+                    key={contract.id}
+                    href={
+                      contract.viewerToken
+                        ? `/contract/${contract.id}?token=${contract.viewerToken}`
+                        : `/contract/${contract.id}`
+                    }
+                  >
                     <Card className="transition-colors hover:bg-muted/50">
                       <CardContent className="py-4">
                         <div className="flex items-center gap-4">
