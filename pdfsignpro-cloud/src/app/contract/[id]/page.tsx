@@ -33,6 +33,7 @@ import { SignatureTemplateSelector } from "@/components/signature/SignatureTempl
 import { SIGNATURE_TEMPLATES } from "@/lib/signature-templates";
 import { useSignaturePlacement } from "@/hooks/use-signature-placement";
 import { JobStatusResponseSchema } from "@/lib/job-status";
+import { getPdfViewerUrl } from "@/lib/pdf-view-url";
 
 interface Signer {
   id: string;
@@ -173,7 +174,7 @@ export default function ContractPage() {
         const res = await fetch(`/api/documents/${contract.document.publicId}`);
         if (res.ok) {
           const data = await res.json();
-          const url = data.viewUrl ?? data.presignedUrl;
+          const url = getPdfViewerUrl(data.presignedUrl, data.viewUrl);
           setPdfUrl(url);
         }
       } catch {
@@ -213,7 +214,11 @@ export default function ContractPage() {
           const res2 = await fetch(`/api/documents/${contract.document.publicId}`);
           if (res2.ok) {
             const data2 = await res2.json();
-            setPdfUrl((data2.viewUrl ?? data2.presignedUrl) + "?t=" + Date.now());
+            setPdfUrl(
+              getPdfViewerUrl(data2.presignedUrl, data2.viewUrl) +
+                "?t=" +
+                Date.now()
+            );
           }
         }
         return;

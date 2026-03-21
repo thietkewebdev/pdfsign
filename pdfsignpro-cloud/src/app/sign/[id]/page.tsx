@@ -22,6 +22,7 @@ import { PdfViewer } from "@/components/pdf/PdfViewer";
 import { useUpload } from "@/contexts/upload-context";
 import { useSignaturePlacement } from "@/hooks/use-signature-placement";
 import type { SignaturePlacement } from "@/lib/types";
+import { getPdfViewerUrl } from "@/lib/pdf-view-url";
 import {
   Dialog,
   DialogContent,
@@ -163,7 +164,7 @@ export default function SignPage() {
   const activePage = activePlacement?.page ?? currentPage;
 
   const pdfSource = docData
-    ? { pdfUrl: docData.viewUrl ?? docData.presignedUrl }
+    ? { pdfUrl: getPdfViewerUrl(docData.presignedUrl, docData.viewUrl) }
     : file
       ? { file }
       : null;

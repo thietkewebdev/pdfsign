@@ -1,6 +1,6 @@
 ; PDFSignPro Signer - Inno Setup script (WPF + Core)
-; Per-user install to {localappdata}\PDFSignProSigner
-; Registers pdfsignpro:// URL protocol
+; Machine-wide install to Program Files (requires admin / UAC)
+; Registers pdfsignpro:// URL protocol for all users (HKLM)
 
 #define MyAppName "PDFSignPro Signer"
 #define MyAppVersion "1.0.0"
@@ -10,15 +10,16 @@
 AppId={{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
-DefaultDirName={localappdata}\PDFSignProSigner
+; 64-bit app -> install under 64-bit Program Files (Inno 6.2: avoid x64compatible; use InstallIn64BitMode only)
+ArchitecturesInstallIn64BitMode=x64
+DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 DisableProgramGroupPage=yes
 OutputDir=..\dist-installer
 OutputBaseFilename=PDFSignProSignerSetup
 Compression=lzma2
 SolidCompression=yes
-PrivilegesRequired=lowest
-PrivilegesRequiredOverridesAllowed=dialog
+PrivilegesRequired=admin
 WizardStyle=modern
 
 [Languages]
@@ -34,10 +35,10 @@ Source: "..\publish\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
 Source: "..\..\desktop-signer\assets\fonts\*"; DestDir: "{app}\assets\fonts"; Flags: ignoreversion recursesubdirs skipifsourcedoesntexist
 
 [Registry]
-; Register pdfsignpro:// URL protocol (HKCU = per-user)
-Root: HKCU; Subkey: "Software\Classes\pdfsignpro"; ValueType: string; ValueData: "URL:PDFSignPro Protocol"; Flags: uninsdeletekey
-Root: HKCU; Subkey: "Software\Classes\pdfsignpro"; ValueType: string; ValueName: "URL Protocol"; ValueData: ""
-Root: HKCU; Subkey: "Software\Classes\pdfsignpro\shell\open\command"; ValueType: string; ValueData: """{app}\{#MyAppExe}"" ""%1"""
+; Register pdfsignpro:// URL protocol (machine-wide)
+Root: HKLM; Subkey: "Software\Classes\pdfsignpro"; ValueType: string; ValueData: "URL:PDFSignPro Protocol"; Flags: uninsdeletekey
+Root: HKLM; Subkey: "Software\Classes\pdfsignpro"; ValueType: string; ValueName: "URL Protocol"; ValueData: ""
+Root: HKLM; Subkey: "Software\Classes\pdfsignpro\shell\open\command"; ValueType: string; ValueData: """{app}\{#MyAppExe}"" ""%1"""
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExe}"

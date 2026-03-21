@@ -1,5 +1,7 @@
+import { createReadStream } from "fs";
 import { promises as fs } from "fs";
 import path from "path";
+import { Readable } from "stream";
 import type { StorageDriver } from "./types";
 
 const UPLOAD_DIR = path.join(process.cwd(), ".storage", "uploads");
@@ -31,6 +33,12 @@ class LocalStorageDriver implements StorageDriver {
   async getBuffer(key: string): Promise<Buffer> {
     const fullPath = path.join(UPLOAD_DIR, key);
     return fs.readFile(fullPath);
+  }
+
+  async getReadableWebStream(key: string): Promise<ReadableStream<Uint8Array>> {
+    const fullPath = path.join(UPLOAD_DIR, key);
+    const nodeStream = createReadStream(fullPath);
+    return Readable.toWeb(nodeStream) as ReadableStream<Uint8Array>;
   }
 
   async exists(key: string): Promise<boolean> {

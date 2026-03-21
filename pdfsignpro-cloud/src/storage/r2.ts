@@ -97,6 +97,19 @@ export async function getR2Buffer(key: string): Promise<Buffer> {
   return Buffer.concat(chunks);
 }
 
+/** Stream from R2/S3 without loading entire PDF into Node heap (faster TTFB for proxy route). */
+export async function getR2ReadableWebStream(
+  key: string
+): Promise<ReadableStream<Uint8Array>> {
+  const client = getClient();
+  const response = await client.send(
+    new GetObjectCommand({ Bucket: bucketName, Key: key })
+  );
+  const body = response.Body;
+  if (!body) throw new Error("Empty response body");
+  return body.transformToWebStream();
+}
+
 export async function deleteR2Object(key: string): Promise<void> {
   const client = getClient();
   await client.send(new DeleteObjectCommand({ Bucket: bucketName, Key: key }));

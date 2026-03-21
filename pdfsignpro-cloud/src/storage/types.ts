@@ -11,6 +11,9 @@ export interface StorageDriver {
   /** Fetch file content as Buffer (for server-side proxy, avoids CORS) */
   getBuffer?(key: string): Promise<Buffer>;
 
+  /** Stream object to the browser without buffering the whole file in RAM (proxy route) */
+  getReadableWebStream?(key: string): Promise<ReadableStream<Uint8Array>>;
+
   /** Check if object exists (for download validation) */
   exists?(key: string): Promise<boolean>;
 

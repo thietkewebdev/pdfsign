@@ -34,6 +34,7 @@ import {
 import { SIGNATURE_TEMPLATES } from "@/lib/signature-templates";
 import { SignatureTemplateSelector } from "@/components/signature/SignatureTemplateSelector";
 import { CreateContractModal } from "@/components/contract/CreateContractModal";
+import { getPdfViewerUrl } from "@/lib/pdf-view-url";
 
 const POLL_INTERVAL_MS = 2000;
 const POLL_TIMEOUT_MS = 5 * 60 * 1000;
@@ -381,7 +382,7 @@ export default function SigningViewerPage() {
   }
 
   const { document: doc, currentVersion, presignedUrl, viewUrl } = data;
-  const basePdfUrl = viewUrl ?? presignedUrl;
+  const basePdfUrl = getPdfViewerUrl(presignedUrl, viewUrl);
   const cacheBust =
     jobState?.status === "COMPLETED" && jobState.cacheBustAt
       ? (basePdfUrl.includes("?") ? "&" : "?") + "t=" + jobState.cacheBustAt

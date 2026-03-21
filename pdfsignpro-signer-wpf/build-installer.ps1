@@ -1,6 +1,7 @@
 # Build PDFSignPro Signer installer
 # Produces PDFSignProSignerSetup.exe in dist-installer/
 # Requires: .NET 8 SDK, Python + PyInstaller, Inno Setup 6
+# WPF is published self-contained (win-x64) so end users do not need .NET Desktop Runtime.
 
 $ErrorActionPreference = "Stop"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -25,7 +26,8 @@ if (-not (Test-Path $IsccPath)) {
 Write-Host "Building WPF app..." -ForegroundColor Cyan
 $PublishDir = Join-Path $ProjectRoot "publish"
 if (Test-Path $PublishDir) { Remove-Item -Recurse -Force $PublishDir }
-dotnet publish PDFSignProSigner\PDFSignProSigner.csproj -c Release -r win-x64 --self-contained false -o $PublishDir
+dotnet publish PDFSignProSigner\PDFSignProSigner.csproj -c Release -r win-x64 --self-contained true `
+    -p:PublishReadyToRun=true -o $PublishDir
 if ($LASTEXITCODE -ne 0) {
     Write-Host "WPF build failed." -ForegroundColor Red
     exit 1
