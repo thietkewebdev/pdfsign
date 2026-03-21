@@ -24,7 +24,7 @@ interface PdfScrollPageProps {
     h: number
   ) => void;
   selectedTemplateId: string;
-  sealImageBase64: string | null;
+  sealImageBase64?: string | null;
 }
 
 export function PdfScrollPage({
