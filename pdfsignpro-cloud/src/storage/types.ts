@@ -2,6 +2,9 @@ export interface StorageDriver {
   /** Upload a buffer and return the storage key */
   upload(key: string, buffer: Buffer, contentType?: string): Promise<string>;
 
+  /** Delete object by key (idempotent when missing) */
+  delete?(key: string): Promise<void>;
+
   /** Generate a presigned GET URL valid for the given expiry (seconds) */
   getPresignedUrl(key: string, expiresInSeconds?: number): Promise<string>;
 

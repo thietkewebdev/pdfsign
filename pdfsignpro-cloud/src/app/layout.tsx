@@ -117,11 +117,17 @@ export default function RootLayout({
                     src={`https://www.googletagmanager.com/gtag/js?id=${ga4Id}`}
                     strategy="afterInteractive"
                   />
-                  <Script id="ga4-init" strategy="afterInteractive">
+                  <Script
+                    src="https://www.googletagmanager.com/gtag/js?id=AW-464110369"
+                    strategy="afterInteractive"
+                  />
+                  <Script id="ga-init" strategy="afterInteractive">
                     {`
                       window.dataLayer = window.dataLayer || [];
                       function gtag(){dataLayer.push(arguments);}
                       gtag('js', new Date());
+                      gtag('config', '${ga4Id}');
+                      gtag('config', 'AW-464110369');
                     `}
                   </Script>
                   <GA4 />

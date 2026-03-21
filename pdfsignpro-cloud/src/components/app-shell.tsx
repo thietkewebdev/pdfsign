@@ -5,7 +5,7 @@ import Image from "next/image";
 import { Footer } from "@/components/footer";
 import { useTheme } from "next-themes";
 import { useSession, signOut } from "next-auth/react";
-import { Moon, Sun, Github, Monitor, Laptop, ChevronDown, LogIn, FileText, LogOut, HelpCircle, Scale, ShieldCheck, BookOpen, Users, FilePlus } from "lucide-react";
+import { Moon, Sun, Github, Monitor, Laptop, ChevronDown, LogIn, FileText, LogOut, HelpCircle, Scale, ShieldCheck, BookOpen, Users, FilePlus, LayoutDashboard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -37,7 +37,22 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           >
             PDFSignPro Cloud
           </Link>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
+            {/* Links chính */}
+            <nav className="hidden items-center gap-2 text-sm text-muted-foreground md:flex">
+              <Link
+                href="/#how-it-works"
+                className="rounded-md px-2 py-1 hover:bg-muted/80 hover:text-foreground"
+              >
+                Giải pháp
+              </Link>
+              <Link
+                href="/#pricing"
+                className="rounded-md px-2 py-1 hover:bg-muted/80 hover:text-foreground"
+              >
+                Bảng giá
+              </Link>
+            </nav>
             {/* Hướng dẫn dropdown */}
             <div className="group relative">
               <button
@@ -161,6 +176,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                       Hợp đồng của tôi
                     </Link>
                   </DropdownMenuItem>
+                  {session.user.isAdmin && (
+                    <DropdownMenuItem asChild>
+                      <Link href="/admin" className="cursor-pointer">
+                        <LayoutDashboard className="size-4" />
+                        Quản trị hệ thống
+                      </Link>
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
                     className="cursor-pointer text-destructive focus:text-destructive"
