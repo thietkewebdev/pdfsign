@@ -39,18 +39,8 @@ export async function GET(
       );
     }
 
+    // Load full PDF into memory then respond (no streaming) — matches earlier behavior.
     const storage = getStorageDriver();
-    const streamFn = storage.getReadableWebStream;
-    if (streamFn) {
-      const body = await streamFn(currentVersion.storageKey);
-      return new NextResponse(body, {
-        headers: {
-          "Content-Type": "application/pdf",
-          "Cache-Control": "private, max-age=300",
-        },
-      });
-    }
-
     const getBuffer = storage.getBuffer;
     if (!getBuffer) {
       return NextResponse.json(

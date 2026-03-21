@@ -3,7 +3,6 @@ import {
   uploadToR2,
   getR2PresignedUrl,
   getR2Buffer,
-  getR2ReadableWebStream,
   headR2Object,
   deleteR2Object,
 } from "./r2";
@@ -27,10 +26,6 @@ class R2StorageDriver implements StorageDriver {
 
   async getBuffer(key: string): Promise<Buffer> {
     return getR2Buffer(key);
-  }
-
-  async getReadableWebStream(key: string): Promise<ReadableStream<Uint8Array>> {
-    return getR2ReadableWebStream(key);
   }
 
   async exists(key: string): Promise<boolean> {

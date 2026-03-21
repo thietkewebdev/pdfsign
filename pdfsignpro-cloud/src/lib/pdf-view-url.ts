@@ -1,16 +1,17 @@
 /**
- * URL passed to PDF.js. Prefer presigned GET (browser → R2/S3) — fastest.
- * Proxy URL `/api/documents/.../file` loads the whole file through Next.js (slow, high server RAM).
+ * URL passed to PDF.js.
  *
- * Set NEXT_PUBLIC_PDF_USE_PROXY=1 if your bucket CORS does not allow your app origin
- * (PDF.js fetch will fail without CORS on direct URLs).
+ * Default (same as original app): same-origin proxy `/api/documents/.../file` first — avoids R2 CORS
+ * and matches historical behavior.
+ *
+ * Set NEXT_PUBLIC_PDF_DIRECT_R2=1 to load via presigned URL (browser → R2/S3 directly). Requires
+ * bucket CORS to allow your app origin; can be faster depending on region/network.
  */
 export function getPdfViewerUrl(
   presignedUrl: string,
   viewUrl?: string | null
 ): string {
-  const useProxy = process.env.NEXT_PUBLIC_PDF_USE_PROXY === "1";
-  if (useProxy && viewUrl) return viewUrl;
-  if (presignedUrl) return presignedUrl;
-  return viewUrl ?? "";
+  const directR2 = process.env.NEXT_PUBLIC_PDF_DIRECT_R2 === "1";
+  if (directR2 && presignedUrl) return presignedUrl;
+  return viewUrl ?? presignedUrl;
 }
