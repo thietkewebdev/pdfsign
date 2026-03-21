@@ -1,6 +1,14 @@
 "use client";
 
 import Link from "next/link";
+import {
+  COMPANY_ADDRESS,
+  COMPANY_EMAIL,
+  COMPANY_LEGAL_NAME,
+  COMPANY_TAX_ID,
+  SUPPORT_ZALO_DISPLAY,
+  SUPPORT_ZALO_URL,
+} from "@/lib/company-legal";
 
 const SERVICES = [
   { label: "Thiết kế web", href: "https://thietkeweb.dev/" },
@@ -30,26 +38,33 @@ export function Footer() {
             <p className="mb-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
               Liên hệ
             </p>
-            <ul className="space-y-2 text-sm text-muted-foreground">
-              <li>
-                <a
-                  href="https://zalo.me/0984056777"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="underline-offset-4 hover:underline hover:text-foreground transition-colors duration-150"
-                >
-                  Zalo: 0984.056.777
-                </a>
-              </li>
-              <li>
-                <a
-                  href="mailto:info@thietkeweb.dev"
-                  className="underline-offset-4 hover:underline hover:text-foreground transition-colors duration-150"
-                >
-                  info@thietkeweb.dev
-                </a>
-              </li>
-            </ul>
+            <div className="space-y-3 text-sm text-muted-foreground">
+              <p className="font-medium text-foreground/90 leading-snug">
+                {COMPANY_LEGAL_NAME}
+              </p>
+              <p className="text-xs">MST: {COMPANY_TAX_ID}</p>
+              <p className="text-xs leading-relaxed">{COMPANY_ADDRESS}</p>
+              <ul className="space-y-2 pt-1">
+                <li>
+                  <a
+                    href={SUPPORT_ZALO_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline-offset-4 hover:underline hover:text-foreground transition-colors duration-150"
+                  >
+                    Zalo: {SUPPORT_ZALO_DISPLAY}
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href={`mailto:${COMPANY_EMAIL}`}
+                    className="underline-offset-4 hover:underline hover:text-foreground transition-colors duration-150"
+                  >
+                    {COMPANY_EMAIL}
+                  </a>
+                </li>
+              </ul>
+            </div>
           </div>
           <div>
             <p className="mb-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
@@ -88,8 +103,8 @@ export function Footer() {
             </ul>
           </div>
         </div>
-        <p className="mt-10 pt-8 border-t border-border text-xs text-muted-foreground">
-          © {year} PDFSignPro Cloud. Mr Chí.
+        <p className="mt-10 pt-8 border-t border-border text-xs text-muted-foreground leading-relaxed">
+          © {year} PDFSignPro / PDFSignPro Cloud — {COMPANY_LEGAL_NAME} (MST {COMPANY_TAX_ID}).
         </p>
       </div>
     </footer>

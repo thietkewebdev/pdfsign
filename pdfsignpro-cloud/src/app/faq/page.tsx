@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { FAQ_ITEMS } from "@/lib/faq-data";
+import { COMPANY_EMAIL, SUPPORT_ZALO_DISPLAY, SUPPORT_ZALO_URL } from "@/lib/company-legal";
 import { FaqAccordion } from "./faq-accordion";
 
 export const metadata: Metadata = {
@@ -45,16 +46,16 @@ export default function FaqPage() {
           <p className="text-sm text-muted-foreground">
             Liên hệ Zalo:{" "}
             <a
-              href="https://zalo.me/0984056777"
+              href={SUPPORT_ZALO_URL}
               target="_blank"
               rel="noopener noreferrer"
               className="text-primary hover:underline"
             >
-              0984.056.777
+              {SUPPORT_ZALO_DISPLAY}
             </a>{" "}
             hoặc email:{" "}
-            <a href="mailto:info@thietkeweb.dev" className="text-primary hover:underline">
-              info@thietkeweb.dev
+            <a href={`mailto:${COMPANY_EMAIL}`} className="text-primary hover:underline">
+              {COMPANY_EMAIL}
             </a>
           </p>
         </div>

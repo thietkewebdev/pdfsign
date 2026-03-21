@@ -190,12 +190,31 @@ def _create_pkcs11_signer(
 def _next_sig_field_name(writer: IncrementalPdfFileWriter) -> str:
     """Find next available signature field name (Signature1, Signature2, ...)."""
     existing = set()
+    def _normalize_field_name(raw_name) -> Optional[str]:
+        if raw_name is None:
+            return None
+        try:
+            name = str(raw_name).strip()
+        except Exception:
+            return None
+        if not name:
+            return None
+        # Common PDF serializations we may encounter:
+        #   /Signature1
+        #   (Signature1)
+        if name.startswith("/"):
+            name = name[1:]
+        if name.startswith("(") and name.endswith(")") and len(name) >= 2:
+            name = name[1:-1]
+        return name or None
+
     def _collect_sig_fields(field_obj):
         try:
             ft = field_obj.get("/FT")
             name = field_obj.get("/T")
-            if ft == "/Sig" and name:
-                existing.add(str(name))
+            norm_name = _normalize_field_name(name)
+            if ft == "/Sig" and norm_name:
+                existing.add(norm_name)
 
             kids = field_obj.get("/Kids")
             if kids:
@@ -227,7 +246,12 @@ def _next_sig_field_name(writer: IncrementalPdfFileWriter) -> str:
     n = 1
     while f"Signature{n}" in existing:
         n += 1
-    return f"Signature{n}"
+    # Keep human-readable order when possible, but suffix with random token if needed.
+    # This guarantees uniqueness even when some PDFs expose field names differently.
+    candidate = f"Signature{n}"
+    if candidate not in existing:
+        return candidate
+    return f"Signature_{os.urandom(4).hex()}"
 
 
 async def sign_pdf(
@@ -297,14 +321,31 @@ async def sign_pdf(
 
         sig_field_name = _next_sig_field_name(w)
 
-        fields.append_signature_field(
-            w,
-            sig_field_spec=SigFieldSpec(
-                sig_field_name=sig_field_name,
-                box=box,
-                on_page=page_idx,
-            ),
-        )
+        try:
+            fields.append_signature_field(
+                w,
+                sig_field_spec=SigFieldSpec(
+                    sig_field_name=sig_field_name,
+                    box=box,
+                    on_page=page_idx,
+                ),
+            )
+        except Exception as e:
+            # Some PDFs report existing fields in non-standard ways.
+            # Fallback to a guaranteed-unique field name and retry once.
+            msg = str(e).lower()
+            if "appears to be filled already" in msg or "already exists" in msg:
+                sig_field_name = f"Signature_{os.urandom(6).hex()}"
+                fields.append_signature_field(
+                    w,
+                    sig_field_spec=SigFieldSpec(
+                        sig_field_name=sig_field_name,
+                        box=box,
+                        on_page=page_idx,
+                    ),
+                )
+            else:
+                raise
 
         meta = PdfSignatureMetadata(field_name=sig_field_name)
         stamp_style = get_stamp_style_for_template(template_id, seal_image_path=seal_image_path)

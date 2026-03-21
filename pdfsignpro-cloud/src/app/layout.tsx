@@ -8,6 +8,12 @@ import { AuthProvider } from "@/components/auth-provider";
 import { UploadProvider } from "@/contexts/upload-context";
 import { ConditionalShell } from "@/components/conditional-shell";
 import { GA4 } from "@/components/analytics/ga4";
+import {
+  COMPANY_ADDRESS,
+  COMPANY_EMAIL,
+  COMPANY_LEGAL_NAME,
+  COMPANY_TAX_ID,
+} from "@/lib/company-legal";
 import "./globals.css";
 
 const inter = Inter({
@@ -69,11 +75,18 @@ export default function RootLayout({
     "@context": "https://schema.org",
     "@type": "Organization",
     name: "PDFSignPro Cloud",
+    legalName: COMPANY_LEGAL_NAME,
+    taxID: COMPANY_TAX_ID,
     url: baseUrl,
     logo: `${baseUrl}/icon-192.png`,
+    address: {
+      "@type": "PostalAddress",
+      streetAddress: COMPANY_ADDRESS,
+      addressCountry: "VN",
+    },
     contactPoint: {
       "@type": "ContactPoint",
-      email: "info@thietkeweb.dev",
+      email: COMPANY_EMAIL,
       contactType: "customer service",
       availableLanguage: "Vietnamese",
     },

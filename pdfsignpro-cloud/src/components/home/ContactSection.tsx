@@ -7,6 +7,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import {
+  COMPANY_ADDRESS,
+  COMPANY_EMAIL,
+  COMPANY_LEGAL_NAME,
+  COMPANY_TAX_ID,
+  SUPPORT_ZALO_DISPLAY,
+  SUPPORT_ZALO_URL,
+} from "@/lib/company-legal";
 
 const MOTION = { duration: 0.2, ease: [0, 0, 0.2, 1] as const };
 
@@ -107,24 +115,40 @@ export function ContactSection() {
             <h2 className="text-2xl font-semibold text-zinc-900 dark:text-white sm:text-3xl">
               Liên hệ
             </h2>
-            <p className="text-zinc-600 dark:text-zinc-400">
-              Gửi yêu cầu, team sẽ phản hồi sớm.
+            <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
+              {COMPANY_LEGAL_NAME}
             </p>
-            <ul className="space-y-3">
-              <li className="flex items-center gap-3 text-sm text-zinc-600 dark:text-zinc-400">
-                <Mail className="size-4 shrink-0 text-violet-500 dark:text-violet-400" />
+            <p className="text-xs text-zinc-600 dark:text-zinc-400">
+              MST: <span className="font-medium">{COMPANY_TAX_ID}</span>
+            </p>
+            <p className="text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">
+              {COMPANY_ADDRESS}
+            </p>
+            <ul className="space-y-3 pt-1">
+              <li className="flex items-start gap-3 text-sm text-zinc-600 dark:text-zinc-400">
+                <Mail className="size-4 shrink-0 text-violet-500 dark:text-violet-400 mt-0.5" />
                 <a
-                  href="mailto:support@pdfsignpro.vn"
+                  href={`mailto:${COMPANY_EMAIL}`}
                   className="underline-offset-4 hover:underline hover:text-zinc-900 dark:hover:text-white"
                 >
-                  support@pdfsignpro.vn
+                  {COMPANY_EMAIL}
                 </a>
               </li>
-              <li className="flex items-center gap-3 text-sm text-zinc-600 dark:text-zinc-400">
-                <Clock className="size-4 shrink-0 text-violet-500 dark:text-violet-400" />
-                <span>Phản hồi trong 24h (giờ hành chính)</span>
+              <li className="flex items-start gap-3 text-sm text-zinc-600 dark:text-zinc-400">
+                <Clock className="size-4 shrink-0 text-violet-500 dark:text-violet-400 mt-0.5" />
+                <a
+                  href={SUPPORT_ZALO_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline-offset-4 hover:underline hover:text-zinc-900 dark:hover:text-white"
+                >
+                  Zalo: {SUPPORT_ZALO_DISPLAY}
+                </a>
               </li>
             </ul>
+            <p className="text-sm text-zinc-600 dark:text-zinc-400 pt-1">
+              Gửi biểu mẫu bên cạnh, chúng tôi sẽ phản hồi sớm.
+            </p>
           </m.div>
 
           {/* Right column - Form card */}

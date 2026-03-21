@@ -1,4 +1,12 @@
 import type { Metadata } from "next";
+import {
+  COMPANY_ADDRESS,
+  COMPANY_EMAIL,
+  COMPANY_LEGAL_NAME,
+  COMPANY_TAX_ID,
+  SUPPORT_ZALO_DISPLAY,
+  SUPPORT_ZALO_URL,
+} from "@/lib/company-legal";
 
 export const metadata: Metadata = {
   title: "Chính sách bảo mật",
@@ -134,19 +142,24 @@ export default function PrivacyPage() {
 
         <section>
           <h2 className="text-xl font-semibold">10. Liên hệ</h2>
+          <p className="mb-3">
+            Đơn vị xử lý dữ liệu: <strong>{COMPANY_LEGAL_NAME}</strong>. Mã số thuế:{" "}
+            <strong>{COMPANY_TAX_ID}</strong>.
+          </p>
+          <p className="mb-3 text-muted-foreground">Địa chỉ: {COMPANY_ADDRESS}</p>
           <p>
             Mọi thắc mắc về quyền riêng tư, vui lòng liên hệ:{" "}
-            <a href="mailto:info@thietkeweb.dev" className="text-primary hover:underline">
-              info@thietkeweb.dev
+            <a href={`mailto:${COMPANY_EMAIL}`} className="text-primary hover:underline">
+              {COMPANY_EMAIL}
             </a>{" "}
             hoặc Zalo:{" "}
             <a
-              href="https://zalo.me/0984056777"
+              href={SUPPORT_ZALO_URL}
               target="_blank"
               rel="noopener noreferrer"
               className="text-primary hover:underline"
             >
-              0984.056.777
+              {SUPPORT_ZALO_DISPLAY}
             </a>
           </p>
         </section>
