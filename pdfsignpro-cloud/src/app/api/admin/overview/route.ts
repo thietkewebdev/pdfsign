@@ -17,6 +17,7 @@ export async function GET() {
     if (!isAdminSession(session)) return unauthorizedAdminResponse();
 
     const monthStart = startOfMonth();
+    const last24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
     const [
       totalUsers,
@@ -27,6 +28,7 @@ export async function GET() {
       monthlyUploads,
       monthlyContracts,
       monthlyCompletedJobs,
+      signingErrorStats,
     ] = await Promise.all([
       prisma.user.count(),
       prisma.user.count({ where: { emailVerified: { not: null } } }),
@@ -37,6 +39,16 @@ export async function GET() {
       prisma.contract.count({ where: { createdAt: { gte: monthStart } } }),
       prisma.signingJob.count({
         where: { status: "COMPLETED", completedAt: { gte: monthStart } },
+      }),
+      prisma.adminAnalyticsEvent.groupBy({
+        by: ["eventType"],
+        where: {
+          eventType: { startsWith: "signing.error." },
+          createdAt: { gte: last24h },
+        },
+        _count: { _all: true },
+        orderBy: { _count: { eventType: "desc" } },
+        take: 5,
       }),
     ]);
     await recordAdminAnalyticsEvent({
@@ -54,6 +66,11 @@ export async function GET() {
         monthlyUploads,
         monthlyContracts,
         monthlyCompletedJobs,
+        signingErrors24h: signingErrorStats.reduce((sum, item) => sum + item._count._all, 0),
+        topSigningErrorCodes24h: signingErrorStats.map((item) => ({
+          errorCode: item.eventType.replace("signing.error.", ""),
+          count: item._count._all,
+        })),
       },
     });
   } catch (err) {

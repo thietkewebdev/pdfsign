@@ -5,6 +5,7 @@ import { generateJobToken, hashJobToken } from "@/lib/job-token";
 import { generateClaimCode, hashClaimCode } from "@/lib/claim-code";
 import { base64urlEncode } from "@/lib/base64url";
 import { checkQuota } from "@/lib/usage";
+import { SIGNING_JOB_EXPIRES_MINUTES } from "@/lib/signing-job-config";
 
 export async function POST(
   request: Request,
@@ -138,7 +139,7 @@ export async function POST(
     const claimCode = generateClaimCode();
     const claimCodeHash = hashClaimCode(claimCode);
     const jobId = `job_${randomBytes(8).toString("hex")}`;
-    const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
+    const expiresAt = new Date(Date.now() + SIGNING_JOB_EXPIRES_MINUTES * 60 * 1000);
 
     const finalPlacement = placement
       ? JSON.stringify(placement)

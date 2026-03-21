@@ -116,7 +116,8 @@ Response:
 }
 ```
 
-The deep link uses a single `p` param (base64url-encoded JSON: `{j:jobId,c:code,h:hostname}`) so Windows can launch it reliably. The signer app decodes `p`, claims the job with the code, and obtains the token.
+The deep link uses a single `p` param (base64url-encoded JSON: `{j:jobId,c:code,h:hostname}`) so Windows can launch it reliably. The signer app decodes `p`, claims the job with the code, and obtains the token.  
+Signing jobs currently expire after **90 minutes**.
 
 ### Claim job (exchange code for token)
 

@@ -18,6 +18,8 @@ type OverviewResponse = {
     monthlyUploads: number;
     monthlyContracts: number;
     monthlyCompletedJobs: number;
+    signingErrors24h: number;
+    topSigningErrorCodes24h: { errorCode: string; count: number }[];
   };
 };
 
@@ -233,7 +235,7 @@ export default function AdminPage() {
       )}
 
       {overview && (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
           <Card>
             <CardHeader className="pb-2">
               <CardDescription>Tổng users</CardDescription>
@@ -257,6 +259,24 @@ export default function AdminPage() {
               <CardDescription>Ký thành công</CardDescription>
               <CardTitle className="text-2xl">{overview.kpis.totalCompletedJobs}</CardTitle>
             </CardHeader>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardDescription>Lỗi ký 24h</CardDescription>
+              <CardTitle className="text-2xl">{overview.kpis.signingErrors24h}</CardTitle>
+            </CardHeader>
+            {overview.kpis.topSigningErrorCodes24h.length > 0 && (
+              <CardContent className="pt-0">
+                <div className="space-y-1">
+                  {overview.kpis.topSigningErrorCodes24h.map((item) => (
+                    <div key={item.errorCode} className="flex items-center justify-between text-xs">
+                      <span className="text-muted-foreground">{item.errorCode}</span>
+                      <Badge variant="outline">{item.count}</Badge>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            )}
           </Card>
         </div>
       )}

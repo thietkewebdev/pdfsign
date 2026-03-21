@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getStorageDriver } from "@/storage";
+import { recordSigningErrorEvent } from "@/lib/admin-events";
 
 const JobStatusSchema = z.object({
   status: z.enum(["CREATED", "COMPLETED", "EXPIRED", "CANCELED"]),
@@ -19,6 +20,10 @@ export async function GET(
   _request: Request,
   { params }: { params: Promise<{ jobId: string }> }
 ) {
+  const routePath = "/api/jobs/[jobId]/status";
+  const track = (errorCode: string) =>
+    recordSigningErrorEvent({ errorCode, path: routePath, method: "GET" }).catch(() => undefined);
+
   try {
     const { jobId } = await params;
 
@@ -28,7 +33,11 @@ export async function GET(
     });
 
     if (!job) {
-      return NextResponse.json({ error: "Job not found" }, { status: 404 });
+      void track("JOB_NOT_FOUND");
+      return NextResponse.json(
+        { error: "Job not found", errorCode: "JOB_NOT_FOUND" },
+        { status: 404 }
+      );
     }
 
     const now = new Date();
@@ -69,17 +78,23 @@ export async function GET(
 
     const parsed = JobStatusSchema.safeParse(payload);
     if (!parsed.success) {
+      void track("INVALID_RESPONSE_SHAPE");
       return NextResponse.json(
-        { error: "Invalid response shape", details: parsed.error },
+        {
+          error: "Invalid response shape",
+          errorCode: "INVALID_RESPONSE_SHAPE",
+          details: parsed.error,
+        },
         { status: 500 }
       );
     }
 
     return NextResponse.json(parsed.data);
   } catch (err) {
+    void track("INTERNAL_SERVER_ERROR");
     console.error("GET /api/jobs/[jobId]/status error:", err);
     return NextResponse.json(
-      { error: "Internal server error" },
+      { error: "Internal server error", errorCode: "INTERNAL_SERVER_ERROR" },
       { status: 500 }
     );
   }

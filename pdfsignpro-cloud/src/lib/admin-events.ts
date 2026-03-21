@@ -41,3 +41,17 @@ export async function recordAdminAnalyticsEvent(input: {
     },
   });
 }
+
+export async function recordSigningErrorEvent(input: {
+  errorCode: string;
+  path: string;
+  method: string;
+  metadata?: JsonLike;
+}) {
+  return recordAdminAnalyticsEvent({
+    eventType: `signing.error.${input.errorCode}`,
+    path: input.path,
+    method: input.method,
+    metadata: input.metadata,
+  });
+}

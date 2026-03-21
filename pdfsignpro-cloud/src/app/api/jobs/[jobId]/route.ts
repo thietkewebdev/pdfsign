@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getStorageDriver } from "@/storage";
 import { verifyJobToken } from "@/lib/job-token";
+import { recordSigningErrorEvent } from "@/lib/admin-events";
 
 /** Normalize placement to { page, rectPct: { x, y, w, h } } with 4 numeric values in 0..1 */
 function normalizePlacement(raw: unknown): {
@@ -49,13 +50,18 @@ export async function GET(
   request: Request,
   { params }: { params: Promise<{ jobId: string }> }
 ) {
+  const routePath = "/api/jobs/[jobId]";
+  const track = (errorCode: string) =>
+    recordSigningErrorEvent({ errorCode, path: routePath, method: "GET" }).catch(() => undefined);
+
   try {
     const { jobId } = await params;
     const jobToken = request.headers.get("x-job-token");
 
     if (!jobToken) {
+      void track("MISSING_JOB_TOKEN");
       return NextResponse.json(
-        { error: "Missing x-job-token header" },
+        { error: "Missing x-job-token header", errorCode: "MISSING_JOB_TOKEN" },
         { status: 401 }
       );
     }
@@ -69,23 +75,33 @@ export async function GET(
     });
 
     if (!job) {
-      return NextResponse.json({ error: "Job not found" }, { status: 404 });
+      void track("JOB_NOT_FOUND");
+      return NextResponse.json(
+        { error: "Job not found", errorCode: "JOB_NOT_FOUND" },
+        { status: 404 }
+      );
     }
 
     if (!verifyJobToken(jobToken, job.jobTokenHash)) {
-      return NextResponse.json({ error: "Invalid token" }, { status: 401 });
+      void track("INVALID_JOB_TOKEN");
+      return NextResponse.json(
+        { error: "Invalid token", errorCode: "INVALID_JOB_TOKEN" },
+        { status: 401 }
+      );
     }
 
     if (job.status !== "CREATED") {
+      void track("JOB_NOT_AVAILABLE");
       return NextResponse.json(
-        { error: "Job is not available for signing" },
+        { error: "Job is not available for signing", errorCode: "JOB_NOT_AVAILABLE" },
         { status: 400 }
       );
     }
 
     if (job.expiresAt && new Date() > job.expiresAt) {
+      void track("JOB_EXPIRED");
       return NextResponse.json(
-        { error: "Job has expired" },
+        { error: "Job has expired", errorCode: "JOB_EXPIRED" },
         { status: 410 }
       );
     }
@@ -106,9 +122,13 @@ export async function GET(
       const raw = JSON.parse(job.placementJson);
       placement = normalizePlacement(raw);
     } catch (err) {
+      void track("INVALID_PLACEMENT");
       console.error("Invalid placementJson:", job.placementJson, err);
       return NextResponse.json(
-        { error: "Invalid placement: rectPct must be { x, y, w, h } with 4 numeric values 0..1" },
+        {
+          error: "Invalid placement: rectPct must be { x, y, w, h } with 4 numeric values 0..1",
+          errorCode: "INVALID_PLACEMENT",
+        },
         { status: 500 }
       );
     }
@@ -124,9 +144,10 @@ export async function GET(
       status: job.status,
     });
   } catch (err) {
+    void track("INTERNAL_SERVER_ERROR");
     console.error("GET /api/jobs/[jobId] error:", err);
     return NextResponse.json(
-      { error: "Internal server error" },
+      { error: "Internal server error", errorCode: "INTERNAL_SERVER_ERROR" },
       { status: 500 }
     );
   }

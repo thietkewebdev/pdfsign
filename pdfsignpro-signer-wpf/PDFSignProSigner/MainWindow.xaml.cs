@@ -244,9 +244,18 @@ public partial class MainWindow : Window
 
     private static string GetFriendlyMessage(Exception ex)
     {
-        if (ex.Message.Contains("404")) return "Job không tồn tại hoặc đã hết hạn.";
-        if (ex.Message.Contains("401")) return "Mã claim không đúng.";
-        if (ex.Message.Contains("410")) return "Job đã hết hạn.";
+        if (ex.Message.Contains("CLAIM_ALREADY_USED", StringComparison.OrdinalIgnoreCase))
+            return "Liên kết ký đã được mở ở thiết bị khác. Vui lòng tạo phiên ký mới.";
+        if (ex.Message.Contains("INVALID_CLAIM_CODE", StringComparison.OrdinalIgnoreCase) || ex.Message.Contains("401"))
+            return "Mã claim không đúng hoặc đã hết hạn.";
+        if (ex.Message.Contains("JOB_EXPIRED", StringComparison.OrdinalIgnoreCase) || ex.Message.Contains("410"))
+            return "Phiên ký đã hết hạn. Vui lòng tạo lại phiên ký trên website.";
+        if (ex.Message.Contains("INVALID_JOB_TOKEN", StringComparison.OrdinalIgnoreCase))
+            return "Phiên ký không hợp lệ. Vui lòng mở lại từ website.";
+        if (ex.Message.Contains("FILE_TOO_LARGE", StringComparison.OrdinalIgnoreCase))
+            return "File PDF đã ký vượt quá giới hạn hệ thống (25MB).";
+        if (ex.Message.Contains("404"))
+            return "Job không tồn tại hoặc đã hết hạn.";
         return ex.Message;
     }
 
@@ -472,7 +481,7 @@ public partial class MainWindow : Window
             logLines.Add(ex.Message);
             SigningLog.Text = string.Join("\n", logLines);
             ShowScreen(Screen.Sign);
-            SignErrorText.Text = ex.Message;
+            SignErrorText.Text = GetFriendlyMessage(ex);
             SignErrorText.Visibility = Visibility.Visible;
         }
         finally

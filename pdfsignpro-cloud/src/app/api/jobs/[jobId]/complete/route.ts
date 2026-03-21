@@ -7,6 +7,9 @@ import { getStorageDriver } from "@/storage";
 import { verifyJobToken } from "@/lib/job-token";
 import { sendSigningInvitation, sendContractCompleted } from "@/lib/email";
 import { logContractEvent } from "@/lib/contract-events";
+import { recordSigningErrorEvent } from "@/lib/admin-events";
+
+const MAX_SIGNED_PDF_SIZE_BYTES = 25 * 1024 * 1024; // 25MB
 
 function parseMultipart(request: Request): Promise<{
   fileBuffer: Buffer;
@@ -65,13 +68,18 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ jobId: string }> }
 ) {
+  const routePath = "/api/jobs/[jobId]/complete";
+  const track = (errorCode: string) =>
+    recordSigningErrorEvent({ errorCode, path: routePath, method: "POST" }).catch(() => undefined);
+
   try {
     const { jobId } = await params;
     const jobToken = request.headers.get("x-job-token");
 
     if (!jobToken) {
+      void track("MISSING_JOB_TOKEN");
       return NextResponse.json(
-        { error: "Missing x-job-token header" },
+        { error: "Missing x-job-token header", errorCode: "MISSING_JOB_TOKEN" },
         { status: 401 }
       );
     }
@@ -85,31 +93,42 @@ export async function POST(
     });
 
     if (!job) {
-      return NextResponse.json({ error: "Job not found" }, { status: 404 });
+      void track("JOB_NOT_FOUND");
+      return NextResponse.json(
+        { error: "Job not found", errorCode: "JOB_NOT_FOUND" },
+        { status: 404 }
+      );
     }
 
     if (!verifyJobToken(jobToken, job.jobTokenHash)) {
-      return NextResponse.json({ error: "Invalid token" }, { status: 401 });
+      void track("INVALID_JOB_TOKEN");
+      return NextResponse.json(
+        { error: "Invalid token", errorCode: "INVALID_JOB_TOKEN" },
+        { status: 401 }
+      );
     }
 
     if (job.status !== "CREATED") {
+      void track("JOB_NOT_AVAILABLE");
       return NextResponse.json(
-        { error: "Job is not available for signing" },
+        { error: "Job is not available for signing", errorCode: "JOB_NOT_AVAILABLE" },
         { status: 400 }
       );
     }
 
     if (job.expiresAt && new Date() > job.expiresAt) {
+      void track("JOB_EXPIRED");
       return NextResponse.json(
-        { error: "Job has expired" },
+        { error: "Job has expired", errorCode: "JOB_EXPIRED" },
         { status: 410 }
       );
     }
 
     const contentType = request.headers.get("content-type") ?? "";
     if (!contentType.includes("multipart/form-data")) {
+      void track("INVALID_CONTENT_TYPE");
       return NextResponse.json(
-        { error: "Content-Type must be multipart/form-data" },
+        { error: "Content-Type must be multipart/form-data", errorCode: "INVALID_CONTENT_TYPE" },
         { status: 400 }
       );
     }
@@ -124,9 +143,13 @@ export async function POST(
       fileMimeType = parsed.fileMimeType;
       certMetaRaw = parsed.certMetaRaw;
     } catch (parseErr) {
+      void track("INVALID_MULTIPART_BODY");
       const msg = parseErr instanceof Error ? parseErr.message : "Failed to parse multipart";
       console.error("POST /api/jobs/[jobId]/complete parse error:", parseErr);
-      return NextResponse.json({ error: msg }, { status: 400 });
+      return NextResponse.json(
+        { error: msg, errorCode: "INVALID_MULTIPART_BODY" },
+        { status: 400 }
+      );
     }
 
     let certMetaJson: string | null = null;
@@ -135,21 +158,34 @@ export async function POST(
         JSON.parse(certMetaRaw);
         certMetaJson = certMetaRaw;
       } catch {
+        void track("INVALID_CERT_META");
         return NextResponse.json(
-          { error: "certMeta must be valid JSON" },
+          { error: "certMeta must be valid JSON", errorCode: "INVALID_CERT_META" },
           { status: 400 }
         );
       }
     }
 
     if (fileMimeType !== "application/pdf") {
+      void track("INVALID_FILE_TYPE");
       return NextResponse.json(
-        { error: "File must be a PDF" },
+        { error: "File must be a PDF", errorCode: "INVALID_FILE_TYPE" },
         { status: 400 }
       );
     }
 
     const buffer = fileBuffer;
+    if (buffer.length > MAX_SIGNED_PDF_SIZE_BYTES) {
+      void track("FILE_TOO_LARGE");
+      return NextResponse.json(
+        {
+          error: "Signed PDF exceeds server limit (25MB)",
+          errorCode: "FILE_TOO_LARGE",
+        },
+        { status: 413 }
+      );
+    }
+
     const nextVersion = job.documentVersion.version + 1;
     const storageKey = `documents/${job.document.publicId}/v${nextVersion}.pdf`;
 
@@ -201,9 +237,10 @@ export async function POST(
       versionNumber: nextVersion,
     });
   } catch (err) {
+    void track("INTERNAL_SERVER_ERROR");
     console.error("POST /api/jobs/[jobId]/complete error:", err);
     return NextResponse.json(
-      { error: "Internal server error" },
+      { error: "Internal server error", errorCode: "INTERNAL_SERVER_ERROR" },
       { status: 500 }
     );
   }

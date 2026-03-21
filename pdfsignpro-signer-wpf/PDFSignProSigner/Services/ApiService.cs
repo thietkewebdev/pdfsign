@@ -13,13 +13,39 @@ public class ApiService
     private readonly HttpClient _http = new();
     private static readonly JsonSerializerOptions JsonOpts = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
 
+    private static async Task EnsureApiSuccessAsync(HttpResponseMessage res, CancellationToken ct = default)
+    {
+        if (res.IsSuccessStatusCode) return;
+        var body = await res.Content.ReadAsStringAsync(ct);
+        var message = $"HTTP {(int)res.StatusCode}";
+
+        try
+        {
+            using var doc = JsonDocument.Parse(body);
+            var root = doc.RootElement;
+            var error = root.TryGetProperty("error", out var errEl) ? errEl.GetString() : null;
+            var code = root.TryGetProperty("errorCode", out var codeEl) ? codeEl.GetString() : null;
+            if (!string.IsNullOrWhiteSpace(error))
+                message = error!;
+            if (!string.IsNullOrWhiteSpace(code))
+                message += $" ({code})";
+        }
+        catch
+        {
+            if (!string.IsNullOrWhiteSpace(body))
+                message = body;
+        }
+
+        throw new HttpRequestException(message, null, res.StatusCode);
+    }
+
     public async Task<(string JobToken, string ApiBaseUrl)> ClaimAsync(string apiBaseUrl, string jobId, string code, CancellationToken ct = default)
     {
         var url = $"{apiBaseUrl.TrimEnd('/')}/api/jobs/{jobId}/claim";
         var body = JsonSerializer.Serialize(new { code }, JsonOpts);
         var content = new StringContent(body, Encoding.UTF8, "application/json");
         var res = await _http.PostAsync(url, content, ct);
-        res.EnsureSuccessStatusCode();
+        await EnsureApiSuccessAsync(res, ct);
         var json = await res.Content.ReadFromJsonAsync<JsonElement>(ct);
         return (
             json.GetProperty("jobToken").GetString() ?? throw new Exception("Missing jobToken"),
@@ -33,7 +59,7 @@ public class ApiService
         using var req = new HttpRequestMessage(HttpMethod.Get, url);
         req.Headers.Add("x-job-token", jobToken);
         var res = await _http.SendAsync(req, ct);
-        res.EnsureSuccessStatusCode();
+        await EnsureApiSuccessAsync(res, ct);
         var json = await res.Content.ReadFromJsonAsync<JsonElement>(ct);
         var doc = json.GetProperty("document");
         var placement = json.GetProperty("placement");
@@ -89,7 +115,7 @@ public class ApiService
         {
             var body = await res.Content.ReadAsStringAsync(ct);
             LogService.Error($"Complete upload failed {(int)res.StatusCode}: {body}");
-            res.EnsureSuccessStatusCode();
+            await EnsureApiSuccessAsync(res, ct);
         }
 
         var json = await res.Content.ReadFromJsonAsync<JsonElement>(ct);
