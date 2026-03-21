@@ -454,17 +454,13 @@ export default function SigningViewerPage() {
               </span>
             )}
           </div>
-          <p>
-            Ô: {Math.round(activePlacement.wPct * 100)}% ×{" "}
-            {Math.round(activePlacement.hPct * 100)}%
-          </p>
         </div>
       )}
       <Button
         onClick={handleSign}
         disabled={placements.length === 0 || !!jobState}
         size="lg"
-        className="h-12 w-full rounded-xl border-0 bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 text-base font-bold text-white shadow-lg shadow-emerald-900/25 ring-2 ring-emerald-400/50 transition-all hover:from-emerald-500 hover:via-teal-500 hover:to-cyan-500 hover:shadow-xl hover:ring-emerald-300/60 disabled:opacity-50 disabled:shadow-none dark:from-emerald-500 dark:via-teal-500 dark:to-cyan-500 dark:shadow-emerald-950/40 dark:ring-emerald-400/30"
+        className="h-12 w-full rounded-xl border border-indigo-500/40 bg-indigo-600 text-base font-semibold text-white shadow-md shadow-indigo-950/25 transition-all hover:bg-indigo-500 hover:shadow-lg hover:shadow-indigo-900/35 focus-visible:ring-2 focus-visible:ring-indigo-300/60 disabled:opacity-50 disabled:shadow-none dark:border-indigo-400/30 dark:bg-indigo-500 dark:hover:bg-indigo-400"
       >
         <PenLine className="size-5 shrink-0" />
         Ký số
