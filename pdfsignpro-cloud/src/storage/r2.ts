@@ -82,6 +82,16 @@ export async function headR2Object(key: string): Promise<boolean> {
   }
 }
 
+async function streamToBuffer(
+  body: AsyncIterable<Uint8Array>
+): Promise<Buffer> {
+  const chunks: Uint8Array[] = [];
+  for await (const chunk of body) {
+    chunks.push(chunk);
+  }
+  return Buffer.concat(chunks);
+}
+
 export async function getR2Buffer(key: string): Promise<Buffer> {
   const client = getClient();
   const response = await client.send(
@@ -89,12 +99,25 @@ export async function getR2Buffer(key: string): Promise<Buffer> {
   );
   const body = response.Body;
   if (!body) throw new Error("Empty response body");
-  const chunks: Uint8Array[] = [];
-  const stream = body as AsyncIterable<Uint8Array>;
-  for await (const chunk of stream) {
-    chunks.push(chunk);
-  }
-  return Buffer.concat(chunks);
+  return streamToBuffer(body as AsyncIterable<Uint8Array>);
+}
+
+export async function getR2BufferRange(
+  key: string,
+  start: number,
+  endInclusive: number
+): Promise<Buffer> {
+  const client = getClient();
+  const response = await client.send(
+    new GetObjectCommand({
+      Bucket: bucketName,
+      Key: key,
+      Range: `bytes=${start}-${endInclusive}`,
+    })
+  );
+  const body = response.Body;
+  if (!body) throw new Error("Empty response body");
+  return streamToBuffer(body as AsyncIterable<Uint8Array>);
 }
 
 export async function deleteR2Object(key: string): Promise<void> {

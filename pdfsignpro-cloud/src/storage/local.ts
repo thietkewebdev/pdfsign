@@ -1,3 +1,4 @@
+import { open } from "fs/promises";
 import { promises as fs } from "fs";
 import path from "path";
 import type { StorageDriver } from "./types";
@@ -31,6 +32,23 @@ class LocalStorageDriver implements StorageDriver {
   async getBuffer(key: string): Promise<Buffer> {
     const fullPath = path.join(UPLOAD_DIR, key);
     return fs.readFile(fullPath);
+  }
+
+  async getBufferRange(
+    key: string,
+    start: number,
+    endInclusive: number
+  ): Promise<Buffer> {
+    const fullPath = path.join(UPLOAD_DIR, key);
+    const length = endInclusive - start + 1;
+    const fh = await open(fullPath, "r");
+    try {
+      const buffer = Buffer.allocUnsafe(length);
+      const { bytesRead } = await fh.read(buffer, 0, length, start);
+      return bytesRead === length ? buffer : buffer.subarray(0, bytesRead);
+    } finally {
+      await fh.close();
+    }
   }
 
   async exists(key: string): Promise<boolean> {

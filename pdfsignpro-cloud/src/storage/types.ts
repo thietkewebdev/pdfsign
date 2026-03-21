@@ -11,6 +11,13 @@ export interface StorageDriver {
   /** Fetch file content as Buffer (for server-side proxy, avoids CORS) */
   getBuffer?(key: string): Promise<Buffer>;
 
+  /** Inclusive end index; used for HTTP Range / pdf.js chunked loading */
+  getBufferRange?(
+    key: string,
+    start: number,
+    endInclusive: number
+  ): Promise<Buffer>;
+
   /** Check if object exists (for download validation) */
   exists?(key: string): Promise<boolean>;
 

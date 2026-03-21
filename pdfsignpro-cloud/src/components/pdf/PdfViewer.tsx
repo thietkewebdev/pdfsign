@@ -92,16 +92,25 @@ export function PdfViewer({
       loadPdf();
       return () => setPdfDoc(null);
     } else if (pdfUrl) {
-      const loadPdf = async () => {
-        const res = await fetch(pdfUrl);
-        const arrayBuffer = await res.arrayBuffer();
-        const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
-        const pdf = await loadingTask.promise;
-        setPdfDoc(pdf);
-        onTotalPagesChange(pdf.numPages);
+      // Use URL + Range requests (server must send Accept-Ranges) so pdf.js can load
+      // incrementally instead of fetch()+arrayBuffer() (waits for entire file).
+      const loadingTask = pdfjsLib.getDocument({
+        url: pdfUrl,
+        rangeChunkSize: 65536,
+        withCredentials: false,
+      });
+      loadingTask.promise
+        .then((pdf) => {
+          setPdfDoc(pdf);
+          onTotalPagesChange(pdf.numPages);
+        })
+        .catch(() => {
+          /* destroyed on unmount */
+        });
+      return () => {
+        void loadingTask.destroy();
+        setPdfDoc(null);
       };
-      loadPdf();
-      return () => setPdfDoc(null);
     }
   }, [file, pdfUrl, onTotalPagesChange]);
 

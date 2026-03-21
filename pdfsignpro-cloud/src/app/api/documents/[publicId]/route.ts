@@ -40,10 +40,10 @@ export async function GET(
     }
 
     const storage = getStorageDriver();
-    const presignedUrl = await storage.getPresignedUrl(
-      currentVersion.storageKey,
-      3600
-    );
+    const directR2 = process.env.NEXT_PUBLIC_PDF_DIRECT_R2 === "1";
+    const presignedUrl = directR2
+      ? await storage.getPresignedUrl(currentVersion.storageKey, 3600)
+      : "";
 
     const viewUrl = `/api/documents/${document.publicId}/file?v=${currentVersion.version}`;
 

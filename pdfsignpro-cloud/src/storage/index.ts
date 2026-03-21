@@ -3,6 +3,7 @@ import {
   uploadToR2,
   getR2PresignedUrl,
   getR2Buffer,
+  getR2BufferRange,
   headR2Object,
   deleteR2Object,
 } from "./r2";
@@ -26,6 +27,14 @@ class R2StorageDriver implements StorageDriver {
 
   async getBuffer(key: string): Promise<Buffer> {
     return getR2Buffer(key);
+  }
+
+  async getBufferRange(
+    key: string,
+    start: number,
+    endInclusive: number
+  ): Promise<Buffer> {
+    return getR2BufferRange(key, start, endInclusive);
   }
 
   async exists(key: string): Promise<boolean> {

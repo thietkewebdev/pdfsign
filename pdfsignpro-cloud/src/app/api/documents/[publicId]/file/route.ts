@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { parseBytesRange } from "@/lib/http-range";
 import { getStorageDriver } from "@/storage";
 
 export async function GET(
@@ -39,14 +40,53 @@ export async function GET(
       );
     }
 
-    // Load full PDF into memory then respond (no streaming) — matches earlier behavior.
     const storage = getStorageDriver();
     const getBuffer = storage.getBuffer;
+    const getBufferRange = storage.getBufferRange;
     if (!getBuffer) {
       return NextResponse.json(
         { error: "Storage driver does not support direct read" },
         { status: 500 }
       );
+    }
+
+    const totalSize =
+      typeof currentVersion.sizeBytes === "number" &&
+      currentVersion.sizeBytes > 0
+        ? currentVersion.sizeBytes
+        : null;
+
+    const rangeHeader = request.headers.get("range");
+
+    if (totalSize != null && rangeHeader && getBufferRange) {
+      const trimmed = rangeHeader.trim();
+      if (trimmed.startsWith("bytes=")) {
+        const parsed = parseBytesRange(trimmed, totalSize);
+        if (parsed) {
+          const { start, end } = parsed;
+          const slice = await getBufferRange(
+            currentVersion.storageKey,
+            start,
+            end
+          );
+          return new NextResponse(new Uint8Array(slice), {
+            status: 206,
+            headers: {
+              "Content-Type": "application/pdf",
+              "Content-Length": String(slice.length),
+              "Content-Range": `bytes ${start}-${end}/${totalSize}`,
+              "Accept-Ranges": "bytes",
+              "Cache-Control": "private, max-age=300",
+            },
+          });
+        }
+        return new NextResponse(null, {
+          status: 416,
+          headers: {
+            "Content-Range": `bytes */${totalSize}`,
+          },
+        });
+      }
     }
 
     const buffer = await getBuffer(currentVersion.storageKey);
@@ -55,6 +95,7 @@ export async function GET(
       headers: {
         "Content-Type": "application/pdf",
         "Content-Length": String(buffer.length),
+        "Accept-Ranges": "bytes",
         "Cache-Control": "private, max-age=300",
       },
     });
