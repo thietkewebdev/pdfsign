@@ -73,6 +73,7 @@ type UsageResponse = {
   timeline: {
     uploads: { day: string; count: number; bytes: number }[];
     completedJobs: { day: string; count: number }[];
+    signingErrors: { day: string; count: number }[];
   };
   topUsersByRecentActivity: { id: string; email: string | null; name: string | null; documents: number; contracts: number }[];
 };
@@ -490,6 +491,25 @@ export default function AdminPage() {
                   <span>{item.count} uploads · {formatBytes(item.bytes)}</span>
                 </div>
               ))}
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Lỗi ký theo ngày (7 ngày)</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {usage?.timeline.signingErrors.length ? (
+                usage.timeline.signingErrors.map((item) => (
+                  <div key={item.day} className="flex items-center justify-between rounded-md border p-3 text-sm">
+                    <span>{item.day}</span>
+                    <Badge variant={item.count > 0 ? "destructive" : "secondary"}>
+                      {item.count} lỗi
+                    </Badge>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-muted-foreground">Không có lỗi ký trong 7 ngày gần nhất.</p>
+              )}
             </CardContent>
           </Card>
           <Card>

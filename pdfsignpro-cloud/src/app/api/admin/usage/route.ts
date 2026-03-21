@@ -29,7 +29,9 @@ export async function GET(request: NextRequest) {
     );
     const from = startOfRange(days);
 
-    const [recentUploads, recentCompletedJobs, topUsersByJobs] = await Promise.all([
+    const signingErrorFrom = startOfRange(7);
+
+    const [recentUploads, recentCompletedJobs, recentSigningErrors, topUsersByJobs] = await Promise.all([
       prisma.documentVersion.findMany({
         where: { createdAt: { gte: from } },
         select: { createdAt: true, sizeBytes: true },
@@ -53,6 +55,13 @@ export async function GET(request: NextRequest) {
             },
           },
         },
+      }),
+      prisma.adminAnalyticsEvent.findMany({
+        where: {
+          eventType: { startsWith: "signing.error." },
+          createdAt: { gte: signingErrorFrom },
+        },
+        select: { createdAt: true },
       }),
       prisma.user.findMany({
         select: {
@@ -91,6 +100,12 @@ export async function GET(request: NextRequest) {
       jobsByDay.set(key, (jobsByDay.get(key) ?? 0) + 1);
     }
 
+    const signingErrorsByDay = new Map<string, number>();
+    for (const event of recentSigningErrors) {
+      const key = isoDateKey(event.createdAt);
+      signingErrorsByDay.set(key, (signingErrorsByDay.get(key) ?? 0) + 1);
+    }
+
     return NextResponse.json({
       rangeDays: days,
       timeline: {
@@ -98,6 +113,9 @@ export async function GET(request: NextRequest) {
           .sort(([a], [b]) => a.localeCompare(b))
           .map(([day, v]) => ({ day, count: v.count, bytes: v.bytes })),
         completedJobs: Array.from(jobsByDay.entries())
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([day, count]) => ({ day, count })),
+        signingErrors: Array.from(signingErrorsByDay.entries())
           .sort(([a], [b]) => a.localeCompare(b))
           .map(([day, count]) => ({ day, count })),
       },
