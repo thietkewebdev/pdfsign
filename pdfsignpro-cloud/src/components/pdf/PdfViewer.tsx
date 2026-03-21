@@ -5,6 +5,7 @@ import Link from "next/link";
 import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
 import { Download, Monitor, Share2, MoreHorizontal, X } from "lucide-react";
 import { SignatureBox } from "./SignatureBox";
+import { PdfScrollPage } from "./PdfScrollPage";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -52,6 +53,10 @@ interface PdfViewerProps {
     shareLink: string;
     onCopyShare: () => void;
   };
+  /**
+   * Stack pages vertically; each page renders when scrolled near viewport (pdfUrl only).
+   */
+  continuousScroll?: boolean;
 }
 
 export function PdfViewer({
@@ -70,8 +75,14 @@ export function PdfViewer({
   selectedTemplateId = "valid",
   sealImageBase64,
   toolbarActions,
+  continuousScroll = false,
 }: PdfViewerProps) {
+  void activePageForPlacement;
   const containerRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const scrollRafRef = useRef<number | null>(null);
+  const currentPageRef = useRef(currentPage);
+  currentPageRef.current = currentPage;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const renderTaskRef = useRef<{ cancel: () => void } | null>(null);
   const [pdfDoc, setPdfDoc] = useState<pdfjsLib.PDFDocumentProxy | null>(null);
@@ -113,6 +124,50 @@ export function PdfViewer({
       };
     }
   }, [file, pdfUrl, onTotalPagesChange]);
+
+  const useContinuous =
+    continuousScroll && !!pdfUrl && !file && !!pdfDoc;
+
+  const scrollToPageNum = useCallback(
+    (n: number) => {
+      const root = scrollContainerRef.current;
+      const el = root?.querySelector(`[data-pdf-page="${n}"]`);
+      el?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      onPageChange(n);
+    },
+    [onPageChange]
+  );
+
+  const handleScrollContainerScroll = useCallback(() => {
+    if (!useContinuous || !scrollContainerRef.current) return;
+    if (scrollRafRef.current != null) {
+      cancelAnimationFrame(scrollRafRef.current);
+    }
+    scrollRafRef.current = requestAnimationFrame(() => {
+      scrollRafRef.current = null;
+      const root = scrollContainerRef.current;
+      if (!root) return;
+      const rootRect = root.getBoundingClientRect();
+      const targetY = rootRect.top + rootRect.height * 0.32;
+      let best = 1;
+      let bestDist = Number.POSITIVE_INFINITY;
+      root.querySelectorAll("[data-pdf-page]").forEach((node) => {
+        const el = node as HTMLElement;
+        const page = parseInt(el.dataset.pdfPage ?? "0", 10);
+        if (page < 1) return;
+        const r = el.getBoundingClientRect();
+        const center = (r.top + r.bottom) / 2;
+        const d = Math.abs(center - targetY);
+        if (d < bestDist) {
+          bestDist = d;
+          best = page;
+        }
+      });
+      if (best !== currentPageRef.current) {
+        onPageChange(best);
+      }
+    });
+  }, [useContinuous, onPageChange]);
 
   const renderPage = useCallback(
     async (pageNum: number) => {
@@ -156,6 +211,7 @@ export function PdfViewer({
   );
 
   useEffect(() => {
+    if (useContinuous) return;
     if (pdfDoc && currentPage >= 1) {
       renderPage(currentPage);
     }
@@ -165,15 +221,34 @@ export function PdfViewer({
         renderTaskRef.current = null;
       }
     };
-  }, [pdfDoc, currentPage, renderPage]);
+  }, [useContinuous, pdfDoc, currentPage, renderPage]);
 
   const pagePlacements = placements
     .map((p, i) => ({ placement: p, globalIndex: i }))
     .filter(({ placement }) => placement.page === currentPage);
   const pageWidth = pageDimensions?.width ?? 0;
   const pageHeight = pageDimensions?.height ?? 0;
-  const safeTotalPages = Math.max(totalPages, 1);
+  const safeTotalPages = Math.max(
+    pdfDoc?.numPages ?? 0,
+    totalPages,
+    1
+  );
   const isLastPage = currentPage === safeTotalPages;
+
+  const goPrev = () => {
+    const n = Math.max(1, currentPage - 1);
+    if (useContinuous) scrollToPageNum(n);
+    else onPageChange(n);
+  };
+  const goNext = () => {
+    const n = Math.min(safeTotalPages, currentPage + 1);
+    if (useContinuous) scrollToPageNum(n);
+    else onPageChange(n);
+  };
+  const goLast = () => {
+    if (useContinuous) scrollToPageNum(safeTotalPages);
+    else onPageChange(safeTotalPages);
+  };
 
   const handleDragStop = useCallback(
     (globalIndex: number) => (x: number, y: number) => {
@@ -213,7 +288,7 @@ export function PdfViewer({
         <div className="flex items-center gap-2 min-w-0 flex-wrap">
           <button
             type="button"
-            onClick={() => onPageChange(Math.max(1, currentPage - 1))}
+            onClick={goPrev}
             disabled={currentPage <= 1}
             className="rounded-md border border-border px-2.5 py-1.5 text-sm hover:bg-accent disabled:opacity-50 transition-colors shrink-0"
           >
@@ -233,7 +308,7 @@ export function PdfViewer({
           </div>
           <button
             type="button"
-            onClick={() => onPageChange(safeTotalPages)}
+            onClick={goLast}
             disabled={safeTotalPages <= 1 || isLastPage}
             className="rounded-md border border-amber-300/70 bg-amber-50 px-2.5 py-1.5 text-xs font-medium text-amber-900 hover:bg-amber-100 disabled:opacity-50 transition-colors shrink-0 dark:border-amber-700/60 dark:bg-amber-900/20 dark:text-amber-300 dark:hover:bg-amber-900/30"
           >
@@ -246,7 +321,7 @@ export function PdfViewer({
           )}
           <button
             type="button"
-            onClick={() => onPageChange(Math.min(safeTotalPages, currentPage + 1))}
+            onClick={goNext}
             disabled={currentPage >= safeTotalPages}
             className="rounded-md border border-border px-2.5 py-1.5 text-sm hover:bg-accent disabled:opacity-50 transition-colors shrink-0"
           >
@@ -342,30 +417,62 @@ export function PdfViewer({
           )}
         </div>
       </div>
-      <div className="flex-1 overflow-auto p-6 flex justify-center items-start min-h-0 cursor-default">
-        <div className="relative inline-block min-w-fit rounded-md border border-border bg-white dark:bg-zinc-900 shadow-lg" ref={containerRef}>
-          <canvas ref={canvasRef} className="block rounded-md" />
-          {!readOnly && pageWidth > 0 && pageHeight > 0 && (
+      <div
+        ref={scrollContainerRef}
+        onScroll={handleScrollContainerScroll}
+        className="flex min-h-0 flex-1 cursor-default flex-col items-stretch overflow-auto"
+      >
+        {useContinuous && pdfDoc ? (
+          <div className="flex flex-col items-center px-4 py-6">
+            <p className="mb-4 max-w-xl text-center text-xs text-muted-foreground">
+              Cuộn để xem từng trang (tải khi đến gần). Số trang trên thanh công cụ theo
+              vị trí cuộn.
+            </p>
+            {Array.from({ length: safeTotalPages }, (_, i) => (
+              <PdfScrollPage
+                key={i + 1}
+                pageNum={i + 1}
+                pdfDoc={pdfDoc}
+                scale={scale}
+                scrollRootRef={scrollContainerRef}
+                readOnly={readOnly}
+                placements={placements}
+                onPlacementUpdate={onPlacementUpdate}
+                selectedTemplateId={selectedTemplateId}
+                sealImageBase64={sealImageBase64}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="flex min-h-0 flex-1 justify-center p-6">
             <div
-              className="absolute left-0 top-0 size-full"
-              style={{ width: pageWidth, height: pageHeight }}
+              className="relative inline-block min-w-fit rounded-md border border-border bg-white shadow-lg dark:bg-zinc-900"
+              ref={containerRef}
             >
-              {pagePlacements.map(({ placement, globalIndex }) => (
-                <SignatureBox
-                  key={`${placement.page}-${globalIndex}`}
-                  placement={placement}
-                  pageWidth={pageWidth}
-                  pageHeight={pageHeight}
-                  scale={1}
-                  templateId={selectedTemplateId}
-                  sealImageBase64={sealImageBase64}
-                  onDragStop={handleDragStop(globalIndex)}
-                  onResizeStop={handleResizeStop(globalIndex)}
-                />
-              ))}
+              <canvas ref={canvasRef} className="block rounded-md" />
+              {!readOnly && pageWidth > 0 && pageHeight > 0 && (
+                <div
+                  className="absolute left-0 top-0 size-full"
+                  style={{ width: pageWidth, height: pageHeight }}
+                >
+                  {pagePlacements.map(({ placement, globalIndex }) => (
+                    <SignatureBox
+                      key={`${placement.page}-${globalIndex}`}
+                      placement={placement}
+                      pageWidth={pageWidth}
+                      pageHeight={pageHeight}
+                      scale={1}
+                      templateId={selectedTemplateId}
+                      sealImageBase64={sealImageBase64}
+                      onDragStop={handleDragStop(globalIndex)}
+                      onResizeStop={handleResizeStop(globalIndex)}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );

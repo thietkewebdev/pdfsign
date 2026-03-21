@@ -140,6 +140,7 @@ export default function SigningViewerPage() {
   const [selectedTemplateId, setSelectedTemplateId] = useState("valid");
   const [sealImageBase64, setSealImageBase64] = useState<string | null>(null);
   const [contractModalOpen, setContractModalOpen] = useState(false);
+  const [mobileDocTab, setMobileDocTab] = useState("document");
   const searchParams = useSearchParams();
 
   const {
@@ -359,6 +360,16 @@ export default function SigningViewerPage() {
     return () => document.removeEventListener("visibilitychange", onVisibilityChange);
   }, []);
 
+  const goToPdfPage = useCallback((p: number) => {
+    setCurrentPage(p);
+    setMobileDocTab("document");
+    requestAnimationFrame(() => {
+      document
+        .querySelector(`[data-pdf-page="${p}"]`)
+        ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    });
+  }, []);
+
   const activePlacement = placements[0];
   const activePage = activePlacement?.page ?? currentPage;
   const pollElapsed =
@@ -452,9 +463,10 @@ export default function SigningViewerPage() {
       <Button
         onClick={handleSign}
         disabled={placements.length === 0 || !!jobState}
-        className="w-full rounded-md"
+        size="lg"
+        className="h-12 w-full rounded-xl border-0 bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 text-base font-bold text-white shadow-lg shadow-emerald-900/25 ring-2 ring-emerald-400/50 transition-all hover:from-emerald-500 hover:via-teal-500 hover:to-cyan-500 hover:shadow-xl hover:ring-emerald-300/60 disabled:opacity-50 disabled:shadow-none dark:from-emerald-500 dark:via-teal-500 dark:to-cyan-500 dark:shadow-emerald-950/40 dark:ring-emerald-400/30"
       >
-        <PenLine className="size-4" />
+        <PenLine className="size-5 shrink-0" />
         Ký số
       </Button>
       <Button
@@ -581,6 +593,7 @@ export default function SigningViewerPage() {
               readOnly={isSigned}
               selectedTemplateId={selectedTemplateId}
               sealImageBase64={sealImageBase64}
+              continuousScroll
               toolbarActions={{
                 downloadUrl,
                 documentTitle: doc.title ?? "document.pdf",
@@ -600,7 +613,7 @@ export default function SigningViewerPage() {
                     <button
                       key={i}
                       type="button"
-                      onClick={() => setCurrentPage(i + 1)}
+                      onClick={() => goToPdfPage(i + 1)}
                       className={`flex w-full items-center gap-3 rounded-md border p-2 text-left transition-all duration-150 ${
                         currentPage === i + 1
                           ? "border-primary bg-primary/10 ring-1 ring-primary/20"
@@ -627,7 +640,11 @@ export default function SigningViewerPage() {
         </div>
 
         <div className="lg:hidden h-full">
-          <Tabs defaultValue="document" className="h-full flex flex-col">
+          <Tabs
+            value={mobileDocTab}
+            onValueChange={setMobileDocTab}
+            className="h-full flex flex-col"
+          >
             <div className="border-b border-border px-4">
               <TabsList className="w-full grid grid-cols-3">
                 <TabsTrigger value="timeline">Chữ ký</TabsTrigger>
@@ -678,6 +695,7 @@ export default function SigningViewerPage() {
                   readOnly={isSigned}
                   selectedTemplateId={selectedTemplateId}
                   sealImageBase64={sealImageBase64}
+                  continuousScroll
                   toolbarActions={{
                     downloadUrl,
                     documentTitle: doc.title ?? "document.pdf",
@@ -697,7 +715,7 @@ export default function SigningViewerPage() {
                         <button
                           key={i}
                           type="button"
-                          onClick={() => setCurrentPage(i + 1)}
+                          onClick={() => goToPdfPage(i + 1)}
                           className={`flex w-full items-center gap-3 rounded-md border p-2 text-left transition-all duration-150 ${
                             currentPage === i + 1
                               ? "border-primary bg-primary/10 ring-1 ring-primary/20"
