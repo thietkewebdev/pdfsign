@@ -12,12 +12,17 @@ from typing import Optional, Tuple, Union
 from pyhanko.pdf_utils.incremental_writer import IncrementalPdfFileWriter
 from pyhanko.sign import fields, signers
 from pyhanko.sign.fields import SigFieldSpec
-from pyhanko.sign.pkcs11 import PKCS11Signer
+from pyhanko.sign.pkcs11 import PKCS11Signer, _pull_cert
 from pyhanko.sign.signers.pdf_signer import PdfSignatureMetadata
 
 from .sig_appearance import get_stamp_style_for_template
 import pkcs11
-from pkcs11 import Attribute, ObjectClass
+from pkcs11 import Attribute, KeyType, ObjectClass
+from pkcs11.exceptions import MultipleObjectsReturned
+
+from cryptography import x509
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives.asymmetric import ec, rsa
 
 from .cert_selector import CertInfo, get_signer_name
 
@@ -119,13 +124,164 @@ def _safe_key_attr(obj, attr, default=None):
 def _list_private_keys(session: pkcs11.Session) -> list[Tuple[Optional[str], Optional[bytes]]]:
     """List all private keys on token as (label, id) tuples."""
     keys = []
-    for obj in session.get_objects({Attribute.CLASS: ObjectClass.PRIVATE_KEY}):
+    # Materialize immediately so the PKCS#11 search iterator is fully consumed
+    # (avoids lock errors if iteration stops early).
+    for obj in list(session.get_objects({Attribute.CLASS: ObjectClass.PRIVATE_KEY})):
         label = _safe_key_attr(obj, Attribute.LABEL)
         label = str(label) if label is not None else None
         kid = _safe_key_attr(obj, Attribute.ID)
         kid = bytes(kid) if kid is not None else None
         keys.append((label, kid))
     return keys
+
+
+def _sort_key_objects(keys: list) -> list:
+    def sk(o):
+        kid = _safe_key_attr(o, Attribute.ID) or b""
+        if not isinstance(kid, bytes):
+            try:
+                kid = bytes(kid)
+            except (TypeError, ValueError):
+                kid = b""
+        lab = str(_safe_key_attr(o, Attribute.LABEL) or "")
+        return (kid, lab)
+
+    return sorted(keys, key=sk)
+
+
+def _filter_keys_by_cert_algorithm(keys: list, cert_der: bytes) -> list:
+    """When several PKCS#11 keys share CKA_ID, keep those matching cert public key type (RSA/EC)."""
+    if len(keys) <= 1:
+        return keys
+    try:
+        cert = x509.load_der_x509_certificate(cert_der, default_backend())
+        pk = cert.public_key()
+        if isinstance(pk, rsa.RSAPublicKey):
+            want = KeyType.RSA
+        elif isinstance(pk, ec.EllipticCurvePublicKey):
+            want = KeyType.EC
+        else:
+            return keys
+        out = []
+        for k in keys:
+            try:
+                if k.key_type == want:
+                    out.append(k)
+            except Exception:
+                continue
+        return out if out else keys
+    except Exception:
+        return keys
+
+
+def _private_key_objects_for_cert(session: pkcs11.Session, cert_info: CertInfo) -> list:
+    """
+    Private key objects matching certificate CKA_ID or label.
+    Always uses list(get_objects) so searches finish cleanly.
+    """
+    all_objs = list(session.get_objects({Attribute.CLASS: ObjectClass.PRIVATE_KEY}))
+    cert_id_norm = _normalize_key_id(cert_info.cert_id)
+    cert_label = (cert_info.cert_label or "").strip()
+
+    by_id: list = []
+    by_label: list = []
+    for obj in all_objs:
+        kid = _safe_key_attr(obj, Attribute.ID)
+        kl = str(_safe_key_attr(obj, Attribute.LABEL) or "")
+        if cert_id_norm and kid is not None:
+            try:
+                kb = bytes(kid)
+            except (TypeError, ValueError):
+                kb = b""
+            if _normalize_key_id(kb) == cert_id_norm:
+                by_id.append(obj)
+                continue
+        if cert_label and kl == cert_label:
+            by_label.append(obj)
+
+    if by_id:
+        return _sort_key_objects(by_id)
+    if by_label:
+        return _sort_key_objects(by_label)
+    return []
+
+
+def _pick_private_key_object(
+    session: pkcs11.Session,
+    cert_info: CertInfo,
+    cert_index: Optional[int],
+) -> Optional[object]:
+    """
+    Pick a single private key handle when get_key(label,id) would raise MultipleObjectsReturned.
+    """
+    candidates = _private_key_objects_for_cert(session, cert_info)
+    if not candidates:
+        return None
+    candidates = _filter_keys_by_cert_algorithm(candidates, cert_info.raw_der)
+    if not candidates:
+        return None
+    pick = cert_index if cert_index is not None else 0
+    pick = pick % len(candidates)
+    return candidates[pick]
+
+
+class DisambiguatedPKCS11Signer(PKCS11Signer):
+    """Use a pre-selected key object (tokens with duplicate CKA_ID on private keys)."""
+
+    def __init__(self, *args, resolved_private_key=None, **kwargs):
+        self._pdfsign_resolved_private_key = resolved_private_key
+        super().__init__(*args, **kwargs)
+
+    def _load_objects(self):
+        if self._loaded:
+            return
+
+        self._init_cert_registry()
+        if self._signing_cert is None:
+            self._signing_cert = _pull_cert(
+                self.pkcs11_session,
+                label=self.cert_label,
+                cert_id=self.cert_id,
+            )
+
+        if self._pdfsign_resolved_private_key is not None:
+            self._key_handle = self._pdfsign_resolved_private_key
+        else:
+            self._key_handle = self.pkcs11_session.get_key(
+                ObjectClass.PRIVATE_KEY,
+                label=self.key_label,
+                id=self.key_id,
+            )
+        self._loaded = True
+
+
+def _is_multiple_keys_pkcs11_error(exc: BaseException) -> bool:
+    if isinstance(exc, MultipleObjectsReturned):
+        return True
+    c = getattr(exc, "__cause__", None)
+    if isinstance(c, MultipleObjectsReturned):
+        return True
+    return "More than 1 key matches" in str(exc)
+
+
+def _build_pkcs11_signer(
+    session: pkcs11.Session,
+    cert_info: CertInfo,
+    cert_index: Optional[int],
+) -> PKCS11Signer:
+    from asn1crypto import x509 as asn1_x509
+
+    cert_asn1 = asn1_x509.Certificate.load(cert_info.raw_der)
+    resolved = _pick_private_key_object(session, cert_info, cert_index)
+    if resolved is not None:
+        return DisambiguatedPKCS11Signer(
+            session,
+            signing_cert=cert_asn1,
+            cert_label=cert_info.cert_label or None,
+            cert_id=cert_info.cert_id,
+            resolved_private_key=resolved,
+        )
+    return _create_pkcs11_signer(session, cert_info)
 
 
 def _find_matching_key(
@@ -288,26 +444,45 @@ async def sign_pdf(
         slot_no=slot_no,
         user_pin=pin,
     ) as session:
-        pkcs11_signer = _create_pkcs11_signer(session, cert_info)
+        pkcs11_signer = _build_pkcs11_signer(session, cert_info, cert_index)
         try:
             await pkcs11_signer.ensure_objects_loaded()
         except Exception as e:
             err_msg = str(e)
-            if "No key matching" not in err_msg:
-                raise
-            # Enumerate private keys and try explicit match (or index heuristic)
-            match = _find_matching_key(session, cert_info, cert_index=cert_index)
-            if match:
-                key_label, key_id = match
-                pkcs11_signer = _create_pkcs11_signer(
-                    session, cert_info, key_label=key_label, key_id=key_id
+            if _is_multiple_keys_pkcs11_error(e):
+                kh = _pick_private_key_object(session, cert_info, cert_index)
+                if kh is None:
+                    raise RuntimeError(
+                        "Nhiều private key trùng CKA_ID trên token; không chọn được khóa. "
+                        "Thử chứng thư khác hoặc liên hệ nhà cung cấp token."
+                    ) from e
+                from asn1crypto import x509 as asn1_x509
+
+                cert_asn1 = asn1_x509.Certificate.load(cert_info.raw_der)
+                pkcs11_signer = DisambiguatedPKCS11Signer(
+                    session,
+                    signing_cert=cert_asn1,
+                    cert_label=cert_info.cert_label or None,
+                    cert_id=cert_info.cert_id,
+                    resolved_private_key=kh,
                 )
                 await pkcs11_signer.ensure_objects_loaded()
+            elif "No key matching" in err_msg:
+                # Enumerate private keys and try explicit match (or index heuristic)
+                match = _find_matching_key(session, cert_info, cert_index=cert_index)
+                if match:
+                    key_label, key_id = match
+                    pkcs11_signer = _create_pkcs11_signer(
+                        session, cert_info, key_label=key_label, key_id=key_id
+                    )
+                    await pkcs11_signer.ensure_objects_loaded()
+                else:
+                    raise RuntimeError(
+                        f"No private key found for certificate. Cert/key labels or IDs "
+                        f"do not match on this token. Run with PDFSIGN_DEBUG=1 to list keys."
+                    ) from e
             else:
-                raise RuntimeError(
-                    f"No private key found for certificate. Cert/key labels or IDs "
-                    f"do not match on this token. Run with PDFSIGN_DEBUG=1 to list keys."
-                ) from e
+                raise
 
         # Sanitize with pikepdf first to avoid pyHanko parse errors
         # (incorrect startxref, Object Streams, Dictionary read error, seek of closed file, etc.)
