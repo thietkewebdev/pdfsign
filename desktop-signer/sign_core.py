@@ -6,6 +6,7 @@ Used by PDFSignProSigner WPF app.
 """
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -18,7 +19,7 @@ if hasattr(sys.stderr, "reconfigure"):
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from signer.pkcs11_discovery import get_pkcs11_dll
-from signer.cert_selector import list_certs_from_token, get_signer_name
+from signer.cert_selector import list_certs_from_token, list_certs_try_pkcs11_dlls, get_signer_name
 from signer.pades_signer import sign_pdf_sync
 
 
@@ -39,9 +40,7 @@ def parse_page(s: str):
     return int(s)
 
 
-def list_certs(dll_path: str, pin: str) -> None:
-    """List certificates. Output JSON to stdout: {dllPath, certs} for WPF to reuse dllPath when signing."""
-    certs, _ = list_certs_from_token(dll_path, pin=pin)
+def _print_certs_json(dll_path: str, certs) -> None:
     out = [
         {
             "index": i,
@@ -54,8 +53,13 @@ def list_certs(dll_path: str, pin: str) -> None:
         }
         for i, c in enumerate(certs)
     ]
-    result = {"dllPath": dll_path, "certs": out}
-    print(json.dumps(result, ensure_ascii=False))
+    print(json.dumps({"dllPath": dll_path, "certs": out}, ensure_ascii=False))
+
+
+def list_certs(dll_path: str, pin: str) -> None:
+    """List certificates. Output JSON to stdout: {dllPath, certs} for WPF to reuse dllPath when signing."""
+    certs, _ = list_certs_from_token(str(dll_path), pin=pin)
+    _print_certs_json(dll_path, certs)
 
 
 def sign_pdf(
@@ -110,8 +114,14 @@ def main() -> int:
             if not args.pin:
                 print("--list-certs requires --pin", file=sys.stderr)
                 return 1
-            dll = get_pkcs11_dll(args.dll) if args.dll else get_pkcs11_dll(None)
-            list_certs(str(dll), args.pin)
+            if args.dll:
+                dll = str(get_pkcs11_dll(args.dll))
+                list_certs(dll, args.pin)
+            else:
+                certs, _, dll = list_certs_try_pkcs11_dlls(
+                    args.pin, os.environ.get("PKCS11_DLL")
+                )
+                _print_certs_json(dll, certs)
         else:
             if not all([args.input, args.output, args.rectPct, args.dll, args.cert_index is not None, args.pin]):
                 print("Sign mode requires --in, --out, --rectPct, --dll, --cert-index, --pin", file=sys.stderr)

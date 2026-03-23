@@ -22,12 +22,7 @@ import requests
 # Add package to path when run as script
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from signer.pkcs11_discovery import get_pkcs11_dll
-from signer.cert_selector import (
-    list_certs_from_token,
-    CertInfo,
-    get_signer_name,
-)
+from signer.cert_selector import CertInfo, get_signer_name
 from signer.pades_signer import sign_pdf_sync
 
 
@@ -178,9 +173,12 @@ def run_deep_link(params: dict) -> int:
 
     # 2. PKCS#11
     try:
-        dll_path = get_pkcs11_dll(os.environ.get("PKCS11_DLL"))
-        print(f"PKCS#11: {dll_path}")
-    except FileNotFoundError as e:
+        from signer.pkcs11_discovery import find_pkcs11_dlls
+
+        if not find_pkcs11_dlls():
+            print("Lỗi: Không tìm thấy PKCS#11 DLL.", file=sys.stderr)
+            return 1
+    except Exception as e:
         print(f"Lỗi: {e}", file=sys.stderr)
         return 1
 
@@ -190,7 +188,12 @@ def run_deep_link(params: dict) -> int:
         return 1
 
     try:
-        certs, slot_no = list_certs_from_token(str(dll_path), pin=pin)
+        from signer.cert_selector import list_certs_try_pkcs11_dlls
+
+        certs, slot_no, dll_path = list_certs_try_pkcs11_dlls(
+            pin, os.environ.get("PKCS11_DLL")
+        )
+        print(f"PKCS#11: {dll_path}")
     except RuntimeError as e:
         print(f"Lỗi: {e}", file=sys.stderr)
         return 1

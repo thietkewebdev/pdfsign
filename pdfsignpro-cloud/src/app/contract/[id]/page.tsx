@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/card";
 import { PdfViewer } from "@/components/pdf/PdfViewer";
 import { SignatureTemplateSelector } from "@/components/signature/SignatureTemplateSelector";
+import { SignaturePlacementFields } from "@/components/signature/SignaturePlacementFields";
 import { SIGNATURE_TEMPLATES } from "@/lib/signature-templates";
 import { useSignaturePlacement } from "@/hooks/use-signature-placement";
 import { JobStatusResponseSchema } from "@/lib/job-status";
@@ -142,8 +143,15 @@ export default function ContractPage() {
     defaultPlacementEnabled,
     toggleDefaultPlacement,
     addSignatureBox,
+    updatePlacement,
     updatePlacementFromPixels,
   } = useSignaturePlacement(totalPages);
+
+  const [placementEditorIdx, setPlacementEditorIdx] = useState(0);
+  const safePlacementEditorIdx =
+    placements.length === 0
+      ? 0
+      : Math.min(placementEditorIdx, placements.length - 1);
 
   const fetchContract = useCallback(async () => {
     try {
@@ -264,13 +272,34 @@ export default function ContractPage() {
     [updatePlacementFromPixels]
   );
 
+  const goToPdfPage = useCallback((p: number) => {
+    setCurrentPage(p);
+    requestAnimationFrame(() => {
+      document
+        .querySelector(`[data-pdf-page="${p}"]`)
+        ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    });
+  }, []);
+
+  const onPlacementPageChange = useCallback(
+    (idx: number, page: number) => {
+      updatePlacement(idx, { page });
+      goToPdfPage(page);
+    },
+    [updatePlacement, goToPdfPage]
+  );
+
   const handleSign = async () => {
     const effectiveToken = token ?? contract?.currentSignerToken ?? null;
     if (!contract || !effectiveToken || placements.length === 0) return;
     setSigning(true);
 
     try {
-      const placement = placements[0];
+      const placement = placements[safePlacementEditorIdx];
+      if (!placement) {
+        setSigning(false);
+        return;
+      }
       const page =
         placement.page === totalPages ? ("LAST" as const) : placement.page;
 
@@ -390,9 +419,10 @@ export default function ContractPage() {
       ? Math.round((contract.signedCount / contract.totalSigners) * 100)
       : 0;
 
-  const activePlacement = placements[0];
+  const activePlacement = placements[placementEditorIdx];
   const activePage = activePlacement?.page ?? currentPage;
   const showSigningUI = contract.canSign && token && !jobState;
+  const usePdfScroll = !!(pdfUrl && showSigningUI);
 
   return (
     <div className="flex h-screen flex-col">
@@ -418,10 +448,10 @@ export default function ContractPage() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-hidden">
-        <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] h-full">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div className="grid h-full min-h-0 grid-cols-1 lg:grid-cols-[320px_1fr]">
           {/* Left sidebar */}
-          <div className="border-r border-border p-4 overflow-y-auto space-y-4">
+          <div className="space-y-4 overflow-y-auto border-r border-border p-4">
             {/* Progress */}
             <Card>
               <CardContent className="pt-4 pb-3 space-y-3">
@@ -486,7 +516,13 @@ export default function ContractPage() {
                   selectedId={selectedTemplateId}
                   onSelect={(tmplId) => {
                     setSelectedTemplateId(tmplId);
-                    if (placements.length === 0 && totalPages > 0) addSignatureBox();
+                    if (placements.length === 0 && totalPages > 0) {
+                      addSignatureBox(
+                        currentPage >= 1 && currentPage <= totalPages
+                          ? currentPage
+                          : undefined
+                      );
+                    }
                   }}
                   sealImageBase64={sealImageBase64}
                   onSealImageChange={setSealImageBase64}
@@ -494,10 +530,16 @@ export default function ContractPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={addSignatureBox}
+                  onClick={() =>
+                    addSignatureBox(
+                      currentPage >= 1 && currentPage <= totalPages
+                        ? currentPage
+                        : undefined
+                    )
+                  }
                   className="w-full rounded-md"
                 >
-                  Thêm ô chữ ký
+                  Thêm ô chữ ký (trang đang xem)
                 </Button>
                 <div className="flex items-center justify-between gap-2">
                   <Label htmlFor="default-placement">Vị trí mặc định</Label>
@@ -518,22 +560,14 @@ export default function ContractPage() {
                     />
                   </button>
                 </div>
-                {activePlacement && (
-                  <div className="flex flex-col gap-1 text-sm text-muted-foreground">
-                    <div className="flex items-center gap-2">
-                      <p>Trang: {activePlacement.page}</p>
-                      {totalPages > 0 && activePlacement.page === totalPages && (
-                        <span className="rounded-md bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
-                          Trang cuối
-                        </span>
-                      )}
-                    </div>
-                    <p>
-                      Ô: {Math.round(activePlacement.wPct * 100)}% ×{" "}
-                      {Math.round(activePlacement.hPct * 100)}%
-                    </p>
-                  </div>
-                )}
+                <SignaturePlacementFields
+                  placements={placements}
+                  totalPages={totalPages}
+                  selectedIdx={safePlacementEditorIdx}
+                  onSelectIdx={setPlacementEditorIdx}
+                  onPlacementPageChange={onPlacementPageChange}
+                  lang="vi"
+                />
                 <Button
                   onClick={handleSign}
                   disabled={placements.length === 0 || signing}
@@ -640,7 +674,7 @@ export default function ContractPage() {
           </div>
 
           {/* PDF Viewer */}
-          <div className="overflow-hidden">
+          <div className="flex min-h-0 flex-col overflow-hidden">
             {pdfUrl ? (
               <PdfViewer
                 pdfUrl={pdfUrl}
@@ -656,6 +690,7 @@ export default function ContractPage() {
                 readOnly={!showSigningUI}
                 selectedTemplateId={selectedTemplateId}
                 sealImageBase64={sealImageBase64}
+                continuousScroll={usePdfScroll}
               />
             ) : (
               <div className="flex items-center justify-center h-full text-muted-foreground">

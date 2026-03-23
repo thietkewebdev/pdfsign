@@ -99,6 +99,24 @@ def get_signer_name(cert_info: CertInfo) -> str:
     return cert_info.subject_o or cert_info.subject_cn or "Unknown"
 
 
+def _slots_with_token_indices(lib) -> list[tuple[int, object]]:
+    """
+    Slots where a token is reachable via C_GetTokenInfo (matches pyHanko open_pkcs11_session).
+
+    Some drivers (e.g. Viettel) omit TOKEN_PRESENT in C_GetSlotList(CK_TRUE), so
+    token_present=True returns [] while the token still works.
+    """
+    all_slots = lib.get_slots(token_present=False)
+    out: list[tuple[int, object]] = []
+    for i, slot in enumerate(all_slots):
+        try:
+            slot.get_token()
+        except Exception:
+            continue
+        out.append((i, slot))
+    return out
+
+
 def list_certs_from_token(
     lib_path: str,
     pin: Optional[str] = None,
@@ -109,14 +127,17 @@ def list_certs_from_token(
     Returns (list of CertInfo, slot_no used).
     """
     lib = pkcs11.lib(lib_path)
-    slots = lib.get_slots(token_present=True)
-    if not slots:
+    indexed = _slots_with_token_indices(lib)
+    if not indexed:
         raise RuntimeError("No token found. Please insert USB token.")
 
-    slot_idx = slot_no if slot_no is not None and 0 <= slot_no < len(slots) else 0
-    slot = slots[slot_idx]
+    pick = (
+        slot_no
+        if slot_no is not None and 0 <= slot_no < len(indexed)
+        else 0
+    )
+    used_slot, slot = indexed[pick]
     token = slot.get_token()
-    used_slot = slot_idx
 
     certs: list[CertInfo] = []
     try:
@@ -172,3 +193,28 @@ def list_certs_from_token(
         )
 
     return certs, used_slot
+
+
+def list_certs_try_pkcs11_dlls(
+    pin: str, env_override: Optional[str] = None
+) -> tuple[list[CertInfo], int, str]:
+    """
+    Try each discovered PKCS#11 module (vendor order) until one sees the token.
+    Returns (certs, slot_index_for_pyhanko, dll_path_used).
+    """
+    from .pkcs11_discovery import ordered_pkcs11_dll_candidates
+
+    last: Optional[RuntimeError] = None
+    for dll in ordered_pkcs11_dll_candidates(env_override):
+        try:
+            certs, slot = list_certs_from_token(str(dll), pin=pin)
+            return certs, slot, str(dll)
+        except RuntimeError as e:
+            em = str(e)
+            if "No token found" in em or "Please insert" in em:
+                last = e
+                continue
+            raise
+    if last is not None:
+        raise last
+    raise RuntimeError("No token found. Please insert USB token.")

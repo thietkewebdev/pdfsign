@@ -2,8 +2,8 @@
 PKCS#11 DLL discovery for Windows.
 Scans common directories for PKCS#11 modules (Viettel, VNPT, EasyCA, BKAV, FPT, etc.).
 """
-import os
 import ctypes
+import re
 from pathlib import Path
 from typing import Optional
 
@@ -26,7 +26,22 @@ SCAN_DIRS = [
     Path(r"C:\Program Files"),
     Path(r"C:\Program Files (x86)"),
 ]
-MAX_SCAN_DEPTH = 2  # Limit recursion for performance
+MAX_SCAN_DEPTH = 2  # Limit recursion for performance (non-Viettel paths)
+# Viettel Token Manager often installs PKCS#11 under Program Files\Viettel...\subfolders
+# whose names do not match DLL_PATTERNS; follow the whole subtree once "viettel" is seen.
+MAX_SCAN_DEPTH_VIETTEL = 8
+
+# Prefer these when multiple PKCS#11 DLLs exist (Foxit may work via CSP while another
+# vendor's PKCS#11 loads first and reports no token).
+_PREFERRED_VIETTEL_DLLS = [
+    Path(r"C:\Windows\System32\viettel-ca_v6.dll"),
+    Path(r"C:\Windows\System32\viettel-ca_v5.dll"),
+    Path(r"C:\Windows\System32\viettel-ca_v4.dll"),
+    Path(r"C:\Windows\System32\viettel-ca_v3.dll"),
+    Path(r"C:\Windows\System32\viettel-ca_v2.dll"),
+    Path(r"C:\Windows\System32\viettel-ca_v1.dll"),
+    Path(r"C:\Windows\System32\viettel-ca.dll"),
+]
 
 
 def _has_get_function_list(dll_path: Path) -> bool:
@@ -44,16 +59,21 @@ def _matches_heuristic(name: str) -> bool:
     return any(p in lower for p in DLL_PATTERNS)
 
 
-def _iter_dlls(base: Path, depth: int = 0) -> list[Path]:
-    """Recursively find PKCS#11 DLLs. Limit depth for Program Files subdirs."""
+def _iter_dlls(
+    base: Path, depth: int = 0, in_viettel_subtree: bool = False
+) -> list[Path]:
+    """Recursively find PKCS#11 DLLs. Deeper scan under Viettel install trees."""
+    max_depth = MAX_SCAN_DEPTH_VIETTEL if in_viettel_subtree else MAX_SCAN_DEPTH
     found: list[Path] = []
-    if depth > MAX_SCAN_DEPTH:
+    if depth > max_depth:
         return found
     try:
         for item in base.iterdir():
-            if item.is_dir() and depth < MAX_SCAN_DEPTH:
-                if _matches_heuristic(item.name) or depth == 0:
-                    found.extend(_iter_dlls(item, depth + 1))
+            if item.is_dir() and depth < max_depth:
+                child_viettel = in_viettel_subtree or "viettel" in item.name.lower()
+                enter = depth == 0 or _matches_heuristic(item.name) or in_viettel_subtree
+                if enter:
+                    found.extend(_iter_dlls(item, depth + 1, child_viettel))
             elif item.is_file() and item.suffix.lower() == ".dll":
                 if _matches_heuristic(item.name) and _has_get_function_list(item):
                     found.append(item)
@@ -82,10 +102,44 @@ def find_pkcs11_dlls() -> list[Path]:
     return candidates
 
 
+def _pick_pkcs11_dll(candidates: list[Path]) -> Path:
+    """If several modules exist, prefer Viettel (common cause: wrong DLL = empty slots)."""
+    if len(candidates) == 1:
+        return candidates[0]
+
+    by_resolved = {p.resolve(): p for p in candidates}
+    for preferred in _PREFERRED_VIETTEL_DLLS:
+        try:
+            key = preferred.resolve()
+        except OSError:
+            continue
+        if key in by_resolved:
+            return by_resolved[key]
+
+    viettel = [
+        p
+        for p in candidates
+        if "viettel" in p.name.lower() or "viettel" in str(p.resolve()).lower()
+    ]
+    if len(viettel) == 1:
+        return viettel[0]
+    if len(viettel) > 1:
+
+        def _viettel_version(p: Path) -> int:
+            m = re.search(r"_v(\d+)", p.name, re.I)
+            return int(m.group(1)) if m else -1
+
+        # Newer Token Manager = higher vN; plain viettel-ca.dll last among Viettel names
+        return sorted(viettel, key=lambda p: (_viettel_version(p), p.name.lower()))[-1]
+
+    return sorted(candidates, key=lambda p: str(p).lower())[0]
+
+
 def get_pkcs11_dll(env_override: Optional[str] = None) -> Path:
     """
     Get PKCS#11 DLL path.
-    Uses PKCS11_DLL env var if set, otherwise scans and returns first valid DLL.
+    Uses PKCS11_DLL env var if set; otherwise scans and picks a module (Viettel preferred
+    when multiple PKCS#11 DLLs exist).
     """
     if env_override:
         path = Path(env_override)
@@ -101,4 +155,25 @@ def get_pkcs11_dll(env_override: Optional[str] = None) -> Path:
             "No PKCS#11 DLL found. Set PKCS11_DLL env var or install a token driver "
             "(Viettel, VNPT, EasyCA, BKAV, FPT, etc.)."
         )
-    return dlls[0]
+    return _pick_pkcs11_dll(dlls)
+
+
+def ordered_pkcs11_dll_candidates(env_override: Optional[str] = None) -> list[Path]:
+    """
+    All discovered PKCS#11 DLLs, vendor-priority first (same as get_pkcs11_dll).
+    Used to retry listing when the first module reports no token (wrong DLL).
+    """
+    if env_override:
+        return [get_pkcs11_dll(env_override)]
+    dlls = find_pkcs11_dlls()
+    if not dlls:
+        raise FileNotFoundError(
+            "No PKCS#11 DLL found. Set PKCS11_DLL env var or install a token driver "
+            "(Viettel, VNPT, EasyCA, BKAV, FPT, etc.)."
+        )
+    primary = _pick_pkcs11_dll(dlls)
+    rest = sorted(
+        (d for d in dlls if d.resolve() != primary.resolve()),
+        key=lambda p: str(p).lower(),
+    )
+    return [primary] + rest

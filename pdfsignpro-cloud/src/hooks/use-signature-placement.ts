@@ -46,11 +46,21 @@ export function useSignaturePlacement(totalPages: number) {
     });
   }, [totalPages, placements.length, createDefaultPlacement]);
 
-  const addSignatureBox = useCallback(() => {
-    if (totalPages === 0) return;
-    const lastPage = totalPages;
-    setPlacements((prev) => [...prev, createDefaultPlacement(lastPage)]);
-  }, [totalPages, createDefaultPlacement]);
+  /** New box on `targetPage` (1..N), or last page if omitted. */
+  const addSignatureBox = useCallback(
+    (targetPage?: number) => {
+      if (totalPages === 0) return;
+      const page =
+        targetPage != null &&
+        targetPage >= 1 &&
+        targetPage <= totalPages &&
+        Number.isFinite(targetPage)
+          ? Math.round(targetPage)
+          : totalPages;
+      setPlacements((prev) => [...prev, createDefaultPlacement(page)]);
+    },
+    [totalPages, createDefaultPlacement]
+  );
 
   const updatePlacement = useCallback(
     (index: number, update: Partial<SignaturePlacement>) => {

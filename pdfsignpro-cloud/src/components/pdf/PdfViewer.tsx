@@ -283,7 +283,7 @@ export function PdfViewer({
   }
 
   return (
-    <div className="flex flex-col size-full bg-muted/30">
+    <div className="flex min-h-0 h-full w-full flex-col bg-muted/30">
       <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-2 bg-background/80">
         <div className="flex items-center gap-2 min-w-0 flex-wrap">
           <button

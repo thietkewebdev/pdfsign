@@ -14,12 +14,8 @@ from pathlib import Path
 # Add package to path when run as script
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from signer.pkcs11_discovery import get_pkcs11_dll
-from signer.cert_selector import (
-    list_certs_from_token,
-    CertInfo,
-    get_signer_name,
-)
+from signer.pkcs11_discovery import find_pkcs11_dlls
+from signer.cert_selector import CertInfo, get_signer_name, list_certs_try_pkcs11_dlls
 from signer.pades_signer import sign_pdf_sync
 
 
@@ -67,23 +63,20 @@ def main() -> int:
         print(f"Error: Input file not found: {input_path}", file=sys.stderr)
         return 1
 
-    # 1. Discover PKCS#11 DLL
-    try:
-        dll_path = get_pkcs11_dll(os.environ.get("PKCS11_DLL"))
-        print(f"Using PKCS#11: {dll_path}")
-    except FileNotFoundError as e:
-        print(f"Error: {e}", file=sys.stderr)
+    if not find_pkcs11_dlls():
+        print("Error: No PKCS#11 DLL found. Set PKCS11_DLL or install token driver.", file=sys.stderr)
         return 1
 
-    # 2. Get PIN
     pin = getpass.getpass("Enter token PIN: ")
     if not pin:
         print("Error: PIN is required.", file=sys.stderr)
         return 1
 
-    # 3. List certs
     try:
-        certs, slot_no = list_certs_from_token(str(dll_path), pin=pin)
+        certs, slot_no, dll_path = list_certs_try_pkcs11_dlls(
+            pin, os.environ.get("PKCS11_DLL")
+        )
+        print(f"Using PKCS#11: {dll_path}")
     except RuntimeError as e:
         print(f"Error: {e}", file=sys.stderr)
         return 1

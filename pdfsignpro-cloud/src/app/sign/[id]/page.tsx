@@ -21,7 +21,6 @@ import { Label } from "@/components/ui/label";
 import { PdfViewer } from "@/components/pdf/PdfViewer";
 import { useUpload } from "@/contexts/upload-context";
 import { useSignaturePlacement } from "@/hooks/use-signature-placement";
-import type { SignaturePlacement } from "@/lib/types";
 import { getPdfViewerUrl } from "@/lib/pdf-view-url";
 import {
   Dialog,
@@ -33,6 +32,7 @@ import {
 } from "@/components/ui/dialog";
 import { SIGNATURE_TEMPLATES } from "@/lib/signature-templates";
 import { SignatureTemplateSelector } from "@/components/signature/SignatureTemplateSelector";
+import { SignaturePlacementFields } from "@/components/signature/SignaturePlacementFields";
 
 interface DocumentData {
   document: { id: string; publicId: string; title: string };
@@ -67,8 +67,15 @@ export default function SignPage() {
     defaultPlacementEnabled,
     toggleDefaultPlacement,
     addSignatureBox,
+    updatePlacement,
     updatePlacementFromPixels,
   } = useSignaturePlacement(totalPages);
+
+  const [placementEditorIdx, setPlacementEditorIdx] = useState(0);
+  const safePlacementEditorIdx =
+    placements.length === 0
+      ? 0
+      : Math.min(placementEditorIdx, placements.length - 1);
 
   useEffect(() => {
     if (!publicId) {
@@ -104,9 +111,27 @@ export default function SignPage() {
     [updatePlacementFromPixels]
   );
 
+  const goToPdfPage = useCallback((p: number) => {
+    setCurrentPage(p);
+    requestAnimationFrame(() => {
+      document
+        .querySelector(`[data-pdf-page="${p}"]`)
+        ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    });
+  }, []);
+
+  const onPlacementPageChange = useCallback(
+    (idx: number, page: number) => {
+      updatePlacement(idx, { page });
+      goToPdfPage(page);
+    },
+    [updatePlacement, goToPdfPage]
+  );
+
   const handleSign = async () => {
     if (placements.length === 0 || !docData) return;
-    const placement = placements[0];
+    const placement = placements[safePlacementEditorIdx];
+    if (!placement) return;
 
     const jobBody: Record<string, unknown> = {
       documentId: docData.document.id,
@@ -160,7 +185,7 @@ export default function SignPage() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const activePlacement = placements[0];
+  const activePlacement = placements[safePlacementEditorIdx];
   const activePage = activePlacement?.page ?? currentPage;
 
   const pdfSource = docData
@@ -192,8 +217,10 @@ export default function SignPage() {
     );
   }
 
+  const useScrollMode = !!(docData && pdfSource && "pdfUrl" in pdfSource && pdfSource.pdfUrl);
+
   return (
-    <div className="flex h-screen flex-col">
+    <div className="flex h-screen min-h-0 flex-col">
       <div className="flex items-center justify-between gap-4 border-b border-border px-6 py-3">
         <div className="flex items-center gap-3 min-w-0">
           <Link
@@ -227,9 +254,9 @@ export default function SignPage() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-hidden">
-        <div className="hidden lg:grid lg:grid-cols-[320px_1fr_280px]">
-          <div className="border-r border-border p-4 overflow-hidden flex flex-col">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div className="hidden min-h-0 flex-1 lg:grid lg:grid-cols-[320px_1fr_280px] lg:min-h-0">
+          <div className="flex min-h-0 flex-col overflow-y-auto border-r border-border p-4">
             <div className="space-y-4">
               <h3 className="text-sm font-semibold text-foreground">
                 Signature
@@ -239,7 +266,13 @@ export default function SignPage() {
                 selectedId={selectedTemplateId}
                 onSelect={(id) => {
                   setSelectedTemplateId(id);
-                  if (placements.length === 0 && totalPages > 0) addSignatureBox();
+                  if (placements.length === 0 && totalPages > 0) {
+                    addSignatureBox(
+                      currentPage >= 1 && currentPage <= totalPages
+                        ? currentPage
+                        : undefined
+                    );
+                  }
                 }}
                 sealImageBase64={sealImageBase64}
                 onSealImageChange={setSealImageBase64}
@@ -247,10 +280,16 @@ export default function SignPage() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={addSignatureBox}
+                onClick={() =>
+                  addSignatureBox(
+                    currentPage >= 1 && currentPage <= totalPages
+                      ? currentPage
+                      : undefined
+                  )
+                }
                 className="w-full"
               >
-                Add signature box
+                Add box (current page)
               </Button>
               <div className="flex items-center justify-between gap-2">
                 <Label htmlFor="default-placement">Default placement</Label>
@@ -271,22 +310,14 @@ export default function SignPage() {
                   />
                 </button>
               </div>
-              {activePlacement && (
-                <div className="flex flex-col gap-1 text-sm text-muted-foreground">
-                  <div className="flex items-center gap-2">
-                    <p>Page: {activePlacement.page}</p>
-                    {totalPages > 0 && activePlacement.page === totalPages && (
-                      <span className="rounded-md bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
-                        Trang cuối
-                      </span>
-                    )}
-                  </div>
-                  <p>
-                    Box: {Math.round(activePlacement.wPct * 100)}% ×{" "}
-                    {Math.round(activePlacement.hPct * 100)}%
-                  </p>
-                </div>
-              )}
+              <SignaturePlacementFields
+                placements={placements}
+                totalPages={totalPages}
+                selectedIdx={safePlacementEditorIdx}
+                onSelectIdx={setPlacementEditorIdx}
+                onPlacementPageChange={onPlacementPageChange}
+                lang="en"
+              />
               <div className="rounded-lg border border-border bg-muted/30 p-3 text-xs text-muted-foreground space-y-2">
                 <p className="font-medium text-foreground">Appearance preview</p>
                 <p>Ký bởi: &lt;Tên công ty từ chứng thư&gt;</p>
@@ -342,7 +373,7 @@ export default function SignPage() {
               )}
             </div>
           </div>
-          <div className="overflow-hidden">
+          <div className="flex min-h-0 flex-col overflow-hidden">
             <PdfViewer
               {...pdfSource}
               currentPage={currentPage}
@@ -356,19 +387,24 @@ export default function SignPage() {
               activePageForPlacement={activePage}
               selectedTemplateId={selectedTemplateId}
               sealImageBase64={sealImageBase64}
+              continuousScroll={useScrollMode}
             />
           </div>
-          <div className="border-l border-border p-4 overflow-hidden">
+          <div className="flex min-h-0 flex-col overflow-hidden border-l border-border p-4">
             <h3 className="text-sm font-semibold text-foreground mb-3">
               Pages
             </h3>
-            <ScrollArea className="h-[calc(100vh-12rem)]">
+            <ScrollArea className="min-h-0 flex-1">
               <div className="space-y-2 pr-2">
                 {Array.from({ length: Math.max(totalPages, 1) }, (_, i) => (
                   <button
                     key={i}
                     type="button"
-                    onClick={() => setCurrentPage(i + 1)}
+                    onClick={() => {
+                      const n = i + 1;
+                      if (useScrollMode) goToPdfPage(n);
+                      else setCurrentPage(n);
+                    }}
                     className={`flex w-full items-center gap-3 rounded-lg border p-2 text-left transition-colors ${
                       currentPage === i + 1
                         ? "border-primary bg-primary/10"
@@ -386,8 +422,8 @@ export default function SignPage() {
           </div>
         </div>
 
-        <div className="lg:hidden h-full">
-          <Tabs defaultValue="document" className="h-full flex flex-col">
+        <div className="flex min-h-0 flex-1 flex-col lg:hidden">
+          <Tabs defaultValue="document" className="flex min-h-0 flex-1 flex-col">
             <div className="border-b border-border px-4">
               <TabsList className="w-full grid grid-cols-3">
                 <TabsTrigger value="signature">Signature</TabsTrigger>
@@ -395,7 +431,7 @@ export default function SignPage() {
                 <TabsTrigger value="pages">Pages</TabsTrigger>
               </TabsList>
             </div>
-            <div className="flex-1 overflow-auto">
+            <div className="flex min-h-0 flex-1 flex-col overflow-auto">
               <TabsContent value="signature" className="m-0 p-4 h-full">
                 <div className="space-y-4">
                   <SignatureTemplateSelector
@@ -403,16 +439,28 @@ export default function SignPage() {
                     selectedId={selectedTemplateId}
                     onSelect={(id) => {
                       setSelectedTemplateId(id);
-                      if (placements.length === 0 && totalPages > 0) addSignatureBox();
+                      if (placements.length === 0 && totalPages > 0) {
+                        addSignatureBox(
+                          currentPage >= 1 && currentPage <= totalPages
+                            ? currentPage
+                            : undefined
+                        );
+                      }
                     }}
                   />
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={addSignatureBox}
+                    onClick={() =>
+                      addSignatureBox(
+                        currentPage >= 1 && currentPage <= totalPages
+                          ? currentPage
+                          : undefined
+                      )
+                    }
                     className="w-full"
                   >
-                    Add signature box
+                    Add box (current page)
                   </Button>
                   <div className="flex items-center justify-between gap-2">
                     <Label>Default placement</Label>
@@ -434,6 +482,14 @@ export default function SignPage() {
                       />
                     </button>
                   </div>
+                  <SignaturePlacementFields
+                    placements={placements}
+                    totalPages={totalPages}
+                    selectedIdx={safePlacementEditorIdx}
+                    onSelectIdx={setPlacementEditorIdx}
+                    onPlacementPageChange={onPlacementPageChange}
+                    lang="en"
+                  />
                   <Button
                     onClick={handleSign}
                     disabled={placements.length === 0}
@@ -464,23 +520,22 @@ export default function SignPage() {
                   )}
                 </div>
               </TabsContent>
-              <TabsContent value="document" className="m-0 p-0 h-full">
-                <div className="h-full">
-                  <PdfViewer
-                    {...pdfSource}
-                    currentPage={currentPage}
-                    onPageChange={setCurrentPage}
-                    scale={scale}
-                    onScaleChange={setScale}
-                    totalPages={totalPages}
-                    onTotalPagesChange={handleTotalPagesChange}
-                    placements={placements}
-                    onPlacementUpdate={handlePlacementUpdate}
-                    activePageForPlacement={activePage}
-                    selectedTemplateId={selectedTemplateId}
-                    sealImageBase64={sealImageBase64}
-                  />
-                </div>
+              <TabsContent value="document" className="m-0 flex h-full min-h-0 flex-1 flex-col p-0 data-[state=inactive]:hidden">
+                <PdfViewer
+                  {...pdfSource}
+                  currentPage={currentPage}
+                  onPageChange={setCurrentPage}
+                  scale={scale}
+                  onScaleChange={setScale}
+                  totalPages={totalPages}
+                  onTotalPagesChange={handleTotalPagesChange}
+                  placements={placements}
+                  onPlacementUpdate={handlePlacementUpdate}
+                  activePageForPlacement={activePage}
+                  selectedTemplateId={selectedTemplateId}
+                  sealImageBase64={sealImageBase64}
+                  continuousScroll={useScrollMode}
+                />
               </TabsContent>
               <TabsContent value="pages" className="m-0 p-4 h-full">
                 <div className="space-y-2">
@@ -488,7 +543,11 @@ export default function SignPage() {
                     <button
                       key={i}
                       type="button"
-                      onClick={() => setCurrentPage(i + 1)}
+                      onClick={() => {
+                        const n = i + 1;
+                        if (useScrollMode) goToPdfPage(n);
+                        else setCurrentPage(n);
+                      }}
                       className={`flex w-full items-center gap-3 rounded-lg border p-2 text-left ${
                         currentPage === i + 1
                           ? "border-primary bg-primary/10"

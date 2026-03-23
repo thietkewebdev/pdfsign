@@ -33,6 +33,7 @@ import {
 } from "@/lib/job-status";
 import { SIGNATURE_TEMPLATES } from "@/lib/signature-templates";
 import { SignatureTemplateSelector } from "@/components/signature/SignatureTemplateSelector";
+import { SignaturePlacementFields } from "@/components/signature/SignaturePlacementFields";
 import { CreateContractModal } from "@/components/contract/CreateContractModal";
 import { getPdfViewerUrl } from "@/lib/pdf-view-url";
 
@@ -148,8 +149,15 @@ export default function SigningViewerPage() {
     defaultPlacementEnabled,
     toggleDefaultPlacement,
     addSignatureBox,
+    updatePlacement,
     updatePlacementFromPixels,
   } = useSignaturePlacement(totalPages);
+
+  const [placementEditorIdx, setPlacementEditorIdx] = useState(0);
+  const safePlacementEditorIdx =
+    placements.length === 0
+      ? 0
+      : Math.min(placementEditorIdx, placements.length - 1);
 
   const versionParam = searchParams.get("v");
   const fetchDocument = useCallback(
@@ -203,7 +211,8 @@ export default function SigningViewerPage() {
 
   const handleSign = async () => {
     if (placements.length === 0 || !data) return;
-    const placement = placements[0];
+    const placement = placements[safePlacementEditorIdx];
+    if (!placement) return;
     const page =
       placement.page === totalPages ? ("LAST" as const) : placement.page;
 
@@ -370,7 +379,15 @@ export default function SigningViewerPage() {
     });
   }, []);
 
-  const activePlacement = placements[0];
+  const onPlacementPageChange = useCallback(
+    (idx: number, page: number) => {
+      updatePlacement(idx, { page });
+      goToPdfPage(page);
+    },
+    [updatePlacement, goToPdfPage]
+  );
+
+  const activePlacement = placements[safePlacementEditorIdx];
   const activePage = activePlacement?.page ?? currentPage;
   const pollElapsed =
     jobState && pollStartRef.current
@@ -412,7 +429,13 @@ export default function SigningViewerPage() {
         selectedId={selectedTemplateId}
         onSelect={(id) => {
           setSelectedTemplateId(id);
-          if (placements.length === 0 && totalPages > 0) addSignatureBox();
+          if (placements.length === 0 && totalPages > 0) {
+            addSignatureBox(
+              currentPage >= 1 && currentPage <= totalPages
+                ? currentPage
+                : undefined
+            );
+          }
         }}
         sealImageBase64={sealImageBase64}
         onSealImageChange={setSealImageBase64}
@@ -420,10 +443,16 @@ export default function SigningViewerPage() {
       <Button
         variant="outline"
         size="sm"
-        onClick={addSignatureBox}
+        onClick={() =>
+          addSignatureBox(
+            currentPage >= 1 && currentPage <= totalPages
+              ? currentPage
+              : undefined
+          )
+        }
         className="w-full rounded-md"
       >
-        Thêm ô chữ ký
+        Thêm ô chữ ký (trang đang xem)
       </Button>
       <div className="flex items-center justify-between gap-2">
         <Label htmlFor="default-placement">Vị trí mặc định</Label>
@@ -444,18 +473,14 @@ export default function SigningViewerPage() {
           />
         </button>
       </div>
-      {activePlacement && (
-        <div className="flex flex-col gap-1 text-sm text-muted-foreground">
-          <div className="flex items-center gap-2">
-            <p>Trang: {activePlacement.page}</p>
-            {totalPages > 0 && activePlacement.page === totalPages && (
-              <span className="rounded-md bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
-                Trang cuối
-              </span>
-            )}
-          </div>
-        </div>
-      )}
+      <SignaturePlacementFields
+        placements={placements}
+        totalPages={totalPages}
+        selectedIdx={safePlacementEditorIdx}
+        onSelectIdx={setPlacementEditorIdx}
+        onPlacementPageChange={onPlacementPageChange}
+        lang="vi"
+      />
       <Button
         onClick={handleSign}
         disabled={placements.length === 0 || !!jobState}
@@ -513,7 +538,7 @@ export default function SigningViewerPage() {
   ) : null;
 
   return (
-    <div className="flex h-[calc(100vh-3.5rem)] flex-col">
+    <div className="flex h-[calc(100vh-3.5rem)] min-h-0 flex-col">
       <div className="flex items-center justify-between gap-4 border-b border-border px-5 py-2.5 bg-background/95">
         <div className="flex items-center gap-3 min-w-0">
           <Link
@@ -545,9 +570,9 @@ export default function SigningViewerPage() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-hidden">
-        <div className="hidden lg:grid lg:grid-cols-[320px_1fr_280px] lg:h-full">
-          <div className="border-r border-border p-4 flex flex-col min-h-0 overflow-y-auto">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div className="hidden min-h-0 flex-1 lg:grid lg:h-full lg:min-h-0 lg:grid-cols-[320px_1fr_280px]">
+          <div className="flex min-h-0 flex-col overflow-y-auto border-r border-border p-4">
             <div className="space-y-4 pr-4">
               {JobStatusCardContent && (
                 <div className="sticky top-4 z-10 -mt-1 pt-1 bg-background/95 backdrop-blur-sm rounded-lg">
@@ -573,7 +598,7 @@ export default function SigningViewerPage() {
               {!isSigned && <SigningPanel />}
             </div>
           </div>
-          <div className="overflow-hidden">
+          <div className="flex min-h-0 flex-col overflow-hidden">
             <PdfViewer
               key={`pdf-v${currentVersion.version}`}
               pdfUrl={pdfUrl}
@@ -635,11 +660,11 @@ export default function SigningViewerPage() {
           </div>
         </div>
 
-        <div className="lg:hidden h-full">
+        <div className="flex min-h-0 flex-1 flex-col lg:hidden">
           <Tabs
             value={mobileDocTab}
             onValueChange={setMobileDocTab}
-            className="h-full flex flex-col"
+            className="flex min-h-0 flex-1 flex-col"
           >
             <div className="border-b border-border px-4">
               <TabsList className="w-full grid grid-cols-3">
@@ -648,7 +673,7 @@ export default function SigningViewerPage() {
                 <TabsTrigger value="pages">Pages</TabsTrigger>
               </TabsList>
             </div>
-            <div className="flex-1 overflow-auto">
+            <div className="flex min-h-0 flex-1 flex-col overflow-auto">
               <TabsContent value="timeline" className="m-0 p-4 h-full overflow-y-auto">
                 <div className="space-y-4">
                   {JobStatusCardContent && (
@@ -675,7 +700,7 @@ export default function SigningViewerPage() {
                   {!isSigned && <SigningPanel />}
                 </div>
               </TabsContent>
-              <TabsContent value="document" className="m-0 p-0 h-full">
+              <TabsContent value="document" className="m-0 flex h-full min-h-0 flex-1 flex-col p-0 data-[state=inactive]:hidden">
                 <PdfViewer
                   key={`pdf-v${currentVersion.version}`}
                   pdfUrl={pdfUrl}

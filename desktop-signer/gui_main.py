@@ -84,8 +84,8 @@ def _send_to_existing_instance(deeplink: str) -> bool:
     return False
 
 
-from signer.pkcs11_discovery import get_pkcs11_dll
-from signer.cert_selector import list_certs_from_token, CertInfo, get_signer_name
+from signer.pkcs11_discovery import find_pkcs11_dlls
+from signer.cert_selector import list_certs_try_pkcs11_dlls, CertInfo, get_signer_name
 from signer.pades_signer import sign_pdf_sync
 
 # Linear dark palette (zinc-950 bg, zinc-900 cards)
@@ -242,6 +242,7 @@ class SignWorker(QThread):
         cert_info: CertInfo,
         pin: str,
         cert_index: int,
+        lib_path: str,
         slot_no: int = 0,
     ):
         super().__init__()
@@ -251,6 +252,7 @@ class SignWorker(QThread):
         self.cert_info = cert_info
         self.pin = pin
         self.cert_index = cert_index
+        self.lib_path = lib_path
         self.slot_no = slot_no
 
     def run(self):
@@ -273,9 +275,9 @@ class SignWorker(QThread):
                 float(rect.get("h", 0.1)),
             )
 
-            self.log.emit("Đang tìm PKCS#11 driver...")
+            self.log.emit("Đang ký với PKCS#11 đã chọn...")
             self.progress.emit(2, 5)
-            dll_path = get_pkcs11_dll(os.environ.get("PKCS11_DLL"))
+            dll_path = self.lib_path
 
             self.log.emit("Đang tải PDF...")
             self.progress.emit(3, 5)
@@ -385,7 +387,7 @@ class MainWindow(QMainWindow):
         self.job_data: dict | None = None
         self.cert_infos: list[CertInfo] = []
         self.slot_no = 0
-        self.dll_path: Path | None = None
+        self.dll_path: str = ""
         self.sign_worker: SignWorker | None = None
 
         self.setWindowTitle("PDFSignPro Signer")
@@ -677,27 +679,30 @@ class MainWindow(QMainWindow):
         self.doc_public_id.setText(f"ID: {doc.get('publicId', '')}")
         self.placement_label.setText(_format_placement(placement))
 
-        try:
-            self.dll_path = get_pkcs11_dll(os.environ.get("PKCS11_DLL"))
-            self._append_loading_log("PKCS#11 driver found.")
-        except FileNotFoundError as e:
-            QMessageBox.critical(self, "Lỗi", str(e))
+        if not find_pkcs11_dlls():
+            QMessageBox.critical(
+                self,
+                "Lỗi",
+                "Không tìm thấy PKCS#11 DLL. Cài driver token hoặc đặt biến PKCS11_DLL.",
+            )
             return
+        self.dll_path = ""
+        self._append_loading_log("PKCS#11 driver(s) found.")
 
         self.stack.setCurrentIndex(1)
         self.cert_combo.clear()
         self.pin_input.clear()
 
     def _load_certs(self):
-        if not self.dll_path:
+        if not self.job_data:
             return
         pin = self.pin_input.text()
         if not pin:
             QMessageBox.warning(self, "Thiếu PIN", "Vui lòng nhập PIN token trước.")
             return
         try:
-            self.cert_infos, self.slot_no = list_certs_from_token(
-                str(self.dll_path), pin=pin
+            self.cert_infos, self.slot_no, self.dll_path = list_certs_try_pkcs11_dlls(
+                pin, os.environ.get("PKCS11_DLL")
             )
         except RuntimeError as e:
             QMessageBox.critical(self, "Lỗi", str(e))
@@ -740,6 +745,7 @@ class MainWindow(QMainWindow):
             cert_info=self.cert_infos[idx],
             pin=pin,
             cert_index=idx,
+            lib_path=self.dll_path,
             slot_no=self.slot_no,
         )
         self.sign_worker.log.connect(self._append_signing_log)
