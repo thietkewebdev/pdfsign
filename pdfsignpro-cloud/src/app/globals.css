@@ -114,15 +114,35 @@
 }
 
 /**
- * Trang /d/[publicId] — tone xanh đúng Stitch kyso (code.html primary #0047BB).
- * Override --primary cho descendant dùng token Tailwind (bg-primary, border-primary, …).
+ * Trang /d/[publicId] — Stitch kyso (#0047BB), luôn tone sáng.
+ * Khi user bật dark mode globally, .dark đặt --primary-foreground gần đen → chữ đen trên
+ * nút primary. Ghi đè primary-foreground + bộ token sáng để mọi Button shadcn khớp mockup.
  */
 .signing-page-kyso {
+  color-scheme: light;
   --primary: #0047bb;
+  --primary-foreground: #ffffff;
   --signing-kyso-hover: #00358e;
   --signing-kyso-info-bg: #eff6ff;
   --signing-kyso-info-border: #dbeafe;
   --signing-kyso-info-text: #1e40af;
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --popover: #ffffff;
+  --popover-foreground: #0f172a;
+  --secondary: #e8f0fc;
+  --secondary-foreground: #153a66;
+  --muted: #e8eef8;
+  --muted-foreground: #4a6080;
+  --accent: #dbe8fd;
+  --accent-foreground: #0c2d5c;
+  --destructive: oklch(0.55 0.22 27);
+  --destructive-foreground: oklch(0.985 0 0);
+  --border: #cbd5e1;
+  --input: #cbd5e1;
+  --ring: #2563eb;
 }
 /* Glow behind hero illustration (right side) */
 .home-glow-hero {

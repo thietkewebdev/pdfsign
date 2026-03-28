@@ -652,7 +652,10 @@ export default function SigningViewerPage() {
       <p className="text-sm font-semibold text-slate-800">
         Tài liệu đã được ký hoặc đang xem bản đã ký.
       </p>
-      <Button className="w-full rounded-lg" onClick={() => setUploadModalOpen(true)}>
+      <Button
+        className="w-full rounded-lg bg-primary text-primary-foreground shadow-md hover:bg-[var(--signing-kyso-hover)]"
+        onClick={() => setUploadModalOpen(true)}
+      >
         <FilePlus className="size-4" />
         Ký tài liệu mới
       </Button>
@@ -1001,10 +1004,10 @@ export default function SigningViewerPage() {
           ) : (
             <Button
               type="button"
-              className="rounded-2xl px-8 py-5 font-bold"
+              className="rounded-2xl px-8 py-5 text-base font-bold shadow-[0_25px_50px_-12px_rgba(0,71,187,0.35)] bg-primary text-primary-foreground hover:bg-[var(--signing-kyso-hover)]"
               onClick={() => setUploadModalOpen(true)}
             >
-              <FilePlus className="size-4" />
+              <FilePlus className="size-5" />
               Ký tài liệu mới
             </Button>
           )}
