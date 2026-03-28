@@ -49,8 +49,6 @@ interface PdfViewerProps {
   continuousScroll?: boolean;
   /** Khung ô ký (vd. trang /d/ dùng stitch). */
   signatureChrome?: SignatureBoxChrome;
-  stitchSignerName?: string | null;
-  stitchTimeLabel?: string | null;
 }
 
 export function PdfViewer({
@@ -70,8 +68,6 @@ export function PdfViewer({
   sealImageBase64,
   continuousScroll = false,
   signatureChrome = "default",
-  stitchSignerName = null,
-  stitchTimeLabel = null,
 }: PdfViewerProps) {
   void activePageForPlacement;
   const containerRef = useRef<HTMLDivElement>(null);
@@ -360,8 +356,6 @@ export function PdfViewer({
                         onDragStop={handleDragStop(globalIndex)}
                         onResizeStop={handleResizeStop(globalIndex)}
                         chrome={signatureChrome}
-                        stitchSignerName={stitchSignerName}
-                        stitchTimeLabel={stitchTimeLabel}
                       />
                     ))}
                   </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams, useSearchParams, useRouter } from "next/navigation";
-import { useEffect, useState, useRef, useCallback, useMemo } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
@@ -51,7 +51,6 @@ import { SignatureTemplateSelector } from "@/components/signature/SignatureTempl
 import { SignaturePlacementFields } from "@/components/signature/SignaturePlacementFields";
 import { CreateContractModal } from "@/components/contract/CreateContractModal";
 import { getPdfViewerUrl } from "@/lib/pdf-view-url";
-import { formatStitchPreviewClock } from "@/lib/format-stitch-preview-time";
 import { SigningFlowGuideDialog } from "@/components/signing";
 import { cn } from "@/lib/utils";
 
@@ -476,28 +475,6 @@ export default function SigningViewerPage() {
   const showCreatedHint =
     jobState?.status === "CREATED" && pollElapsed >= CREATED_HINT_AFTER_MS;
 
-  const stitchPreviewDisplayName = useMemo(() => {
-    const n = session?.user?.name?.trim();
-    if (n) return n;
-    const email = session?.user?.email?.trim();
-    if (email) {
-      const at = email.indexOf("@");
-      return at > 0 ? email.slice(0, at) : email;
-    }
-    return null;
-  }, [session]);
-
-  const [stitchPreviewTimeLabel, setStitchPreviewTimeLabel] = useState(() =>
-    formatStitchPreviewClock(new Date())
-  );
-  useEffect(() => {
-    const tick = () =>
-      setStitchPreviewTimeLabel(formatStitchPreviewClock(new Date()));
-    tick();
-    const id = window.setInterval(tick, 30_000);
-    return () => window.clearInterval(id);
-  }, []);
-
   if (loading) {
     return <DocumentPageSkeleton />;
   }
@@ -800,8 +777,6 @@ export default function SigningViewerPage() {
       sealImageBase64={sealImageBase64}
       continuousScroll
       signatureChrome="stitch"
-      stitchSignerName={stitchPreviewDisplayName}
-      stitchTimeLabel={stitchPreviewTimeLabel}
     />
   );
 

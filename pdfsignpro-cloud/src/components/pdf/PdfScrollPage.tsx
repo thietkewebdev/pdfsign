@@ -26,8 +26,6 @@ interface PdfScrollPageProps {
   selectedTemplateId: string;
   sealImageBase64?: string | null;
   signatureChrome?: SignatureBoxChrome;
-  stitchSignerName?: string | null;
-  stitchTimeLabel?: string | null;
 }
 
 export function PdfScrollPage({
@@ -41,8 +39,6 @@ export function PdfScrollPage({
   selectedTemplateId,
   sealImageBase64,
   signatureChrome = "default",
-  stitchSignerName = null,
-  stitchTimeLabel = null,
 }: PdfScrollPageProps) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -178,8 +174,6 @@ export function PdfScrollPage({
                 onDragStop={handleDragStop(globalIndex)}
                 onResizeStop={handleResizeStop(globalIndex)}
                 chrome={signatureChrome}
-                stitchSignerName={stitchSignerName}
-                stitchTimeLabel={stitchTimeLabel}
               />
             ))}
           </div>

@@ -8,31 +8,20 @@ import { StampValidPreview } from "./StampValidPreview";
 
 export type SignatureBoxChrome = "default" | "stitch";
 
-const STITCH_FALLBACK_NAME = "Đăng nhập để hiện tên";
-
 /** Xem trước kiểu Stitch kyso (chữ ký số USB Token + Digitally Signed By). */
-function StitchValidPreview({
-  signerName,
-  timeLabel,
-}: {
-  signerName: string;
-  timeLabel: string;
-}) {
+function StitchValidPreview() {
   return (
     <div className="flex flex-col items-center gap-1 px-1 text-center">
       <p className="text-[9px] font-bold uppercase tracking-tighter text-slate-400 sm:text-[10px]">
         Digitally Signed By
       </p>
-      <p
-        className="max-w-full truncate text-sm font-black leading-tight tracking-tight text-primary sm:text-base"
-        title={signerName}
-      >
-        {signerName}
+      <p className="text-sm font-black leading-tight tracking-tight text-primary sm:text-base">
+        NGUYỄN VĂN A
       </p>
-      <div className="flex max-w-full items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5">
+      <div className="flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5">
         <History className="size-3 shrink-0 text-primary" aria-hidden />
         <span className="text-[9px] font-mono font-bold text-primary tabular-nums">
-          {timeLabel}
+          14/03/2026 09:33:05
         </span>
       </div>
     </div>
@@ -51,10 +40,6 @@ interface SignatureBoxProps {
   isActive?: boolean;
   /** Trang ký /d/: khung giống Stitch (viền xanh, banner, bóng). */
   chrome?: SignatureBoxChrome;
-  /** Tên hiển thị trong preview Stitch (session / tài khoản). */
-  stitchSignerName?: string | null;
-  /** Chuỗi giờ dd/MM/yyyy HH:mm:ss (VN) cho preview Stitch. */
-  stitchTimeLabel?: string | null;
 }
 
 function ClassicPreview({ className }: { className?: string }) {
@@ -218,8 +203,6 @@ export function SignatureBox({
   onResizeStop,
   isActive = true,
   chrome = "default",
-  stitchSignerName,
-  stitchTimeLabel,
 }: SignatureBoxProps) {
   const x = placement.xPct * pageWidth;
   const y = placement.yPct * pageHeight;
@@ -228,14 +211,9 @@ export function SignatureBox({
 
   const isStitch = chrome === "stitch";
 
-  const stitchName =
-    (stitchSignerName?.trim() ? stitchSignerName.trim() : null) ??
-    STITCH_FALLBACK_NAME;
-  const stitchTime = stitchTimeLabel?.trim() || "—";
-
   const stitchBody =
     templateId === "valid" ? (
-      <StitchValidPreview signerName={stitchName} timeLabel={stitchTime} />
+      <StitchValidPreview />
     ) : templateId === "seal" ? (
       <SealPreview sealImageBase64={sealImageBase64} className="max-h-full" />
     ) : (
