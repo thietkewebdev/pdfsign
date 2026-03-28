@@ -103,6 +103,15 @@
 .ambient-shadow-stitch {
   box-shadow: 0 12px 40px rgba(0, 59, 147, 0.08);
 }
+
+/* Trang ký PDF (Stitch kyso) */
+.signing-pdf-canvas {
+  background-image: radial-gradient(#cbd5e1 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+.signing-document-shadow {
+  box-shadow: 0 20px 50px rgba(0, 59, 147, 0.08);
+}
 /* Glow behind hero illustration (right side) */
 .home-glow-hero {
   position: absolute;

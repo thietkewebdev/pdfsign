@@ -12,8 +12,17 @@ const CredentialsSchema = z.object({
   password: z.string().min(1),
 });
 
+/** Auth.js accepts AUTH_SECRET; NEXTAUTH_SECRET kept for compatibility. Dev fallback avoids 500 on every API that calls auth(). */
+const authSecret =
+  process.env.AUTH_SECRET ??
+  process.env.NEXTAUTH_SECRET ??
+  (process.env.NODE_ENV === "development"
+    ? "dev-only-auth-secret-change-in-production-min-32chars"
+    : undefined);
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
   trustHost: true,
+  secret: authSecret,
   adapter: PrismaAdapter(prisma),
   session: {
     strategy: "jwt",

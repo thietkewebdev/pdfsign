@@ -1,0 +1,303 @@
+<!DOCTYPE html><html class="light" lang="vi"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#0047BB", // Professional Blue for SecureSign Pro
+                        "primary-hover": "#00358E",
+                        "secondary-container": "#e4e2e1",
+                        "on-background": "#1b1c1c",
+                        "surface-container-low": "#f8fafc",
+                        "surface": "#ffffff",
+                        "background": "#f1f5f9",
+                        "outline-variant": "#cbd5e1",
+                    },
+                    fontFamily: {
+                        "headline": ["Inter"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    },
+                    borderRadius: {"DEFAULT": "0.375rem", "lg": "0.5rem", "xl": "1rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Inter', sans-serif; }
+        .pdf-canvas { background-image: radial-gradient(#cbd5e1 1px, transparent 1px); background-size: 24px 24px; }
+        .document-shadow { box-shadow: 0 20px 50px rgba(0, 71, 187, 0.08); }
+        .active-nav-item { border-left: 4px solid #0047BB; background: linear-gradient(90deg, rgba(0, 71, 187, 0.05) 0%, transparent 100%); }
+    </style>
+</head>
+<body class="bg-background text-slate-900 h-screen flex flex-col overflow-hidden">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 bg-white border-b border-slate-200 flex justify-between items-center px-8 h-16">
+<div class="flex items-center gap-6">
+<div class="flex items-center gap-2">
+<div class="w-8 h-8 bg-primary rounded flex items-center justify-center">
+<span class="material-symbols-outlined text-white text-xl" data-icon="security" style="">security</span>
+</div>
+<span class="text-xl font-extrabold tracking-tight text-primary" style="">SecureSign Pro</span>
+</div>
+<div class="h-6 w-px bg-slate-200 mx-2"></div>
+<div class="flex items-center gap-8">
+<div class="flex items-center gap-2 text-slate-400">
+<span class="w-6 h-6 rounded-full border border-slate-300 flex items-center justify-center text-xs font-bold" style="">1</span>
+<span class="text-xs font-bold uppercase tracking-wider" style="">Tải lên</span>
+</div>
+<div class="flex items-center gap-2 text-primary border-b-2 border-primary pb-1">
+<span class="w-6 h-6 rounded-full bg-primary text-white flex items-center justify-center text-xs font-bold" style="">2</span>
+<span class="text-xs font-bold uppercase tracking-wider" style="">Thiết lập &amp; Ký</span>
+</div>
+<div class="flex items-center gap-2 text-slate-400">
+<span class="w-6 h-6 rounded-full border border-slate-300 flex items-center justify-center text-xs font-bold" style="">3</span>
+<span class="text-xs font-bold uppercase tracking-wider" style="">Hoàn tất</span>
+</div>
+</div>
+</div>
+<nav class="flex gap-8 items-center text-sm font-semibold">
+<a class="text-slate-600 hover:text-primary transition-colors" href="#" style="">Tài liệu của tôi</a>
+<a class="text-slate-600 hover:text-primary transition-colors" href="#" style="">Mẫu văn bản</a>
+<div class="flex items-center gap-4 ml-4">
+<button class="relative p-2 rounded-full hover:bg-slate-100 transition-colors" style="">
+<span class="material-symbols-outlined text-slate-600" data-icon="notifications" style="">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
+</button>
+<div class="flex items-center gap-3 pl-4 border-l border-slate-200">
+<div class="text-right">
+<p class="text-xs font-bold leading-none" style="">Phòng Kế toán</p>
+<p class="text-[10px] text-slate-500" style="">KTV. Nguyễn Văn A</p>
+</div>
+<div class="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center border border-slate-200">
+<span class="material-symbols-outlined text-slate-600" data-icon="person" style="">person</span>
+</div>
+</div>
+</div>
+</nav>
+</header>
+<main class="flex flex-1 pt-16 pb-24 overflow-hidden">
+<!-- Sidebar Left: Configuration -->
+<aside class="h-full w-72 bg-white flex flex-col border-r border-slate-200 shadow-sm z-10">
+<div class="p-6 space-y-8">
+<!-- Signature Style -->
+<div>
+<label class="text-[11px] font-bold uppercase tracking-widest text-slate-400 block mb-4" style="">Kiểu chữ ký</label>
+<div class="grid grid-cols-1 gap-3">
+<button class="flex items-center gap-3 p-4 rounded-xl border-2 border-primary bg-blue-50/50 text-primary transition-all" style="">
+<span class="material-symbols-outlined text-2xl" data-icon="border_color" style="">border_color</span>
+<div class="text-left">
+<p class="text-sm font-bold" style="">Chữ ký số mặc định</p>
+<p class="text-[10px] opacity-70" style="">Mặc định theo chứng thư</p>
+</div>
+</button>
+<button class="flex items-center gap-3 p-4 rounded-xl border border-slate-200 hover:border-primary/50 hover:bg-slate-50 transition-all group" style="">
+<span class="material-symbols-outlined text-2xl text-slate-400 group-hover:text-primary" data-icon="approval" style="">approval</span>
+<div class="text-left">
+<p class="text-sm font-bold text-slate-700" style="">Dấu công ty</p>
+<p class="text-[10px] text-slate-400" style="">Sử dụng mẫu dấu pháp nhân</p>
+</div>
+</button>
+</div>
+</div>
+<!-- Page Selection -->
+<div>
+<label class="text-[11px] font-bold uppercase tracking-widest text-slate-400 block mb-4" style="">Chọn trang ký</label>
+<div class="bg-slate-100 p-1 rounded-lg flex mb-3">
+<button class="flex-1 py-2 text-xs font-bold bg-white shadow-sm rounded-md text-primary" style="">Trang cuối</button>
+<button class="flex-1 py-2 text-xs font-bold text-slate-500 hover:text-slate-700" style="">Tùy chọn</button>
+</div>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg" data-icon="description" style="">description</span>
+<input class="w-full pl-10 pr-4 py-2.5 text-sm border-slate-200 rounded-lg focus:ring-primary focus:border-primary" placeholder="Ví dụ: 1, 3, 5-10" type="text" value="Trang 12 (Trang cuối)">
+</div>
+</div>
+<!-- More Options -->
+<div class="pt-6 border-t border-slate-100">
+<button class="w-full flex items-center justify-center gap-2 py-3 bg-slate-900 text-white rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-black transition-all" style="">
+<span class="material-symbols-outlined text-lg" data-icon="settings_suggest" style="">settings_suggest</span>
+                    Cấu hình nâng cao
+                </button>
+</div>
+</div>
+<div class="mt-auto p-6 bg-slate-50 border-t border-slate-200">
+<div class="flex items-start gap-3">
+<span class="material-symbols-outlined text-green-600" data-icon="verified" style="font-variation-settings: &quot;FILL&quot; 1;">verified</span>
+<div>
+<p class="text-xs font-bold text-slate-900 leading-tight" style="">Môi trường bảo mật</p>
+<p class="text-[10px] text-slate-500 mt-1" style="">Kết nối SSL 256-bit mã hóa toàn bộ dữ liệu ký.</p>
+</div>
+</div>
+</div>
+</aside>
+<!-- Center Canvas: PDF Viewer -->
+<section class="flex-1 overflow-auto relative p-12 pdf-canvas flex justify-center items-start">
+<div class="document-shadow bg-white w-full max-w-4xl aspect-[1/1.414] relative overflow-hidden flex flex-col p-16 origin-top">
+<!-- PDF Content -->
+<div class="space-y-8">
+<div class="flex justify-between items-start border-b-4 border-slate-900 pb-6">
+<div class="space-y-2">
+<h1 class="text-3xl font-black uppercase tracking-tighter text-slate-900 leading-none" style="">Hợp đồng cung cấp dịch vụ</h1>
+<p class="text-sm text-slate-500 font-mono font-medium" style="">SỐ HIỆU: 2024/HĐ-SS-0812-PRO</p>
+</div>
+<div class="w-16 h-16 bg-slate-100 flex items-center justify-center rounded-lg border border-slate-200">
+<span class="material-symbols-outlined text-slate-300 text-3xl" data-icon="corporate_fare" style="">corporate_fare</span>
+</div>
+</div>
+<div class="space-y-6 text-slate-300">
+<div class="h-4 w-full bg-slate-100 rounded"></div>
+<div class="h-4 w-full bg-slate-100 rounded"></div>
+<div class="h-4 w-3/4 bg-slate-100 rounded"></div>
+<div class="h-4 w-full bg-slate-100 rounded"></div>
+<div class="h-4 w-1/2 bg-slate-100 rounded"></div>
+</div>
+<div class="grid grid-cols-2 gap-20 mt-32">
+<div class="space-y-4">
+<p class="text-xs font-black uppercase tracking-widest text-slate-900 border-b border-slate-200 pb-2" style="">BÊN A (KHÁCH HÀNG)</p>
+<div class="h-32 border-2 border-dashed border-slate-200 rounded-xl flex flex-col items-center justify-center bg-slate-50/50">
+<span class="material-symbols-outlined text-slate-300 mb-2" data-icon="ink_pen" style="">ink_pen</span>
+<span class="text-[11px] font-bold text-slate-400 italic" style="">Ký sau khi hoàn tất</span>
+</div>
+</div>
+<div class="space-y-4 relative">
+<p class="text-xs font-black uppercase tracking-widest text-slate-900 border-b border-slate-200 pb-2" style="">BÊN B (NHÀ CUNG CẤP)</p>
+<!-- Signature UI -->
+<div class="h-36 bg-white border-2 border-primary ring-8 ring-primary/5 rounded-xl flex flex-col items-center justify-center shadow-2xl relative cursor-move group transition-transform hover:scale-[1.02]">
+<div class="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-primary text-white text-[9px] px-3 py-1 rounded-full font-black uppercase tracking-widest shadow-lg" style="">Chữ ký số USB Token</div>
+<div class="z-10 text-center space-y-1">
+<p class="text-xs font-bold text-slate-400 uppercase tracking-tighter mb-1" style="">Digitally Signed By</p>
+<p class="text-lg font-black text-primary leading-tight tracking-tight" style="">NGUYỄN VĂN A</p>
+<div class="flex items-center justify-center gap-1.5 py-1 px-3 bg-blue-50 rounded-full mx-auto w-fit">
+<span class="material-symbols-outlined text-primary text-sm" data-icon="history" style="">history</span>
+<p class="text-[10px] text-primary font-bold font-mono" style="">2024-12-12 14:30:05</p>
+</div>
+</div>
+<div class="absolute bottom-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center hover:bg-red-50 hover:text-red-600 transition-colors shadow-sm" style=""><span class="material-symbols-outlined text-sm" data-icon="delete" style="">delete</span></button>
+<button class="w-7 h-7 rounded-lg bg-primary flex items-center justify-center text-white shadow-md shadow-primary/30" style=""><span class="material-symbols-outlined text-sm" data-icon="open_with" style="">open_with</span></button>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Page Control -->
+<div class="absolute bottom-10 left-1/2 -translate-x-1/2 px-6 py-3 bg-slate-900/95 backdrop-blur-md text-white text-xs font-bold rounded-full flex items-center gap-6 shadow-2xl ring-1 ring-white/20">
+<button class="hover:text-primary transition-colors" style=""><span class="material-symbols-outlined text-lg" data-icon="first_page" style="">first_page</span></button>
+<div class="flex items-center gap-3">
+<button class="w-8 h-8 rounded-full hover:bg-white/10 flex items-center justify-center" style=""><span class="material-symbols-outlined" data-icon="chevron_left" style="">chevron_left</span></button>
+<span class="tracking-widest" style="">TRANG 12 / 12</span>
+<button class="w-8 h-8 rounded-full hover:bg-white/10 flex items-center justify-center" style=""><span class="material-symbols-outlined" data-icon="chevron_right" style="">chevron_right</span></button>
+</div>
+<button class="hover:text-primary transition-colors" style=""><span class="material-symbols-outlined text-lg" data-icon="last_page" style="">last_page</span></button>
+</div>
+</div>
+</section>
+<!-- Sidebar Right: Certificate -->
+<aside class="w-80 bg-white flex flex-col border-l border-slate-200 shadow-sm overflow-y-auto">
+<div class="p-6">
+<div class="flex items-center justify-between mb-8">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary text-2xl" data-icon="verified_user" style="">verified_user</span>
+<h3 class="font-black text-sm tracking-tight text-slate-900 uppercase" style="">Chứng thư số</h3>
+</div>
+<span class="px-2 py-1 bg-green-100 text-green-700 text-[9px] font-black rounded uppercase tracking-widest border border-green-200" style="">Hợp lệ</span>
+</div>
+<div class="space-y-6">
+<!-- Certificate Card -->
+<div class="bg-gradient-to-br from-slate-50 to-white rounded-2xl p-5 border border-slate-200 relative overflow-hidden">
+<div class="absolute top-0 right-0 p-3 opacity-5">
+<span class="material-symbols-outlined text-6xl" data-icon="workspace_premium" style="">workspace_premium</span>
+</div>
+<div class="space-y-5 relative z-10">
+<div>
+<p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1" style="">Chủ sở hữu</p>
+<p class="text-base font-black text-slate-900" style="">NGUYỄN VĂN A</p>
+<p class="text-[10px] text-slate-500 font-medium" style="">MST: 0102030405</p>
+</div>
+<div>
+<p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1" style="">Nhà cung cấp (CA)</p>
+<div class="flex items-center gap-2">
+<div class="w-5 h-5 rounded bg-primary flex items-center justify-center text-[9px] text-white font-black" style="">VN</div>
+<p class="text-sm font-bold text-slate-700" style="">VNPT-CA</p>
+</div>
+</div>
+<div class="grid grid-cols-1 gap-4 py-4 border-y border-slate-100">
+<div class="flex justify-between items-center">
+<p class="text-[10px] font-black text-slate-400 uppercase tracking-widest" style="">Hiệu lực đến</p>
+<p class="text-xs font-bold text-slate-900" style="">12/12/2026</p>
+</div>
+<div>
+<p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1" style="">Số Serial (SN)</p>
+<p class="text-[11px] font-mono text-slate-600 bg-white p-2.5 rounded-lg border border-slate-200/60 leading-tight" style="">5404 02D1 16A4 991F 22C4</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Connectivity Status -->
+<div class="space-y-3">
+<div class="flex items-center justify-between p-4 bg-green-50 rounded-xl border border-green-200 group transition-all">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-green-600" data-icon="usb" style="font-variation-settings: &quot;FILL&quot; 1;">usb</span>
+<span class="text-xs font-bold text-green-800" style="">Token đã sẵn sàng</span>
+</div>
+<span class="material-symbols-outlined text-green-600 animate-pulse" data-icon="check_circle" style="font-variation-settings: &quot;FILL&quot; 1;">check_circle</span>
+</div>
+<button class="w-full flex items-center justify-between p-3.5 bg-white border border-slate-200 rounded-xl hover:border-primary hover:bg-blue-50/30 transition-all text-xs font-bold text-slate-600" style="">
+<span class="" style="">Thay đổi thiết bị ký</span>
+<span class="material-symbols-outlined text-lg" data-icon="sync" style="">sync</span>
+</button>
+</div>
+<!-- Helper Notice -->
+<div class="p-4 bg-blue-50 rounded-xl border border-blue-100">
+<div class="flex gap-3">
+<span class="material-symbols-outlined text-primary text-xl" data-icon="info" style="">info</span>
+<p class="text-[11px] font-medium text-blue-800 leading-relaxed" style="">
+                            Quý khách vui lòng kiểm tra kỹ nội dung văn bản trước khi thực hiện thao tác ký số. Chữ ký số có giá trị pháp lý tương đương chữ ký tay và con dấu.
+                        </p>
+</div>
+</div>
+</div>
+</div>
+</aside>
+</main>
+<!-- BottomBar: Primary Actions -->
+<footer class="fixed bottom-0 left-0 w-full bg-white h-24 px-8 z-50 border-t border-slate-200 flex justify-between items-center shadow-[0_-10px_40px_rgba(0,0,0,0.05)]">
+<div class="flex items-center gap-2">
+<button class="flex flex-col items-center justify-center w-24 h-16 text-slate-400 hover:text-primary transition-all" style="">
+<span class="material-symbols-outlined text-2xl" data-icon="keyboard_backspace" style="">keyboard_backspace</span>
+<span class="text-[10px] font-bold uppercase tracking-widest mt-1" style="">Quay lại</span>
+</button>
+<div class="h-8 w-px bg-slate-100 mx-2"></div>
+<button class="flex flex-col items-center justify-center w-24 h-16 text-slate-400 hover:text-red-500 transition-all" style="">
+<span class="material-symbols-outlined text-2xl" data-icon="cancel" style="">cancel</span>
+<span class="text-[10px] font-bold uppercase tracking-widest mt-1" style="">Hủy bỏ</span>
+</button>
+</div>
+<div class="flex items-center gap-6">
+<div class="text-right hidden sm:block">
+<p class="text-xs font-bold text-slate-500 uppercase tracking-widest" style="">Đang thực hiện ký</p>
+<p class="text-sm font-black text-primary" style="">Hợp đồng cung cấp dịch vụ.pdf</p>
+</div>
+<!-- MAIN SIGN ACTION - Prominent & Large -->
+<button class="bg-primary hover:bg-primary-hover text-white px-10 py-5 rounded-2xl shadow-2xl shadow-primary/40 flex items-center gap-4 transition-all active:scale-95 group" style="">
+<div class="p-2 bg-white/20 rounded-lg group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-2xl" data-icon="usb" style="font-variation-settings: &quot;FILL&quot; 1;">usb</span>
+</div>
+<div class="text-left">
+<span class="block text-[10px] font-black uppercase tracking-[0.2em] opacity-80 leading-none mb-1" style="">Xác nhận thực hiện</span>
+<span class="block font-black text-lg uppercase leading-none" style="">Ký với USB Token</span>
+</div>
+<span class="material-symbols-outlined text-3xl ml-2" data-icon="chevron_right" style="">chevron_right</span>
+</button>
+</div>
+</footer>
+</body></html>

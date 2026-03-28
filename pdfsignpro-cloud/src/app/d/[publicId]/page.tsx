@@ -1,11 +1,23 @@
 "use client";
 
-import { useParams, useSearchParams } from "next/navigation";
+import { useParams, useSearchParams, useRouter } from "next/navigation";
 import { useEffect, useState, useRef, useCallback } from "react";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 import { toast } from "sonner";
-import { FilePlus, PenLine, Download, Users } from "lucide-react";
-import { ThemeToggle } from "@/components/theme-toggle";
+import {
+  FilePlus,
+  PenLine,
+  Download,
+  Users,
+  Shield,
+  CheckCircle2,
+  Usb,
+  User,
+  Settings2,
+  ArrowLeft,
+  FileText,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -36,6 +48,7 @@ import { SignatureTemplateSelector } from "@/components/signature/SignatureTempl
 import { SignaturePlacementFields } from "@/components/signature/SignaturePlacementFields";
 import { CreateContractModal } from "@/components/contract/CreateContractModal";
 import { getPdfViewerUrl } from "@/lib/pdf-view-url";
+import { cn } from "@/lib/utils";
 
 const POLL_INTERVAL_MS = 2000;
 const POLL_TIMEOUT_MS = 5 * 60 * 1000;
@@ -115,6 +128,8 @@ function StatusBadge({
 }
 
 export default function SigningViewerPage() {
+  const router = useRouter();
+  const { data: session } = useSession();
   const params = useParams();
   const publicId = params.publicId as string;
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
@@ -142,6 +157,8 @@ export default function SigningViewerPage() {
   const [sealImageBase64, setSealImageBase64] = useState<string | null>(null);
   const [contractModalOpen, setContractModalOpen] = useState(false);
   const [mobileDocTab, setMobileDocTab] = useState("document");
+  const [pageMode, setPageMode] = useState<"last" | "custom">("last");
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const searchParams = useSearchParams();
 
   const {
@@ -387,6 +404,27 @@ export default function SigningViewerPage() {
     [updatePlacement, goToPdfPage]
   );
 
+  const pageForNewBox = useCallback(() => {
+    if (pageMode === "last" && totalPages > 0) return totalPages;
+    if (currentPage >= 1 && currentPage <= totalPages) return currentPage;
+    return undefined;
+  }, [pageMode, totalPages, currentPage]);
+
+  const activateLastPageMode = useCallback(() => {
+    setPageMode("last");
+    if (totalPages > 0 && placements.length > 0) {
+      const idx = Math.min(placementEditorIdx, placements.length - 1);
+      updatePlacement(idx, { page: totalPages });
+      goToPdfPage(totalPages);
+    }
+  }, [
+    totalPages,
+    placements.length,
+    placementEditorIdx,
+    updatePlacement,
+    goToPdfPage,
+  ]);
+
   const activePlacement = placements[safePlacementEditorIdx];
   const activePage = activePlacement?.page ?? currentPage;
   const pollElapsed =
@@ -419,89 +457,8 @@ export default function SigningViewerPage() {
   // Download URL: use download endpoint to force download (Chrome/Edge)
   const downloadUrl = `/api/documents/${publicId}/download?v=${currentVersion.version}`;
 
-  const SigningPanel = () => (
-    <div className="rounded-lg border border-border bg-card p-4 space-y-4 shadow-sm">
-      <h3 className="text-sm font-semibold text-foreground">
-        Chữ ký số
-      </h3>
-      <SignatureTemplateSelector
-        templates={SIGNATURE_TEMPLATES}
-        selectedId={selectedTemplateId}
-        onSelect={(id) => {
-          setSelectedTemplateId(id);
-          if (placements.length === 0 && totalPages > 0) {
-            addSignatureBox(
-              currentPage >= 1 && currentPage <= totalPages
-                ? currentPage
-                : undefined
-            );
-          }
-        }}
-        sealImageBase64={sealImageBase64}
-        onSealImageChange={setSealImageBase64}
-      />
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() =>
-          addSignatureBox(
-            currentPage >= 1 && currentPage <= totalPages
-              ? currentPage
-              : undefined
-          )
-        }
-        className="w-full rounded-md"
-      >
-        Thêm ô chữ ký (trang đang xem)
-      </Button>
-      <div className="flex items-center justify-between gap-2">
-        <Label htmlFor="default-placement">Vị trí mặc định</Label>
-        <button
-          id="default-placement"
-          type="button"
-          role="switch"
-          aria-checked={defaultPlacementEnabled}
-          onClick={toggleDefaultPlacement}
-          className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border border-border transition-colors ${
-            defaultPlacementEnabled ? "bg-primary" : "bg-muted"
-          }`}
-        >
-          <span
-            className={`${
-              defaultPlacementEnabled ? "translate-x-4" : "translate-x-1"
-            } inline-block size-3.5 rounded-full bg-background transition-transform`}
-          />
-        </button>
-      </div>
-      <SignaturePlacementFields
-        placements={placements}
-        totalPages={totalPages}
-        selectedIdx={safePlacementEditorIdx}
-        onSelectIdx={setPlacementEditorIdx}
-        onPlacementPageChange={onPlacementPageChange}
-        lang="vi"
-      />
-      <Button
-        onClick={handleSign}
-        disabled={placements.length === 0 || !!jobState}
-        size="lg"
-        className="h-12 w-full rounded-xl border border-indigo-500/40 bg-indigo-600 text-base font-semibold text-white shadow-md shadow-indigo-950/25 transition-all hover:bg-indigo-500 hover:shadow-lg hover:shadow-indigo-900/35 focus-visible:ring-2 focus-visible:ring-indigo-300/60 disabled:opacity-50 disabled:shadow-none dark:border-indigo-400/30 dark:bg-indigo-500 dark:hover:bg-indigo-400"
-      >
-        <PenLine className="size-5 shrink-0" />
-        Ký số
-      </Button>
-      <Button
-        variant="outline"
-        onClick={() => setContractModalOpen(true)}
-        className="w-full rounded-md"
-      >
-        <Users className="size-4" />
-        Gửi ký nhiều bên
-      </Button>
-    </div>
-  );
-
   const isSigned = currentVersion.version >= 2 || jobState?.status === "COMPLETED";
+  const signingFlowComplete = isSigned;
 
   const JobStatusCardContent = jobState ? (
     <JobStatusCard
@@ -537,127 +494,387 @@ export default function SigningViewerPage() {
     />
   ) : null;
 
-  return (
-    <div className="flex h-[calc(100vh-3.5rem)] min-h-0 flex-col">
-      <div className="flex items-center justify-between gap-4 border-b border-border px-5 py-2.5 bg-background/95">
-        <div className="flex items-center gap-3 min-w-0">
-          <Link
-            href="/"
-            className="shrink-0 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-          >
-            PDFSignPro Cloud
-          </Link>
-          <span className="text-muted-foreground/50">/</span>
-          <h2 className="truncate text-[15px] font-medium text-foreground">
-            {doc.title}
-          </h2>
-          <Badge variant="outline" className="shrink-0 text-[11px] font-medium px-2 py-0 rounded-md">
-            v{currentVersion.version}
-          </Badge>
-          <StatusBadge
-            status={
-              jobState?.status === "CREATED"
-                ? "pending"
-                : currentVersion.version >= 2
-                  ? "signed"
-                  : "unsigned"
-            }
-            signedAt={data.signInfo?.signingTime}
-          />
-        </div>
-        <div className="shrink-0">
-          <ThemeToggle />
-        </div>
-      </div>
+  const handleFooterBack = () => {
+    if (typeof window !== "undefined" && window.history.length > 1) router.back();
+    else router.push("/");
+  };
 
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        <div className="hidden min-h-0 flex-1 lg:grid lg:h-full lg:min-h-0 lg:grid-cols-[320px_1fr_280px]">
-          <div className="flex min-h-0 flex-col overflow-y-auto border-r border-border p-4">
-            <div className="space-y-4 pr-4">
-              {JobStatusCardContent && (
-                <div className="sticky top-4 z-10 -mt-1 pt-1 bg-background/95 backdrop-blur-sm rounded-lg">
-                  <h3 className="text-sm font-semibold text-foreground mb-3">
-                    Trạng thái ký
-                  </h3>
-                  {JobStatusCardContent}
-                </div>
-              )}
-              {data.signInfo && (
-                <SignatureInfoPanel signInfo={data.signInfo} />
-              )}
-              {isSigned && !jobState && (
-                <Button
-                  size="sm"
-                  className="w-full rounded-md"
-                  onClick={() => setUploadModalOpen(true)}
-                >
-                  <FilePlus className="size-4" />
-                  Ký tài liệu mới
-                </Button>
-              )}
-              {!isSigned && <SigningPanel />}
-            </div>
-          </div>
-          <div className="flex min-h-0 flex-col overflow-hidden">
-            <PdfViewer
-              key={`pdf-v${currentVersion.version}`}
-              pdfUrl={pdfUrl}
-              currentPage={currentPage}
-              onPageChange={setCurrentPage}
-              scale={scale}
-              onScaleChange={setScale}
-              totalPages={totalPages}
-              onTotalPagesChange={handleTotalPagesChange}
-              placements={placements}
-              onPlacementUpdate={handlePlacementUpdate}
-              activePageForPlacement={activePage}
-              readOnly={isSigned}
-              selectedTemplateId={selectedTemplateId}
-              sealImageBase64={sealImageBase64}
-              continuousScroll
-              toolbarActions={{
-                downloadUrl,
-                documentTitle: doc.title ?? "document.pdf",
-                shareLink: typeof window !== "undefined" ? `${window.location.origin}/d/${publicId}` : "",
-                onCopyShare: copyDocumentLink,
-              }}
+  const handleFooterCancel = () => {
+    if (jobState) resetJobState();
+    router.push("/dashboard");
+  };
+
+  const pageThumbnailButtons = Array.from(
+    { length: Math.max(totalPages, 1) },
+    (_, i) => (
+      <button
+        key={i}
+        type="button"
+        onClick={() => goToPdfPage(i + 1)}
+        className={cn(
+          "flex w-full items-center gap-3 rounded-lg border p-2 text-left transition-all duration-150",
+          currentPage === i + 1
+            ? "border-primary bg-primary/10 ring-1 ring-primary/20"
+            : "border-slate-200 hover:border-slate-300 hover:bg-slate-50"
+        )}
+      >
+        <div className="flex size-12 shrink-0 items-center justify-center rounded-md bg-slate-100 text-xs font-medium text-slate-500">
+          {i + 1}
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-slate-800">Trang {i + 1}</span>
+          {totalPages > 0 && i + 1 === totalPages && (
+            <span className="rounded-md bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-800">
+              Trang cuối
+            </span>
+          )}
+        </div>
+      </button>
+    )
+  );
+
+  const signingLeftConfig = !isSigned ? (
+    <>
+      <SignatureTemplateSelector
+        variant="stitch"
+        templates={SIGNATURE_TEMPLATES}
+        selectedId={selectedTemplateId}
+        onSelect={(id) => {
+          setSelectedTemplateId(id);
+          if (placements.length === 0 && totalPages > 0) {
+            addSignatureBox(pageForNewBox());
+          }
+        }}
+        sealImageBase64={sealImageBase64}
+        onSealImageChange={setSealImageBase64}
+      />
+      <div>
+        <label className="mb-4 block text-[11px] font-bold uppercase tracking-widest text-slate-400">
+          Chọn trang ký
+        </label>
+        <div className="mb-3 flex rounded-lg bg-slate-100 p-1">
+          <button
+            type="button"
+            onClick={activateLastPageMode}
+            className={cn(
+              "flex-1 rounded-md py-2 text-xs font-bold transition-colors",
+              pageMode === "last"
+                ? "bg-white text-primary shadow-sm"
+                : "text-slate-500 hover:text-slate-700"
+            )}
+          >
+            Trang cuối
+          </button>
+          <button
+            type="button"
+            onClick={() => setPageMode("custom")}
+            className={cn(
+              "flex-1 rounded-md py-2 text-xs font-bold transition-colors",
+              pageMode === "custom"
+                ? "bg-white text-primary shadow-sm"
+                : "text-slate-500 hover:text-slate-700"
+            )}
+          >
+            Tùy chọn
+          </button>
+        </div>
+        {pageMode === "last" ? (
+          <div className="relative">
+            <FileText className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+            <input
+              readOnly
+              className="w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm text-slate-700"
+              value={
+                totalPages > 0
+                  ? `Trang ${totalPages} (Trang cuối)`
+                  : "Đang tải số trang..."
+              }
             />
           </div>
-          <div className="border-l border-border p-4 overflow-y-auto flex flex-col min-h-0">
-            <div className="space-y-4 pr-2">
-              <div>
-                <h3 className="text-sm font-semibold text-foreground mb-3">
-                  Trang
-                </h3>
-                <div className="space-y-2">
-                  {Array.from({ length: Math.max(totalPages, 1) }, (_, i) => (
-                    <button
-                      key={i}
-                      type="button"
-                      onClick={() => goToPdfPage(i + 1)}
-                      className={`flex w-full items-center gap-3 rounded-md border p-2 text-left transition-all duration-150 ${
-                        currentPage === i + 1
-                          ? "border-primary bg-primary/10 ring-1 ring-primary/20"
-                          : "border-border hover:border-muted-foreground/30 hover:bg-accent/50"
-                      }`}
-                    >
-                      <div className="size-12 shrink-0 rounded-md bg-muted flex items-center justify-center text-xs font-medium text-muted-foreground">
-                        {i + 1}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm">Trang {i + 1}</span>
-                        {totalPages > 0 && i + 1 === totalPages && (
-                          <span className="rounded-md bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
-                            Trang cuối
-                          </span>
-                        )}
-                      </div>
-                    </button>
-                  ))}
+        ) : (
+          <SignaturePlacementFields
+            placements={placements}
+            totalPages={totalPages}
+            selectedIdx={safePlacementEditorIdx}
+            onSelectIdx={setPlacementEditorIdx}
+            onPlacementPageChange={onPlacementPageChange}
+            lang="vi"
+          />
+        )}
+      </div>
+      <div className="border-t border-slate-100 pt-6">
+        <button
+          type="button"
+          onClick={() => setAdvancedOpen((o) => !o)}
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-900 py-3 text-xs font-bold uppercase tracking-widest text-white transition-colors hover:bg-black"
+        >
+          <Settings2 className="size-4" />
+          Cấu hình nâng cao
+        </button>
+        {advancedOpen && (
+          <div className="mt-4 space-y-4">
+            <div className="flex items-center justify-between gap-2 rounded-lg border border-slate-100 p-3">
+              <Label htmlFor="default-placement-d">Vị trí mặc định</Label>
+              <button
+                id="default-placement-d"
+                type="button"
+                role="switch"
+                aria-checked={defaultPlacementEnabled}
+                onClick={toggleDefaultPlacement}
+                className={cn(
+                  "relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border border-slate-200 transition-colors",
+                  defaultPlacementEnabled ? "bg-primary" : "bg-slate-200"
+                )}
+              >
+                <span
+                  className={cn(
+                    "inline-block size-3.5 rounded-full bg-white shadow transition-transform",
+                    defaultPlacementEnabled ? "translate-x-4" : "translate-x-1"
+                  )}
+                />
+              </button>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full rounded-lg border-slate-200"
+              onClick={() => addSignatureBox(pageForNewBox())}
+            >
+              Thêm ô chữ ký
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full rounded-lg border-slate-200"
+              onClick={() => setContractModalOpen(true)}
+            >
+              <Users className="size-4" />
+              Gửi ký nhiều bên
+            </Button>
+          </div>
+        )}
+      </div>
+    </>
+  ) : (
+    <div className="space-y-4">
+      <p className="text-sm font-semibold text-slate-800">
+        Tài liệu đã được ký hoặc đang xem bản đã ký.
+      </p>
+      <Button className="w-full rounded-lg" onClick={() => setUploadModalOpen(true)}>
+        <FilePlus className="size-4" />
+        Ký tài liệu mới
+      </Button>
+    </div>
+  );
+
+  const signingRightAside = (
+    <div className="flex flex-col gap-4">
+      {JobStatusCardContent && (
+        <div className="rounded-xl border border-slate-100 bg-white p-3 shadow-sm">
+          {JobStatusCardContent}
+        </div>
+      )}
+      {data.signInfo && <SignatureInfoPanel signInfo={data.signInfo} />}
+      {!isSigned && (
+        <div className="rounded-xl border border-slate-200 bg-white p-4">
+          <div className="flex items-center gap-2">
+            <Usb className="size-5 text-primary" />
+            <span className="text-sm font-bold text-slate-900">USB Token</span>
+            <span
+              className="ml-auto size-2 rounded-full bg-emerald-500"
+              title="Sẵn sàng"
+              aria-hidden
+            />
+          </div>
+          <p className="mt-2 text-xs leading-relaxed text-slate-500">
+            Cắm USB Token. Khi bấm Ký, trình duyệt mở PDFSignPro Signer để hoàn tất ký số.
+          </p>
+        </div>
+      )}
+      <div>
+        <h3 className="mb-3 text-[11px] font-bold uppercase tracking-widest text-slate-400">
+          Trang
+        </h3>
+        <div className="space-y-2">{pageThumbnailButtons}</div>
+      </div>
+    </div>
+  );
+
+  const renderPdfViewer = () => (
+    <PdfViewer
+      key={`pdf-v${currentVersion.version}`}
+      pdfUrl={pdfUrl}
+      currentPage={currentPage}
+      onPageChange={setCurrentPage}
+      scale={scale}
+      onScaleChange={setScale}
+      totalPages={totalPages}
+      onTotalPagesChange={handleTotalPagesChange}
+      placements={placements}
+      onPlacementUpdate={handlePlacementUpdate}
+      activePageForPlacement={activePage}
+      readOnly={isSigned}
+      selectedTemplateId={selectedTemplateId}
+      sealImageBase64={sealImageBase64}
+      continuousScroll
+      toolbarActions={{
+        downloadUrl,
+        documentTitle: doc.title ?? "document.pdf",
+        shareLink:
+          typeof window !== "undefined"
+            ? `${window.location.origin}/d/${publicId}`
+            : "",
+        onCopyShare: copyDocumentLink,
+      }}
+    />
+  );
+
+  return (
+    <div className="flex h-screen min-h-0 flex-col overflow-hidden bg-slate-100 text-slate-900">
+      <header className="fixed top-0 z-50 flex h-16 w-full items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 shadow-sm sm:px-6 lg:px-8">
+        <div className="flex min-w-0 flex-1 items-center gap-3 lg:gap-6">
+          <Link href="/" className="flex shrink-0 items-center gap-2">
+            <div className="flex size-8 items-center justify-center rounded-md bg-primary">
+              <Shield className="size-4 text-primary-foreground" />
+            </div>
+            <span className="hidden text-lg font-extrabold tracking-tight text-primary sm:inline">
+              PDFSignPro
+            </span>
+          </Link>
+          <div className="hidden h-6 w-px bg-slate-200 lg:block" />
+          <div className="hidden min-w-0 flex-1 flex-col lg:flex lg:max-w-md">
+            <p className="truncate text-sm font-medium text-slate-800">{doc.title}</p>
+            <div className="mt-0.5 flex flex-wrap items-center gap-2">
+              <Badge
+                variant="outline"
+                className="rounded-md px-2 py-0 text-[10px] font-medium"
+              >
+                v{currentVersion.version}
+              </Badge>
+              <StatusBadge
+                status={
+                  jobState?.status === "CREATED"
+                    ? "pending"
+                    : currentVersion.version >= 2
+                      ? "signed"
+                      : "unsigned"
+                }
+                signedAt={data.signInfo?.signingTime}
+              />
+            </div>
+          </div>
+          <div className="hidden h-6 w-px bg-slate-200 xl:block" />
+          <div className="hidden items-center gap-6 xl:flex">
+            <div className="flex items-center gap-2 text-slate-400">
+              <span className="flex size-6 items-center justify-center rounded-full border border-slate-300 text-xs font-bold">
+                1
+              </span>
+              <span className="text-xs font-bold uppercase tracking-wider">
+                Tải lên
+              </span>
+            </div>
+            <div
+              className={cn(
+                "flex items-center gap-2 border-b-2 pb-1",
+                !signingFlowComplete
+                  ? "border-primary text-primary"
+                  : "border-transparent text-slate-400"
+              )}
+            >
+              <span
+                className={cn(
+                  "flex size-6 items-center justify-center rounded-full text-xs font-bold",
+                  !signingFlowComplete
+                    ? "bg-primary text-white"
+                    : "border border-slate-300"
+                )}
+              >
+                2
+              </span>
+              <span className="text-xs font-bold uppercase tracking-wider">
+                Thiết lập & Ký
+              </span>
+            </div>
+            <div
+              className={cn(
+                "flex items-center gap-2 border-b-2 pb-1",
+                signingFlowComplete
+                  ? "border-primary text-primary"
+                  : "border-transparent text-slate-400"
+              )}
+            >
+              <span
+                className={cn(
+                  "flex size-6 items-center justify-center rounded-full text-xs font-bold",
+                  signingFlowComplete
+                    ? "bg-primary text-white"
+                    : "border border-slate-300"
+                )}
+              >
+                3
+              </span>
+              <span className="text-xs font-bold uppercase tracking-wider">
+                Hoàn tất
+              </span>
+            </div>
+          </div>
+        </div>
+        <nav className="flex shrink-0 items-center gap-3 sm:gap-6">
+          <Link
+            href="/dashboard"
+            className="hidden text-sm font-semibold text-slate-600 transition-colors hover:text-primary sm:inline"
+          >
+            Tài liệu của tôi
+          </Link>
+          {session?.user && (
+            <div className="hidden items-center gap-3 border-l border-slate-200 pl-3 sm:flex sm:pl-4">
+              <div className="text-right">
+                <p className="text-xs font-bold leading-none text-slate-800">
+                  {session.user.name ?? "Tài khoản"}
+                </p>
+                {session.user.email && (
+                  <p className="mt-0.5 max-w-[140px] truncate text-[10px] text-slate-500">
+                    {session.user.email}
+                  </p>
+                )}
+              </div>
+              <div className="flex size-9 items-center justify-center rounded-full border border-slate-200 bg-slate-100">
+                <User className="size-4 text-slate-600" />
+              </div>
+            </div>
+          )}
+        </nav>
+      </header>
+
+      <main className="flex min-h-0 flex-1 flex-col overflow-hidden pt-16 pb-24">
+        <div className="hidden min-h-0 flex-1 lg:flex lg:overflow-hidden">
+          <aside className="z-10 flex h-full w-72 shrink-0 flex-col border-r border-slate-200 bg-white shadow-sm">
+            <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+              <div className="space-y-8 p-6">{signingLeftConfig}</div>
+            </div>
+            <div className="border-t border-slate-200 bg-slate-50 p-6">
+              <div className="flex items-start gap-3">
+                <CheckCircle2 className="size-5 shrink-0 text-emerald-600" />
+                <div>
+                  <p className="text-xs font-bold leading-tight text-slate-900">
+                    Môi trường bảo mật
+                  </p>
+                  <p className="mt-1 text-[10px] text-slate-500">
+                    Kết nối SSL 256-bit mã hóa toàn bộ dữ liệu ký.
+                  </p>
                 </div>
               </div>
             </div>
-          </div>
+          </aside>
+
+          <section className="signing-pdf-canvas flex min-h-0 flex-1 flex-col overflow-auto p-6 sm:p-8 lg:p-10">
+            <div className="signing-document-shadow mx-auto w-full max-w-4xl overflow-hidden rounded-lg bg-white">
+              {renderPdfViewer()}
+            </div>
+          </section>
+
+          <aside className="flex h-full w-80 shrink-0 flex-col overflow-y-auto border-l border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+            {signingRightAside}
+          </aside>
         </div>
 
         <div className="flex min-h-0 flex-1 flex-col lg:hidden">
@@ -666,104 +883,92 @@ export default function SigningViewerPage() {
             onValueChange={setMobileDocTab}
             className="flex min-h-0 flex-1 flex-col"
           >
-            <div className="border-b border-border px-4">
-              <TabsList className="w-full grid grid-cols-3">
-                <TabsTrigger value="timeline">Chữ ký</TabsTrigger>
-                <TabsTrigger value="document">Tài liệu</TabsTrigger>
-                <TabsTrigger value="pages">Pages</TabsTrigger>
+            <div className="border-b border-slate-200 bg-white px-3">
+              <TabsList className="grid h-11 w-full grid-cols-3 bg-slate-100 p-1">
+                <TabsTrigger
+                  value="timeline"
+                  className="rounded-md text-xs font-semibold data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm"
+                >
+                  Thiết lập
+                </TabsTrigger>
+                <TabsTrigger
+                  value="document"
+                  className="rounded-md text-xs font-semibold data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm"
+                >
+                  Tài liệu
+                </TabsTrigger>
+                <TabsTrigger
+                  value="pages"
+                  className="rounded-md text-xs font-semibold data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm"
+                >
+                  Trang & trạng thái
+                </TabsTrigger>
               </TabsList>
             </div>
-            <div className="flex min-h-0 flex-1 flex-col overflow-auto">
-              <TabsContent value="timeline" className="m-0 p-4 h-full overflow-y-auto">
-                <div className="space-y-4">
-                  {JobStatusCardContent && (
-                    <div className="sticky top-0 z-10 -mt-1 pt-1 pb-4 bg-background/95 backdrop-blur-sm">
-                      <h3 className="text-sm font-semibold text-foreground mb-3">
-                        Trạng thái ký
-                      </h3>
-                      {JobStatusCardContent}
-                    </div>
-                  )}
-                  {data.signInfo && (
-                    <SignatureInfoPanel signInfo={data.signInfo} />
-                  )}
-                  {isSigned && !jobState && (
-                    <Button
-                      size="sm"
-                      className="w-full rounded-md"
-                      onClick={() => setUploadModalOpen(true)}
-                    >
-                      <FilePlus className="size-4" />
-                      Ký tài liệu mới
-                    </Button>
-                  )}
-                  {!isSigned && <SigningPanel />}
+            <div className="flex min-h-0 flex-1 flex-col overflow-auto bg-slate-50">
+              <TabsContent
+                value="timeline"
+                className="m-0 h-full overflow-y-auto p-4 data-[state=inactive]:hidden"
+              >
+                <div className="space-y-6 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                  {signingLeftConfig}
                 </div>
               </TabsContent>
-              <TabsContent value="document" className="m-0 flex h-full min-h-0 flex-1 flex-col p-0 data-[state=inactive]:hidden">
-                <PdfViewer
-                  key={`pdf-v${currentVersion.version}`}
-                  pdfUrl={pdfUrl}
-                  currentPage={currentPage}
-                  onPageChange={setCurrentPage}
-                  scale={scale}
-                  onScaleChange={setScale}
-                  totalPages={totalPages}
-                  onTotalPagesChange={handleTotalPagesChange}
-                  placements={placements}
-                  onPlacementUpdate={handlePlacementUpdate}
-                  activePageForPlacement={activePage}
-                  readOnly={isSigned}
-                  selectedTemplateId={selectedTemplateId}
-                  sealImageBase64={sealImageBase64}
-                  continuousScroll
-                  toolbarActions={{
-                    downloadUrl,
-                    documentTitle: doc.title ?? "document.pdf",
-                    shareLink: typeof window !== "undefined" ? `${window.location.origin}/d/${publicId}` : "",
-                    onCopyShare: copyDocumentLink,
-                  }}
-                />
-              </TabsContent>
-              <TabsContent value="pages" className="m-0 p-4 h-full overflow-auto">
-                <div className="space-y-4">
-                  <div>
-                    <h3 className="text-sm font-semibold text-foreground mb-3">
-                      Trang
-                    </h3>
-                    <div className="space-y-2">
-                      {Array.from({ length: Math.max(totalPages, 1) }, (_, i) => (
-                        <button
-                          key={i}
-                          type="button"
-                          onClick={() => goToPdfPage(i + 1)}
-                          className={`flex w-full items-center gap-3 rounded-md border p-2 text-left transition-all duration-150 ${
-                            currentPage === i + 1
-                              ? "border-primary bg-primary/10 ring-1 ring-primary/20"
-                              : "border-border hover:border-muted-foreground/30 hover:bg-accent/50"
-                          }`}
-                        >
-                          <div className="size-12 shrink-0 rounded-md bg-muted flex items-center justify-center text-xs font-medium text-muted-foreground">
-                            {i + 1}
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm">Trang {i + 1}</span>
-                            {totalPages > 0 && i + 1 === totalPages && (
-                              <span className="rounded-md bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
-                                Trang cuối
-                              </span>
-                            )}
-                          </div>
-                        </button>
-                      ))}
-                    </div>
+              <TabsContent
+                value="document"
+                className="m-0 flex h-full min-h-0 flex-1 flex-col p-0 data-[state=inactive]:hidden"
+              >
+                <div className="signing-pdf-canvas flex min-h-0 flex-1 flex-col overflow-auto p-3">
+                  <div className="signing-document-shadow mx-auto min-h-0 w-full max-w-4xl flex-1 overflow-hidden rounded-lg bg-white">
+                    {renderPdfViewer()}
                   </div>
+                </div>
+              </TabsContent>
+              <TabsContent
+                value="pages"
+                className="m-0 h-full overflow-y-auto p-4 data-[state=inactive]:hidden"
+              >
+                <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                  {signingRightAside}
                 </div>
               </TabsContent>
             </div>
           </Tabs>
         </div>
-      </div>
+      </main>
+
+      <footer className="fixed bottom-0 left-0 right-0 z-40 flex h-20 items-center justify-between gap-3 border-t border-slate-200 bg-white px-4 shadow-[0_-4px_24px_rgba(0,59,147,0.06)] sm:px-8">
+        <Button
+          type="button"
+          variant="ghost"
+          className="gap-2 text-slate-600 hover:text-primary"
+          onClick={handleFooterBack}
+        >
+          <ArrowLeft className="size-4" />
+          Quay lại
+        </Button>
+        <div className="flex items-center gap-2 sm:gap-3">
+          <Button
+            type="button"
+            variant="outline"
+            className="border-slate-200"
+            onClick={handleFooterCancel}
+          >
+            Hủy
+          </Button>
+          <Button
+            type="button"
+            onClick={handleSign}
+            disabled={placements.length === 0 || !!jobState || isSigned}
+            className="gap-2 rounded-xl bg-primary px-4 font-bold text-primary-foreground shadow-md shadow-primary/25 hover:bg-primary/90 sm:px-6"
+          >
+            <PenLine className="size-4 shrink-0" />
+            <span className="hidden sm:inline">Ký bằng USB Token</span>
+            <span className="sm:hidden">Ký USB</span>
+          </Button>
+        </div>
+      </footer>
+
       <UploadModal
         open={uploadModalOpen}
         onOpenChange={setUploadModalOpen}

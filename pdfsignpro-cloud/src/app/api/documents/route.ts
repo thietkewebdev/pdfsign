@@ -3,7 +3,7 @@ import { z } from "zod";
 import { randomBytes } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
-import { getStorageDriver } from "@/storage";
+import { getStorageDriver, storageDriverDbLabel } from "@/storage";
 
 const CreateDocumentSchema = z.object({
   title: z.string().min(1).max(500).optional().default("Untitled"),
@@ -65,7 +65,7 @@ export async function POST(request: Request) {
           create: {
             version: 1,
             storageKey,
-            storageDriver: process.env.STORAGE_DRIVER ?? "r2",
+            storageDriver: storageDriverDbLabel(),
             sizeBytes: buffer.length,
           },
         },

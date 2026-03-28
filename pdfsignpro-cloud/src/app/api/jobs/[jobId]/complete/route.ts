@@ -3,7 +3,7 @@ import busboy from "busboy";
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { getStorageDriver } from "@/storage";
+import { getStorageDriver, storageDriverDbLabel } from "@/storage";
 import { verifyJobToken } from "@/lib/job-token";
 import { sendSigningInvitation, sendContractCompleted } from "@/lib/email";
 import { logContractEvent } from "@/lib/contract-events";
@@ -197,7 +197,7 @@ export async function POST(
         documentId: job.documentId,
         version: nextVersion,
         storageKey,
-        storageDriver: process.env.STORAGE_DRIVER ?? "r2",
+        storageDriver: storageDriverDbLabel(),
         sizeBytes: buffer.length,
       },
     });
