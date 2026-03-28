@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import type { PDFDocumentProxy } from "pdfjs-dist";
-import { SignatureBox } from "./SignatureBox";
+import { SignatureBox, type SignatureBoxChrome } from "./SignatureBox";
 import type { SignaturePlacement } from "@/lib/types";
 
 type PdfDoc = PDFDocumentProxy;
@@ -25,6 +25,7 @@ interface PdfScrollPageProps {
   ) => void;
   selectedTemplateId: string;
   sealImageBase64?: string | null;
+  signatureChrome?: SignatureBoxChrome;
 }
 
 export function PdfScrollPage({
@@ -37,6 +38,7 @@ export function PdfScrollPage({
   onPlacementUpdate,
   selectedTemplateId,
   sealImageBase64,
+  signatureChrome = "default",
 }: PdfScrollPageProps) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -171,6 +173,7 @@ export function PdfScrollPage({
                 sealImageBase64={sealImageBase64}
                 onDragStop={handleDragStop(globalIndex)}
                 onResizeStop={handleResizeStop(globalIndex)}
+                chrome={signatureChrome}
               />
             ))}
           </div>

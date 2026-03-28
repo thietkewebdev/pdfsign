@@ -8,7 +8,7 @@ import {
   ChevronRight,
   ChevronsRight,
 } from "lucide-react";
-import { SignatureBox } from "./SignatureBox";
+import { SignatureBox, type SignatureBoxChrome } from "./SignatureBox";
 import { PdfScrollPage } from "./PdfScrollPage";
 import type { SignaturePlacement } from "@/lib/types";
 
@@ -47,6 +47,8 @@ interface PdfViewerProps {
    * Stack pages vertically; each page renders when scrolled near viewport (pdfUrl only).
    */
   continuousScroll?: boolean;
+  /** Khung ô ký (vd. trang /d/ dùng stitch). */
+  signatureChrome?: SignatureBoxChrome;
 }
 
 export function PdfViewer({
@@ -65,6 +67,7 @@ export function PdfViewer({
   selectedTemplateId = "valid",
   sealImageBase64,
   continuousScroll = false,
+  signatureChrome = "default",
 }: PdfViewerProps) {
   void activePageForPlacement;
   const containerRef = useRef<HTMLDivElement>(null);
@@ -325,6 +328,7 @@ export function PdfViewer({
                   onPlacementUpdate={onPlacementUpdate}
                   selectedTemplateId={selectedTemplateId}
                   sealImageBase64={sealImageBase64}
+                  signatureChrome={signatureChrome}
                 />
               ))}
             </div>
@@ -351,6 +355,7 @@ export function PdfViewer({
                         sealImageBase64={sealImageBase64}
                         onDragStop={handleDragStop(globalIndex)}
                         onResizeStop={handleResizeStop(globalIndex)}
+                        chrome={signatureChrome}
                       />
                     ))}
                   </div>

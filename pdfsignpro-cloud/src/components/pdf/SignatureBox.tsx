@@ -1,9 +1,32 @@
 "use client";
 
 import { Rnd } from "react-rnd";
+import { History } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { SignaturePlacement } from "@/lib/types";
 import { StampValidPreview } from "./StampValidPreview";
+
+export type SignatureBoxChrome = "default" | "stitch";
+
+/** Xem trước kiểu Stitch kyso (chữ ký số USB Token + Digitally Signed By). */
+function StitchValidPreview() {
+  return (
+    <div className="flex flex-col items-center gap-1 px-1 text-center">
+      <p className="text-[9px] font-bold uppercase tracking-tighter text-slate-400 sm:text-[10px]">
+        Digitally Signed By
+      </p>
+      <p className="text-sm font-black leading-tight tracking-tight text-primary sm:text-base">
+        NGUYỄN VĂN A
+      </p>
+      <div className="flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5">
+        <History className="size-3 shrink-0 text-primary" aria-hidden />
+        <span className="text-[9px] font-mono font-bold text-primary tabular-nums">
+          14/03/2026 09:33:05
+        </span>
+      </div>
+    </div>
+  );
+}
 
 interface SignatureBoxProps {
   placement: SignaturePlacement;
@@ -15,6 +38,8 @@ interface SignatureBoxProps {
   onDragStop: (x: number, y: number) => void;
   onResizeStop: (x: number, y: number, w: number, h: number) => void;
   isActive?: boolean;
+  /** Trang ký /d/: khung giống Stitch (viền xanh, banner, bóng). */
+  chrome?: SignatureBoxChrome;
 }
 
 function ClassicPreview({ className }: { className?: string }) {
@@ -177,11 +202,29 @@ export function SignatureBox({
   onDragStop,
   onResizeStop,
   isActive = true,
+  chrome = "default",
 }: SignatureBoxProps) {
   const x = placement.xPct * pageWidth;
   const y = placement.yPct * pageHeight;
   const w = placement.wPct * pageWidth;
   const h = placement.hPct * pageHeight;
+
+  const isStitch = chrome === "stitch";
+
+  const stitchBody =
+    templateId === "valid" ? (
+      <StitchValidPreview />
+    ) : templateId === "seal" ? (
+      <SealPreview sealImageBase64={sealImageBase64} className="max-h-full" />
+    ) : (
+      <TemplatePreview
+        templateId={templateId}
+        boxWidth={w}
+        boxHeight={h}
+        sealImageBase64={sealImageBase64}
+        className="max-h-full max-w-full"
+      />
+    );
 
   return (
     <Rnd
@@ -198,21 +241,34 @@ export function SignatureBox({
       resizeGrid={[8, 8]}
       dragGrid={[8, 8]}
       className={cn(
-        "rounded border-2 border-dashed border-primary/60 bg-primary/5 overflow-hidden",
-        "flex items-center justify-center p-1",
+        isStitch
+          ? "overflow-hidden rounded-xl border-2 border-primary bg-white shadow-2xl ring-[6px] ring-primary/10 transition-transform hover:scale-[1.01]"
+          : "overflow-hidden rounded border-2 border-dashed border-primary/60 bg-primary/5",
+        "flex flex-col",
         isActive && "cursor-move"
       )}
       style={{ zIndex: isActive ? 10 : 1 }}
     >
-      <div className="w-full h-full min-w-0 min-h-0 flex items-center justify-center pointer-events-none overflow-hidden">
-        <TemplatePreview
-          templateId={templateId}
-          boxWidth={w}
-          boxHeight={h}
-          sealImageBase64={sealImageBase64}
-          className="max-w-full max-h-full"
-        />
-      </div>
+      {isStitch ? (
+        <>
+          <div className="pointer-events-none shrink-0 border-b border-primary/15 bg-primary py-1 text-center text-[8px] font-black uppercase tracking-widest text-white sm:text-[9px]">
+            Chữ ký số USB Token
+          </div>
+          <div className="flex min-h-0 min-w-0 flex-1 items-center justify-center overflow-hidden p-1.5">
+            <div className="pointer-events-none max-h-full max-w-full">{stitchBody}</div>
+          </div>
+        </>
+      ) : (
+        <div className="flex h-full w-full min-h-0 min-w-0 items-center justify-center overflow-hidden p-1 pointer-events-none">
+          <TemplatePreview
+            templateId={templateId}
+            boxWidth={w}
+            boxHeight={h}
+            sealImageBase64={sealImageBase64}
+            className="max-h-full max-w-full"
+          />
+        </div>
+      )}
     </Rnd>
   );
 }

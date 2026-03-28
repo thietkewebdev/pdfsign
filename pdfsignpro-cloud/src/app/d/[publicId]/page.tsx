@@ -155,6 +155,11 @@ export default function SigningViewerPage() {
   const [signerDownloadModalOpen, setSignerDownloadModalOpen] = useState(false);
   const pollStartRef = useRef<number | null>(null);
   const userLeftTabRef = useRef(false);
+  /** Mỗi phiên bản tài liệu chỉ cuộn tới trang cuối một lần khi PDF đã biết số trang. */
+  const scrollSigningDocToLastRef = useRef<string | null>(null);
+  const pdfMetaRef = useRef<{ publicId: string; version: number } | null>(
+    null
+  );
   const [selectedTemplateId, setSelectedTemplateId] = useState("valid");
   const [sealImageBase64, setSealImageBase64] = useState<string | null>(null);
   const [contractModalOpen, setContractModalOpen] = useState(false);
@@ -208,6 +213,44 @@ export default function SigningViewerPage() {
       })
       .finally(() => setLoading(false));
   }, [publicId, versionParam, fetchDocument]);
+
+  const docVersionForScrollKey = data
+    ? `${publicId}-v${data.currentVersion.version}`
+    : null;
+
+  useEffect(() => {
+    if (!data) return;
+    const v = data.currentVersion.version;
+    const prev = pdfMetaRef.current;
+    if (
+      prev &&
+      (prev.publicId !== publicId || prev.version !== v)
+    ) {
+      setTotalPages(0);
+    }
+    pdfMetaRef.current = { publicId, version: v };
+  }, [publicId, data]);
+
+  useEffect(() => {
+    if (!docVersionForScrollKey || totalPages < 1) return;
+    if (scrollSigningDocToLastRef.current === docVersionForScrollKey) return;
+    scrollSigningDocToLastRef.current = docVersionForScrollKey;
+    setCurrentPage(totalPages);
+    setMobileDocTab("document");
+    const scroll = () => {
+      document
+        .querySelector(`[data-pdf-page="${totalPages}"]`)
+        ?.scrollIntoView({ behavior: "auto", block: "center" });
+    };
+    const t1 = window.setTimeout(scroll, 80);
+    const t2 = window.setTimeout(scroll, 320);
+    const t3 = window.setTimeout(scroll, 650);
+    return () => {
+      window.clearTimeout(t1);
+      window.clearTimeout(t2);
+      window.clearTimeout(t3);
+    };
+  }, [docVersionForScrollKey, totalPages]);
 
   const handleTotalPagesChange = useCallback((n: number) => {
     setTotalPages(n);
@@ -723,6 +766,7 @@ export default function SigningViewerPage() {
       selectedTemplateId={selectedTemplateId}
       sealImageBase64={sealImageBase64}
       continuousScroll
+      signatureChrome="stitch"
     />
   );
 
