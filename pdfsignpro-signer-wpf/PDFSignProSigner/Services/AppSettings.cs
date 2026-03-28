@@ -19,6 +19,12 @@ public class AppSettings
         );
 
     public string? SelectedTemplateId { get; set; }
+    /// <summary>Serial chứng chỉ ưu tiên khi token có nhiều cert.</summary>
+    public string? PreferredCertSerial { get; set; }
+    public bool CheckUpdatesOnStartup { get; set; } = true;
+    public bool RemindUnplugTokenAfterSign { get; set; } = true;
+    /// <summary>Ghi đè URL manifest JSON (version + downloadUrl). Để trống = dùng mặc định GitHub raw.</summary>
+    public string? UpdateManifestUrlOverride { get; set; }
 
     public static AppSettings Load()
     {
@@ -29,10 +35,14 @@ public class AppSettings
                 return new AppSettings();
 
             var json = File.ReadAllText(path);
-            var settings = JsonSerializer.Deserialize<AppSettingsJson>(json, JsonOpts);
+            var dto = JsonSerializer.Deserialize<AppSettingsJsonDto>(json, JsonOpts);
             return new AppSettings
             {
-                SelectedTemplateId = settings?.SelectedTemplateId,
+                SelectedTemplateId = dto?.SelectedTemplateId,
+                PreferredCertSerial = dto?.PreferredCertSerial,
+                CheckUpdatesOnStartup = dto?.CheckUpdatesOnStartup ?? true,
+                RemindUnplugTokenAfterSign = dto?.RemindUnplugTokenAfterSign ?? true,
+                UpdateManifestUrlOverride = dto?.UpdateManifestUrlOverride,
             };
         }
         catch
@@ -49,7 +59,16 @@ public class AppSettings
             if (!string.IsNullOrEmpty(dir))
                 Directory.CreateDirectory(dir);
 
-            var json = JsonSerializer.Serialize(new AppSettingsJson(SelectedTemplateId), JsonOpts);
+            var json = JsonSerializer.Serialize(
+                new AppSettingsJsonDto
+                {
+                    SelectedTemplateId = SelectedTemplateId,
+                    PreferredCertSerial = PreferredCertSerial,
+                    CheckUpdatesOnStartup = CheckUpdatesOnStartup,
+                    RemindUnplugTokenAfterSign = RemindUnplugTokenAfterSign,
+                    UpdateManifestUrlOverride = UpdateManifestUrlOverride,
+                },
+                JsonOpts);
             File.WriteAllText(SettingsPath, json);
         }
         catch (Exception ex)
@@ -58,5 +77,12 @@ public class AppSettings
         }
     }
 
-    private record AppSettingsJson(string? SelectedTemplateId);
+    private sealed class AppSettingsJsonDto
+    {
+        public string? SelectedTemplateId { get; set; }
+        public string? PreferredCertSerial { get; set; }
+        public bool? CheckUpdatesOnStartup { get; set; }
+        public bool? RemindUnplugTokenAfterSign { get; set; }
+        public string? UpdateManifestUrlOverride { get; set; }
+    }
 }

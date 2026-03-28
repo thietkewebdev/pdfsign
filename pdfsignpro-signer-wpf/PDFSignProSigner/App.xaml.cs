@@ -4,10 +4,28 @@ using PDFSignProSigner.Services;
 
 namespace PDFSignProSigner;
 
-public partial class App : Application
+public partial class App : System.Windows.Application
 {
     private SingleInstanceService? _singleInstance;
     private MainWindow? _mainWindow;
+    private TrayIconService? _trayIcon;
+
+    /// <summary>Ẩn cửa sổ xuống khay sau khi ký thành công; tuỳ chọn balloon nhắc rút USB.</summary>
+    public void HideMainWindowAfterSignSuccess(string? balloonMessage, bool remindUnplugUsb)
+    {
+        _trayIcon?.HideWindowToTray(balloonMessage);
+        if (!remindUnplugUsb || _trayIcon == null) return;
+
+        var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2.8) };
+        timer.Tick += (_, _) =>
+        {
+            timer.Stop();
+            _trayIcon?.ShowInfoBalloon(
+                "PDFSignPro Signer",
+                "Bảo mật: nhớ rút USB token khi không ký nữa.");
+        };
+        timer.Start();
+    }
 
     private void App_OnStartup(object sender, StartupEventArgs e)
     {
@@ -23,12 +41,13 @@ public partial class App : Application
                 Shutdown(0);
                 return;
             }
-            MessageBox.Show("PDFSignPro Signer is already running.", "PDFSignPro Signer", MessageBoxButton.OK, MessageBoxImage.Information);
+            System.Windows.MessageBox.Show("PDFSignPro Signer is already running.", "PDFSignPro Signer", MessageBoxButton.OK, MessageBoxImage.Information);
             Shutdown(1);
             return;
         }
 
         _mainWindow = new MainWindow();
+        _trayIcon = new TrayIconService(_mainWindow, () => Shutdown(0));
         _singleInstance.StartListening(url =>
         {
             Dispatcher.Invoke(() =>
@@ -46,6 +65,7 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        _trayIcon?.Dispose();
         _singleInstance?.Dispose();
         base.OnExit(e);
     }

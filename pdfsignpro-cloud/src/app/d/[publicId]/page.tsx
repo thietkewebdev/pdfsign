@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams, useSearchParams, useRouter } from "next/navigation";
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
@@ -19,6 +19,7 @@ import {
   ChevronRight,
   XCircle,
   Info,
+  CircleHelp,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -50,6 +51,8 @@ import { SignatureTemplateSelector } from "@/components/signature/SignatureTempl
 import { SignaturePlacementFields } from "@/components/signature/SignaturePlacementFields";
 import { CreateContractModal } from "@/components/contract/CreateContractModal";
 import { getPdfViewerUrl } from "@/lib/pdf-view-url";
+import { formatStitchPreviewClock } from "@/lib/format-stitch-preview-time";
+import { SigningFlowGuideDialog } from "@/components/signing";
 import { cn } from "@/lib/utils";
 
 const POLL_INTERVAL_MS = 2000;
@@ -153,6 +156,7 @@ export default function SigningViewerPage() {
   const [copied, setCopied] = useState(false);
   const [shareLinkCopied, setShareLinkCopied] = useState(false);
   const [signerDownloadModalOpen, setSignerDownloadModalOpen] = useState(false);
+  const [signingGuideOpen, setSigningGuideOpen] = useState(false);
   const pollStartRef = useRef<number | null>(null);
   const userLeftTabRef = useRef(false);
   /** Mỗi phiên bản tài liệu chỉ cuộn tới trang cuối một lần khi PDF đã biết số trang. */
@@ -472,6 +476,28 @@ export default function SigningViewerPage() {
   const showCreatedHint =
     jobState?.status === "CREATED" && pollElapsed >= CREATED_HINT_AFTER_MS;
 
+  const stitchPreviewDisplayName = useMemo(() => {
+    const n = session?.user?.name?.trim();
+    if (n) return n;
+    const email = session?.user?.email?.trim();
+    if (email) {
+      const at = email.indexOf("@");
+      return at > 0 ? email.slice(0, at) : email;
+    }
+    return null;
+  }, [session]);
+
+  const [stitchPreviewTimeLabel, setStitchPreviewTimeLabel] = useState(() =>
+    formatStitchPreviewClock(new Date())
+  );
+  useEffect(() => {
+    const tick = () =>
+      setStitchPreviewTimeLabel(formatStitchPreviewClock(new Date()));
+    tick();
+    const id = window.setInterval(tick, 30_000);
+    return () => window.clearInterval(id);
+  }, []);
+
   if (loading) {
     return <DocumentPageSkeleton />;
   }
@@ -727,6 +753,13 @@ export default function SigningViewerPage() {
           <p className="mt-2 text-xs leading-relaxed text-slate-500">
             Cắm USB Token. Khi bấm Ký, trình duyệt mở PDFSignPro Signer để hoàn tất ký số.
           </p>
+          <button
+            type="button"
+            className="mt-2 text-left text-xs font-semibold text-primary underline-offset-2 hover:underline"
+            onClick={() => setSigningGuideOpen(true)}
+          >
+            Hướng dẫn từng bước &amp; tải Signer
+          </button>
         </div>
       )}
       {!isSigned && (
@@ -767,6 +800,8 @@ export default function SigningViewerPage() {
       sealImageBase64={sealImageBase64}
       continuousScroll
       signatureChrome="stitch"
+      stitchSignerName={stitchPreviewDisplayName}
+      stitchTimeLabel={stitchPreviewTimeLabel}
     />
   );
 
@@ -860,7 +895,17 @@ export default function SigningViewerPage() {
             </div>
           </div>
         </div>
-        <nav className="flex shrink-0 items-center gap-3 sm:gap-6">
+        <nav className="flex shrink-0 items-center gap-2 sm:gap-4">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-8 gap-1.5 border-slate-200 px-2.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
+            onClick={() => setSigningGuideOpen(true)}
+          >
+            <CircleHelp className="size-3.5 shrink-0 text-primary" aria-hidden />
+            <span className="hidden sm:inline">Hướng dẫn ký</span>
+          </Button>
           <Link
             href="/dashboard"
             className="hidden text-sm font-semibold text-slate-600 transition-colors hover:text-primary sm:inline"
@@ -1069,6 +1114,11 @@ export default function SigningViewerPage() {
         documentId={doc.id}
         documentTitle={doc.title ?? "Hợp đồng"}
         totalPages={totalPages}
+      />
+
+      <SigningFlowGuideDialog
+        open={signingGuideOpen}
+        onOpenChange={setSigningGuideOpen}
       />
 
       <Dialog open={signerDownloadModalOpen} onOpenChange={setSignerDownloadModalOpen}>

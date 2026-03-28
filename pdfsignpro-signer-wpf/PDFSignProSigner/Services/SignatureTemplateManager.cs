@@ -11,9 +11,9 @@ public class SignatureTemplateManager
 
     public SignatureTemplate? SelectedTemplate { get; private set; }
 
-    public SignatureTemplateManager()
+    public SignatureTemplateManager(AppSettings settings)
     {
-        _settings = AppSettings.Load();
+        _settings = settings;
         LoadBuiltInTemplates();
         RestoreSelected();
     }

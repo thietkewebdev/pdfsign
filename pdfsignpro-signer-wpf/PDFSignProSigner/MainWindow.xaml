@@ -3,11 +3,12 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="PDFSignPro Signer"
         Height="620" Width="480"
-        MinHeight="500" MinWidth="400"
+        MinHeight="420" MinWidth="320"
         Background="{StaticResource BgPrimaryBrush}"
         Foreground="{StaticResource TextPrimaryBrush}"
         WindowStartupLocation="CenterScreen"
-        ResizeMode="CanResizeWithGrip">
+        ResizeMode="CanResizeWithGrip"
+        Loaded="Window_Loaded">
     <Grid Margin="28">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -15,8 +16,8 @@
         </Grid.RowDefinitions>
 
         <!-- Header -->
-        <StackPanel Grid.Row="0" Margin="0,0,0,24">
-            <TextBlock Text="PDFSignPro Signer"
+        <StackPanel x:Name="HeaderPanel" Grid.Row="0" Margin="0,0,0,24">
+            <TextBlock x:Name="MainTitleText" Text="PDFSignPro Signer"
                        FontSize="22" FontWeight="SemiBold"
                        Foreground="{StaticResource TextPrimaryBrush}"/>
             <TextBlock x:Name="SubtitleText" Text="Mở qua liên kết pdfsignpro:// để ký tài liệu"
@@ -25,7 +26,7 @@
         </StackPanel>
 
         <!-- Content area - screens -->
-        <Border Grid.Row="1"
+        <Border x:Name="MainContentBorder" Grid.Row="1"
                 Background="{StaticResource BgSecondaryBrush}"
                 BorderBrush="{StaticResource BorderBrush}"
                 BorderThickness="1"
@@ -40,6 +41,40 @@
                     <TextBlock Text="Mở liên kết pdfsignpro:// từ trình duyệt hoặc email để bắt đầu."
                                Foreground="{StaticResource TextSecondaryBrush}"
                                FontSize="13" TextWrapping="Wrap" Margin="0,12,0,0"/>
+                    <Border Margin="0,20,0,0" Padding="12" CornerRadius="6"
+                            Background="{StaticResource BgTertiaryBrush}"
+                            BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
+                        <StackPanel>
+                            <TextBlock Text="Tuỳ chọn Signer" FontWeight="SemiBold" FontSize="12"
+                                       Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,10"/>
+                            <CheckBox x:Name="IdleCheckUpdates" Content="Kiểm tra bản mới khi mở ứng dụng"
+                                      Foreground="{StaticResource TextSecondaryBrush}"
+                                      Margin="0,0,0,8" Checked="IdleSettings_Changed" Unchecked="IdleSettings_Changed"/>
+                            <CheckBox x:Name="IdleRemindUsb" Content="Nhắc rút USB token sau khi ký (balloon khay hệ thống)"
+                                      Foreground="{StaticResource TextSecondaryBrush}"
+                                      Margin="0,0,0,12" Checked="IdleSettings_Changed" Unchecked="IdleSettings_Changed"/>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                <Button Content="Kiểm tra cập nhật ngay" Click="CheckUpdatesNow_Click"
+                                        Padding="12,6" Margin="0,0,8,0"
+                                        Background="{StaticResource BgSecondaryBrush}"
+                                        Foreground="{StaticResource TextPrimaryBrush}"
+                                        BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"/>
+                                <Button Content="Mở thư mục nhật ký" Click="OpenLogFolder_Click"
+                                        Padding="12,6"
+                                        Background="{StaticResource BgSecondaryBrush}"
+                                        Foreground="{StaticResource TextPrimaryBrush}"
+                                        BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"/>
+                            </StackPanel>
+                            <Button Content="Xóa chứng chỉ ưu tiên (nhiều cert trên token)" Click="ClearPreferredCert_Click"
+                                    HorizontalAlignment="Left" Padding="12,6"
+                                    Background="{StaticResource BgSecondaryBrush}"
+                                    Foreground="{StaticResource TextPrimaryBrush}"
+                                    BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"/>
+                            <TextBlock Text="Nhật ký: %LocalAppData%\PDFSignProSigner\logs\app.log (xoay khi đầy)."
+                                       FontSize="10" Foreground="{StaticResource TextSecondaryBrush}"
+                                       TextWrapping="Wrap" Margin="0,10,0,0"/>
+                        </StackPanel>
+                    </Border>
                 </StackPanel>
 
                 <!-- Loading -->
@@ -55,25 +90,19 @@
                         <TextBlock x:Name="DocTitleText" Text="Tài liệu"
                                    FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}"
                                    TextWrapping="Wrap" Margin="0,0,0,16"/>
-                        <!-- PIN: ẩn khi dùng PIN đã lưu -->
+                        <!-- PIN: ẩn khi dùng PIN đã lưu; Enter = Ký số (kiểm tra PIN + ký nếu 1 chứng chỉ) -->
                         <StackPanel x:Name="PinInputPanel">
                             <TextBlock Text="Mã PIN" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12" Margin="0,0,0,6"/>
                             <PasswordBox x:Name="PinBox" Height="36" Margin="0,0,0,8"
-                                         FontSize="14" PasswordChanged="PinBox_PasswordChanged"/>
-                            <Button x:Name="VerifyPinBtn" Content="Kiểm tra PIN"
-                                    Click="VerifyPin_Click"
-                                    Background="{StaticResource BgTertiaryBrush}"
-                                    Foreground="{StaticResource TextPrimaryBrush}"
-                                    BorderBrush="{StaticResource BorderBrush}"
-                                    BorderThickness="1"
-                                    Padding="16,8" HorizontalAlignment="Left"
-                                    Margin="0,0,0,8"/>
+                                         FontSize="14"
+                                         PasswordChanged="PinBox_PasswordChanged"
+                                         KeyDown="PinBox_KeyDown"/>
                         </StackPanel>
                         <TextBlock x:Name="VerifyPinResultText" Text=""
                                   Foreground="#22C55E" FontSize="12" Margin="0,0,0,4"
                                   Visibility="Collapsed"/>
                         <TextBlock x:Name="LockoutWarningText"
-                                  Text="⚠ Sai PIN nhiều lần có thể khiến token bị khóa vĩnh viễn."
+                                  Text="⚠ Sai PIN nhiều lần có thể khóa token."
                                   Foreground="#F59E0B" FontSize="11"
                                   TextWrapping="Wrap" Margin="0,0,0,12"/>
                         <!-- Cert loading state -->
@@ -129,10 +158,12 @@
                             </ListBox.ItemTemplate>
                         </ListBox>
                         </StackPanel>
-                        <!-- Cert dropdown -->
-                        <TextBlock Text="Chứng chỉ" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12" Margin="0,0,0,6"/>
-                        <ComboBox x:Name="CertCombo" MinHeight="44" Margin="0,0,0,20"
+                        <!-- Cert dropdown (chỉ khi có từ 2 chứng chỉ) -->
+                        <TextBlock x:Name="CertLabel" Text="Chứng chỉ" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12" Margin="0,0,0,6" Visibility="Collapsed"/>
+                        <ComboBox x:Name="CertCombo" MinHeight="44" Margin="0,0,0,8"
+                                  Visibility="Collapsed"
                                   IsEnabled="False"
+                                  SelectionChanged="CertCombo_SelectionChanged"
                                   Background="{StaticResource BgTertiaryBrush}"
                                   Foreground="{StaticResource TextPrimaryBrush}"
                                   BorderBrush="{StaticResource BorderBrush}"
@@ -149,8 +180,16 @@
                                 </DataTemplate>
                             </ComboBox.ItemTemplate>
                         </ComboBox>
+                        <CheckBox x:Name="PreferThisCertCheckBox" Visibility="Collapsed"
+                                  Foreground="{StaticResource TextSecondaryBrush}"
+                                  FontSize="11" Margin="0,0,0,16"
+                                  Checked="PreferThisCertCheckBox_Changed" Unchecked="PreferThisCertCheckBox_Changed">
+                            <TextBlock Text="Luôn chọn chứng chỉ này khi có nhiều chứng chỉ (ghi nhớ theo serial)"
+                                       TextWrapping="Wrap"/>
+                        </CheckBox>
                         <Button x:Name="SignBtn" Content="Ký số"
                                 Click="Sign_Click"
+                                ToolTip="Nhập PIN rồi bấm: kiểm tra PIN và ký (một bước nếu chỉ có một chứng chỉ)."
                                 IsEnabled="False"
                                 Background="{StaticResource AccentBrush}"
                                 Foreground="White" FontWeight="SemiBold"
