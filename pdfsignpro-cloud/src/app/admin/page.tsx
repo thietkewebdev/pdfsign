@@ -49,7 +49,7 @@ type DocumentItem = {
   title: string | null;
   status: string;
   owner: { email: string | null; name: string | null } | null;
-  latestVersion: { sizeBytes: number } | null;
+  latestVersion: { version: number; sizeBytes: number } | null;
 };
 
 type DocumentsResponse = {
@@ -418,7 +418,22 @@ export default function AdminPage() {
                       {d.publicId} · {d.owner?.email ?? "unknown"} · {formatBytes(d.latestVersion?.sizeBytes ?? 0)}
                     </p>
                   </div>
-                  <div className="flex gap-1">
+                  <div className="flex flex-wrap gap-1">
+                    {d.latestVersion ? (
+                      <Button size="sm" variant="secondary" asChild>
+                        <a
+                          href={`/api/admin/documents/${encodeURIComponent(d.publicId)}/file`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          Xem PDF
+                        </a>
+                      </Button>
+                    ) : (
+                      <Button size="sm" variant="secondary" disabled title="Chưa có phiên bản file">
+                        Xem PDF
+                      </Button>
+                    )}
                     {d.status === "ARCHIVED" ? (
                       <Button size="sm" variant="outline" onClick={() => void updateDocument(d.publicId, "restore")}>
                         Restore
