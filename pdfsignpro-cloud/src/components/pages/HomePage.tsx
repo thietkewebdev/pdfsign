@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -29,7 +29,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { UploadDropzoneCard, UploadProgress } from "@/components/upload";
+import {
+  UploadDropzoneCard,
+  UploadProgress,
+  type UploadDropzoneCardHandle,
+} from "@/components/upload";
 import { ContactSection } from "@/components/home/ContactSection";
 import { cn } from "@/lib/utils";
 
@@ -138,10 +142,34 @@ export function HomePage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const uploadRef = useRef<HTMLDivElement>(null);
+  const homeDropzoneRef = useRef<UploadDropzoneCardHandle>(null);
   const reduceMotion = useReducedMotion();
 
   const scrollToUpload = useCallback(() => {
     uploadRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, []);
+
+  /** Cuộn tới khối upload và mở chọn file PDF (khi chưa chọn file). */
+  const handleTryFreeClick = useCallback(() => {
+    scrollToUpload();
+    window.setTimeout(() => {
+      if (!selectedFile && !isSubmitting) {
+        homeDropzoneRef.current?.openFilePicker();
+      }
+    }, 280);
+  }, [scrollToUpload, selectedFile, isSubmitting]);
+
+  /** / hoặc /#upload từ menu — cuộn + mở chọn file một lần khi vào trang. */
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (window.location.hash !== "#upload") return;
+    const t1 = window.setTimeout(() => {
+      uploadRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      window.setTimeout(() => {
+        homeDropzoneRef.current?.openFilePicker();
+      }, 320);
+    }, 120);
+    return () => clearTimeout(t1);
   }, []);
 
   const handleFileSelect = useCallback((file: File) => {
@@ -254,8 +282,9 @@ export function HomePage() {
             >
               <Button
                 size="lg"
+                type="button"
                 className="hero-gradient-stitch h-14 gap-2 rounded-lg px-8 text-lg font-bold text-white ambient-shadow-stitch"
-                onClick={scrollToUpload}
+                onClick={handleTryFreeClick}
               >
                 Thử ngay miễn phí
                 <ArrowRight className="size-5" />
@@ -270,12 +299,17 @@ export function HomePage() {
               </Button>
             </m.div>
             <div className="flex flex-wrap items-center gap-3 pt-2">
-              <Button variant="outline" size="sm" asChild className="rounded-lg border-stitch-outline/40">
-                <a href="/api/signer/download">
-                  <Monitor className="size-4" />
-                  Tải Signer
-                </a>
-              </Button>
+              <a
+                href="/api/signer/download"
+                className={cn(
+                  "inline-flex h-9 items-center justify-center gap-2 rounded-lg border-2 border-stitch-outline/60 bg-white px-3.5 text-sm font-semibold text-stitch-primary shadow-sm",
+                  "transition-colors hover:border-stitch-primary/45 hover:bg-stitch-container-low hover:text-stitch-primary-strong",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stitch-primary/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[#f3f7fd]"
+                )}
+              >
+                <Monitor className="size-4 shrink-0 text-stitch-primary-strong" aria-hidden />
+                Tải Signer
+              </a>
               <Link
                 href="/signer"
                 className="text-sm text-stitch-primary underline-offset-4 hover:underline"
@@ -298,6 +332,7 @@ export function HomePage() {
                 </div>
                 {!selectedFile ? (
                   <UploadDropzoneCard
+                    ref={homeDropzoneRef}
                     onFileSelect={handleFileSelect}
                     disabled={isSubmitting}
                     variant="stitch"

@@ -1,8 +1,19 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import {
+  useCallback,
+  useState,
+  useRef,
+  forwardRef,
+  useImperativeHandle,
+} from "react";
 import { FileUp } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+export type UploadDropzoneCardHandle = {
+  /** Mở hộp thoại chọn file (PDF) */
+  openFilePicker: () => void;
+};
 
 interface UploadDropzoneCardProps {
   onFileSelect: (file: File) => void;
@@ -14,16 +25,29 @@ interface UploadDropzoneCardProps {
   variant?: "default" | "dark" | "stitch";
 }
 
-export function UploadDropzoneCard({
-  onFileSelect,
-  accept = ".pdf,application/pdf",
-  maxSize = 50 * 1024 * 1024, // 50MB
-  disabled = false,
-  className,
-  variant = "default",
-}: UploadDropzoneCardProps) {
+export const UploadDropzoneCard = forwardRef<
+  UploadDropzoneCardHandle,
+  UploadDropzoneCardProps
+>(function UploadDropzoneCard(
+  {
+    onFileSelect,
+    accept = ".pdf,application/pdf",
+    maxSize = 50 * 1024 * 1024, // 50MB
+    disabled = false,
+    className,
+    variant = "default",
+  },
+  ref
+) {
+  const inputRef = useRef<HTMLInputElement>(null);
   const [isDragActive, setIsDragActive] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useImperativeHandle(ref, () => ({
+    openFilePicker: () => {
+      if (!disabled) inputRef.current?.click();
+    },
+  }));
 
   const validateAndEmit = useCallback(
     (file: File) => {
@@ -107,6 +131,7 @@ export function UploadDropzoneCard({
       onDrop={handleDrop}
     >
       <input
+        ref={inputRef}
         type="file"
         accept={accept}
         onChange={handleChange}
@@ -167,4 +192,6 @@ export function UploadDropzoneCard({
       )}
     </label>
   );
-}
+});
+
+UploadDropzoneCard.displayName = "UploadDropzoneCard";

@@ -1,4 +1,7 @@
-export { UploadDropzoneCard } from "./upload-dropzone-card";
+export {
+  UploadDropzoneCard,
+  type UploadDropzoneCardHandle,
+} from "./upload-dropzone-card";
 export { UploadProgress } from "./upload-progress";
 export { UploadModal } from "./upload-modal";
 export { JobStatusCard } from "./job-status-card";
