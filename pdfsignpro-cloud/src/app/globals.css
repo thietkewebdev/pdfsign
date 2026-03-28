@@ -110,7 +110,19 @@
   background-size: 24px 24px;
 }
 .signing-document-shadow {
-  box-shadow: 0 20px 50px rgba(0, 59, 147, 0.08);
+  box-shadow: 0 20px 50px rgba(0, 71, 187, 0.08);
+}
+
+/**
+ * Trang /d/[publicId] — tone xanh đúng Stitch kyso (code.html primary #0047BB).
+ * Override --primary cho descendant dùng token Tailwind (bg-primary, border-primary, …).
+ */
+.signing-page-kyso {
+  --primary: #0047bb;
+  --signing-kyso-hover: #00358e;
+  --signing-kyso-info-bg: #eff6ff;
+  --signing-kyso-info-border: #dbeafe;
+  --signing-kyso-info-text: #1e40af;
 }
 /* Glow behind hero illustration (right side) */
 .home-glow-hero {

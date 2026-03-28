@@ -7,7 +7,6 @@ import { useSession } from "next-auth/react";
 import { toast } from "sonner";
 import {
   FilePlus,
-  PenLine,
   Download,
   Users,
   Shield,
@@ -17,6 +16,9 @@ import {
   Settings2,
   ArrowLeft,
   FileText,
+  ChevronRight,
+  XCircle,
+  Info,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -681,6 +683,17 @@ export default function SigningViewerPage() {
           </p>
         </div>
       )}
+      {!isSigned && (
+        <div className="rounded-xl border border-[var(--signing-kyso-info-border)] bg-[var(--signing-kyso-info-bg)] p-4">
+          <div className="flex gap-3">
+            <Info className="size-5 shrink-0 text-primary" aria-hidden />
+            <p className="text-[11px] font-medium leading-relaxed text-[var(--signing-kyso-info-text)]">
+              Quý khách vui lòng kiểm tra kỹ nội dung văn bản trước khi thực hiện thao tác ký số.
+              Chữ ký số có giá trị pháp lý tương đương chữ ký tay và con dấu.
+            </p>
+          </div>
+        </div>
+      )}
       <div>
         <h3 className="mb-3 text-[11px] font-bold uppercase tracking-widest text-slate-400">
           Trang
@@ -711,7 +724,7 @@ export default function SigningViewerPage() {
   );
 
   return (
-    <div className="flex h-screen min-h-0 flex-col overflow-hidden bg-slate-100 text-slate-900">
+    <div className="signing-page-kyso flex h-screen min-h-0 flex-col overflow-hidden bg-slate-100 text-slate-900">
       <header className="fixed top-0 z-50 flex h-16 w-full items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 shadow-sm sm:px-6 lg:px-8">
         <div className="flex min-w-0 flex-1 items-center gap-3 lg:gap-6">
           <Link href="/" className="flex shrink-0 items-center gap-2">
@@ -827,7 +840,7 @@ export default function SigningViewerPage() {
         </nav>
       </header>
 
-      <main className="flex min-h-0 flex-1 flex-col overflow-hidden pt-16 pb-24">
+      <main className="flex min-h-0 flex-1 flex-col overflow-hidden pt-16 pb-28 sm:pb-24">
         <div className="hidden min-h-0 flex-1 lg:flex lg:overflow-hidden">
           <aside className="z-10 flex h-full w-72 shrink-0 flex-col border-r border-slate-200 bg-white shadow-sm">
             <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
@@ -919,35 +932,82 @@ export default function SigningViewerPage() {
         </div>
       </main>
 
-      <footer className="fixed bottom-0 left-0 right-0 z-40 flex h-20 items-center justify-between gap-3 border-t border-slate-200 bg-white px-4 shadow-[0_-4px_24px_rgba(0,59,147,0.06)] sm:px-8">
-        <Button
-          type="button"
-          variant="ghost"
-          className="gap-2 text-slate-600 hover:text-primary"
-          onClick={handleFooterBack}
-        >
-          <ArrowLeft className="size-4" />
-          Quay lại
-        </Button>
-        <div className="flex items-center gap-2 sm:gap-3">
-          <Button
+      <footer className="fixed bottom-0 left-0 right-0 z-40 flex min-h-24 flex-col gap-3 border-t border-slate-200 bg-white px-4 py-3 shadow-[0_-10px_40px_rgba(0,0,0,0.05)] sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-8 sm:py-0">
+        <div className="flex items-center gap-2 sm:gap-0">
+          <button
             type="button"
-            variant="outline"
-            className="border-slate-200"
+            onClick={handleFooterBack}
+            className="flex h-16 w-[5.5rem] flex-col items-center justify-center text-slate-400 transition-colors hover:text-primary"
+          >
+            <ArrowLeft className="size-6 shrink-0" strokeWidth={1.75} />
+            <span className="mt-1 text-[10px] font-bold uppercase tracking-widest">
+              Quay lại
+            </span>
+          </button>
+          <div className="mx-1 hidden h-8 w-px bg-slate-100 sm:mx-2 sm:block" />
+          <button
+            type="button"
             onClick={handleFooterCancel}
+            className="flex h-16 w-[5.5rem] flex-col items-center justify-center text-slate-400 transition-colors hover:text-red-500"
           >
-            Hủy
-          </Button>
-          <Button
-            type="button"
-            onClick={handleSign}
-            disabled={placements.length === 0 || !!jobState || isSigned}
-            className="gap-2 rounded-xl bg-primary px-4 font-bold text-primary-foreground shadow-md shadow-primary/25 hover:bg-primary/90 sm:px-6"
-          >
-            <PenLine className="size-4 shrink-0" />
-            <span className="hidden sm:inline">Ký bằng USB Token</span>
-            <span className="sm:hidden">Ký USB</span>
-          </Button>
+            <XCircle className="size-6 shrink-0" strokeWidth={1.75} />
+            <span className="mt-1 text-[10px] font-bold uppercase tracking-widest">
+              Hủy bỏ
+            </span>
+          </button>
+        </div>
+        <div className="flex flex-1 flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-end sm:gap-6">
+          <div className="text-center sm:hidden">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
+              {isSigned ? "Đã hoàn tất" : "Đang thực hiện ký"}
+            </p>
+            <p className="truncate text-xs font-black text-primary">{doc.title}</p>
+          </div>
+          <div className="hidden text-right sm:block">
+            <p className="text-xs font-bold uppercase tracking-widest text-slate-500">
+              {isSigned ? "Đã hoàn tất" : "Đang thực hiện ký"}
+            </p>
+            <p className="truncate text-sm font-black text-primary sm:max-w-[14rem] md:max-w-xs lg:max-w-md">
+              {doc.title}
+            </p>
+          </div>
+          {!isSigned ? (
+            <button
+              type="button"
+              onClick={handleSign}
+              disabled={placements.length === 0 || !!jobState}
+              className={cn(
+                "group flex w-full items-center justify-center gap-3 rounded-2xl bg-primary px-5 py-4 text-white shadow-[0_25px_50px_-12px_rgba(0,71,187,0.4)] transition-all active:scale-[0.98] disabled:pointer-events-none disabled:opacity-45 disabled:shadow-none sm:w-auto sm:gap-4 sm:px-10 sm:py-5",
+                "hover:bg-[var(--signing-kyso-hover)]"
+              )}
+            >
+              <div className="rounded-lg bg-white/20 p-2 transition-transform group-hover:scale-105">
+                <Usb className="size-6 shrink-0 sm:size-7" strokeWidth={2.25} />
+              </div>
+              <div className="min-w-0 flex-1 text-left sm:flex-none">
+                <span className="mb-1 block text-[10px] font-black uppercase leading-none tracking-[0.2em] text-white/80">
+                  Xác nhận thực hiện
+                </span>
+                <span className="block text-base font-black uppercase leading-none sm:text-lg">
+                  Ký với USB Token
+                </span>
+              </div>
+              <ChevronRight
+                className="ml-1 size-7 shrink-0 opacity-90 sm:size-8"
+                strokeWidth={2}
+                aria-hidden
+              />
+            </button>
+          ) : (
+            <Button
+              type="button"
+              className="rounded-2xl px-8 py-5 font-bold"
+              onClick={() => setUploadModalOpen(true)}
+            >
+              <FilePlus className="size-4" />
+              Ký tài liệu mới
+            </Button>
+          )}
         </div>
       </footer>
 
