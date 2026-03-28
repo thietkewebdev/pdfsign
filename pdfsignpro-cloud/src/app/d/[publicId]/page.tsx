@@ -311,13 +311,6 @@ export default function SigningViewerPage() {
     setTimeout(() => setShareLinkCopied(false), 2000);
   };
 
-  const copyDocumentLink = () => {
-    if (typeof window === "undefined" || !publicId) return;
-    const link = `${window.location.origin}/d/${publicId}`;
-    navigator.clipboard.writeText(link);
-    toast.success("Đã sao chép liên kết");
-  };
-
   const resetJobState = () => {
     setJobState(null);
     pollStartRef.current = null;
@@ -454,8 +447,6 @@ export default function SigningViewerPage() {
       ? (basePdfUrl.includes("?") ? "&" : "?") + "t=" + jobState.cacheBustAt
       : "";
   const pdfUrl = basePdfUrl + cacheBust;
-  // Download URL: use download endpoint to force download (Chrome/Edge)
-  const downloadUrl = `/api/documents/${publicId}/download?v=${currentVersion.version}`;
 
   const isSigned = currentVersion.version >= 2 || jobState?.status === "COMPLETED";
   const signingFlowComplete = isSigned;
@@ -716,15 +707,6 @@ export default function SigningViewerPage() {
       selectedTemplateId={selectedTemplateId}
       sealImageBase64={sealImageBase64}
       continuousScroll
-      toolbarActions={{
-        downloadUrl,
-        documentTitle: doc.title ?? "document.pdf",
-        shareLink:
-          typeof window !== "undefined"
-            ? `${window.location.origin}/d/${publicId}`
-            : "",
-        onCopyShare: copyDocumentLink,
-      }}
     />
   );
 

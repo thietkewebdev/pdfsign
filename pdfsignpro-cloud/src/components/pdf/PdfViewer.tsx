@@ -1,18 +1,15 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import Link from "next/link";
 import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
-import { Download, Monitor, Share2, MoreHorizontal, X } from "lucide-react";
+import {
+  ChevronsLeft,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsRight,
+} from "lucide-react";
 import { SignatureBox } from "./SignatureBox";
 import { PdfScrollPage } from "./PdfScrollPage";
-import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import type { SignaturePlacement } from "@/lib/types";
 
 // Worker for pdf.js (self-hosted from public/pdfjs/)
@@ -46,13 +43,6 @@ interface PdfViewerProps {
   selectedTemplateId?: string;
   /** Base64 seal image for the "seal" template */
   sealImageBase64?: string | null;
-  /** Toolbar actions - when provided, rendered in viewer toolbar */
-  toolbarActions?: {
-    downloadUrl: string;
-    documentTitle: string;
-    shareLink: string;
-    onCopyShare: () => void;
-  };
   /**
    * Stack pages vertically; each page renders when scrolled near viewport (pdfUrl only).
    */
@@ -74,7 +64,6 @@ export function PdfViewer({
   readOnly = false,
   selectedTemplateId = "valid",
   sealImageBase64,
-  toolbarActions,
   continuousScroll = false,
 }: PdfViewerProps) {
   void activePageForPlacement;
@@ -234,7 +223,12 @@ export function PdfViewer({
     1
   );
   const isLastPage = currentPage === safeTotalPages;
+  const isFirstPage = currentPage <= 1;
 
+  const goFirst = () => {
+    if (useContinuous) scrollToPageNum(1);
+    else onPageChange(1);
+  };
   const goPrev = () => {
     const n = Math.max(1, currentPage - 1);
     if (useContinuous) scrollToPageNum(n);
@@ -283,196 +277,137 @@ export function PdfViewer({
   }
 
   return (
-    <div className="flex min-h-0 h-full w-full flex-col bg-muted/30">
-      <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-2 bg-background/80">
-        <div className="flex items-center gap-2 min-w-0 flex-wrap">
+    <div className="flex h-full min-h-0 w-full flex-col bg-muted/30">
+      <div className="flex items-center justify-end gap-2 border-b border-border bg-background/80 px-4 py-2">
+        <div className="flex shrink-0 items-center gap-0.5 rounded-full border border-border bg-muted/50 p-0.5">
           <button
             type="button"
-            onClick={goPrev}
-            disabled={currentPage <= 1}
-            className="rounded-md border border-border px-2.5 py-1.5 text-sm hover:bg-accent disabled:opacity-50 transition-colors shrink-0"
+            onClick={() => onScaleChange(Math.max(0.5, scale - 0.25))}
+            className="rounded-full px-2.5 py-1 text-sm transition-colors hover:bg-accent"
+            aria-label="Thu nhỏ"
           >
-            ←
+            −
           </button>
-          <div className="flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-2.5 py-1.5 shrink-0">
-            <span className="text-[11px] font-medium uppercase tracking-wide text-primary/90">
-              Trang hiện tại
-            </span>
-            <span className="rounded-md bg-primary px-2 py-0.5 text-xs font-bold tabular-nums text-primary-foreground">
-              {currentPage}
-            </span>
-            <span className="text-xs text-muted-foreground">/</span>
-            <span className="rounded-md bg-background px-2 py-0.5 text-xs font-semibold tabular-nums text-foreground border border-border">
-              {safeTotalPages}
-            </span>
-          </div>
+          <span className="min-w-[3rem] text-center text-sm tabular-nums text-muted-foreground">
+            {Math.round(scale * 100)}%
+          </span>
           <button
             type="button"
-            onClick={goLast}
-            disabled={safeTotalPages <= 1 || isLastPage}
-            className="rounded-md border border-amber-300/70 bg-amber-50 px-2.5 py-1.5 text-xs font-medium text-amber-900 hover:bg-amber-100 disabled:opacity-50 transition-colors shrink-0 dark:border-amber-700/60 dark:bg-amber-900/20 dark:text-amber-300 dark:hover:bg-amber-900/30"
+            onClick={() => onScaleChange(Math.min(2, scale + 0.25))}
+            className="rounded-full px-2.5 py-1 text-sm transition-colors hover:bg-accent"
+            aria-label="Phóng to"
           >
-            Tới trang cuối: {safeTotalPages}
+            +
           </button>
-          {isLastPage && (
-            <span className="hidden sm:inline-flex rounded-md border border-emerald-300/70 bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-800 shrink-0 dark:border-emerald-700/70 dark:bg-emerald-900/20 dark:text-emerald-300">
-              Bạn đang ở trang cuối
-            </span>
-          )}
-          <button
-            type="button"
-            onClick={goNext}
-            disabled={currentPage >= safeTotalPages}
-            className="rounded-md border border-border px-2.5 py-1.5 text-sm hover:bg-accent disabled:opacity-50 transition-colors shrink-0"
-          >
-            →
-          </button>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <div className="flex items-center gap-0.5 rounded-full border border-border bg-muted/50 p-0.5">
-            <button
-              type="button"
-              onClick={() => onScaleChange(Math.max(0.5, scale - 0.25))}
-              className="rounded-full px-2.5 py-1 text-sm hover:bg-accent transition-colors"
-              aria-label="Thu nhỏ"
-            >
-              −
-            </button>
-            <span className="min-w-[3rem] text-center text-sm text-muted-foreground tabular-nums">
-              {Math.round(scale * 100)}%
-            </span>
-            <button
-              type="button"
-              onClick={() => onScaleChange(Math.min(2, scale + 0.25))}
-              className="rounded-full px-2.5 py-1 text-sm hover:bg-accent transition-colors"
-              aria-label="Phóng to"
-            >
-              +
-            </button>
-          </div>
-          {toolbarActions && (
-            <>
-              <div className="hidden sm:flex items-center gap-1">
-                <Button variant="ghost" size="sm" asChild className="text-muted-foreground hover:text-foreground h-8">
-                  <a href="/api/signer/download">
-                    <Monitor className="size-4" />
-                    Tải Signer
-                  </a>
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={toolbarActions.onCopyShare}
-                  className="text-muted-foreground hover:text-foreground h-8"
-                  aria-label="Chia sẻ"
-                >
-                  <Share2 className="size-4" />
-                  Chia sẻ
-                </Button>
-                <Button variant="ghost" size="sm" asChild className="h-8">
-                  <a href={toolbarActions.downloadUrl} download={toolbarActions.documentTitle}>
-                    <Download className="size-4" />
-                    Tải PDF
-                  </a>
-                </Button>
-                <Button variant="ghost" size="icon" asChild aria-label="Đóng" className="h-8 text-muted-foreground hover:text-foreground">
-                  <Link href="/">
-                    <X className="size-4" />
-                  </Link>
-                </Button>
-              </div>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="sm:hidden h-8">
-                    <MoreHorizontal className="size-4" />
-                    <span className="sr-only">Hành động</span>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem asChild>
-                    <a href="/api/signer/download">
-                      <Monitor className="size-4" />
-                      Tải Signer
-                    </a>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={toolbarActions.onCopyShare}>
-                    <Share2 className="size-4" />
-                    Chia sẻ
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <a href={toolbarActions.downloadUrl} download={toolbarActions.documentTitle}>
-                      <Download className="size-4" />
-                      Tải PDF
-                    </a>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link href="/">
-                      <X className="size-4" />
-                      Đóng
-                    </Link>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </>
-          )}
         </div>
       </div>
-      <div
-        ref={scrollContainerRef}
-        onScroll={handleScrollContainerScroll}
-        className="flex min-h-0 flex-1 cursor-default flex-col items-stretch overflow-auto"
-      >
-        {useContinuous && pdfDoc ? (
-          <div className="flex flex-col items-center px-4 py-6">
-            <p className="mb-4 max-w-xl text-center text-xs text-muted-foreground">
-              Cuộn để xem từng trang (tải khi đến gần). Số trang trên thanh công cụ theo
-              vị trí cuộn.
-            </p>
-            {Array.from({ length: safeTotalPages }, (_, i) => (
-              <PdfScrollPage
-                key={i + 1}
-                pageNum={i + 1}
-                pdfDoc={pdfDoc}
-                scale={scale}
-                scrollRootRef={scrollContainerRef}
-                readOnly={readOnly}
-                placements={placements}
-                onPlacementUpdate={onPlacementUpdate}
-                selectedTemplateId={selectedTemplateId}
-                sealImageBase64={sealImageBase64}
-              />
-            ))}
-          </div>
-        ) : (
-          <div className="flex min-h-0 flex-1 justify-center p-6">
-            <div
-              className="relative inline-block min-w-fit rounded-md border border-border bg-white shadow-lg dark:bg-zinc-900"
-              ref={containerRef}
-            >
-              <canvas ref={canvasRef} className="block rounded-md" />
-              {!readOnly && pageWidth > 0 && pageHeight > 0 && (
-                <div
-                  className="absolute left-0 top-0 size-full"
-                  style={{ width: pageWidth, height: pageHeight }}
-                >
-                  {pagePlacements.map(({ placement, globalIndex }) => (
-                    <SignatureBox
-                      key={`${placement.page}-${globalIndex}`}
-                      placement={placement}
-                      pageWidth={pageWidth}
-                      pageHeight={pageHeight}
-                      scale={1}
-                      templateId={selectedTemplateId}
-                      sealImageBase64={sealImageBase64}
-                      onDragStop={handleDragStop(globalIndex)}
-                      onResizeStop={handleResizeStop(globalIndex)}
-                    />
-                  ))}
-                </div>
-              )}
+      <div className="relative flex min-h-0 flex-1 flex-col">
+        <div
+          ref={scrollContainerRef}
+          onScroll={handleScrollContainerScroll}
+          className="flex min-h-0 flex-1 cursor-default flex-col items-stretch overflow-auto"
+        >
+          {useContinuous && pdfDoc ? (
+            <div className="flex flex-col items-center px-4 pb-28 pt-6 sm:pb-32">
+              <p className="mb-4 max-w-xl text-center text-xs text-muted-foreground">
+                Cuộn để xem từng trang (tải khi đến gần). Số trang cập nhật theo vị trí
+                cuộn; dùng thanh dưới để nhảy trang nhanh.
+              </p>
+              {Array.from({ length: safeTotalPages }, (_, i) => (
+                <PdfScrollPage
+                  key={i + 1}
+                  pageNum={i + 1}
+                  pdfDoc={pdfDoc}
+                  scale={scale}
+                  scrollRootRef={scrollContainerRef}
+                  readOnly={readOnly}
+                  placements={placements}
+                  onPlacementUpdate={onPlacementUpdate}
+                  selectedTemplateId={selectedTemplateId}
+                  sealImageBase64={sealImageBase64}
+                />
+              ))}
             </div>
+          ) : (
+            <div className="flex min-h-0 flex-1 justify-center p-6 pb-28 sm:pb-32">
+              <div
+                className="relative inline-block min-w-fit rounded-md border border-border bg-white shadow-lg dark:bg-zinc-900"
+                ref={containerRef}
+              >
+                <canvas ref={canvasRef} className="block rounded-md" />
+                {!readOnly && pageWidth > 0 && pageHeight > 0 && (
+                  <div
+                    className="absolute left-0 top-0 size-full"
+                    style={{ width: pageWidth, height: pageHeight }}
+                  >
+                    {pagePlacements.map(({ placement, globalIndex }) => (
+                      <SignatureBox
+                        key={`${placement.page}-${globalIndex}`}
+                        placement={placement}
+                        pageWidth={pageWidth}
+                        pageHeight={pageHeight}
+                        scale={1}
+                        templateId={selectedTemplateId}
+                        sealImageBase64={sealImageBase64}
+                        onDragStop={handleDragStop(globalIndex)}
+                        onResizeStop={handleResizeStop(globalIndex)}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex justify-center pb-4 pt-14 sm:pb-5 sm:pt-16">
+          <div
+            className="pointer-events-auto flex items-center gap-4 rounded-full border border-white/20 bg-slate-900/95 px-4 py-2.5 text-xs font-bold tracking-widest text-white shadow-2xl backdrop-blur-md ring-1 ring-white/20 sm:gap-6 sm:px-6 sm:py-3"
+            role="toolbar"
+            aria-label="Chuyển trang"
+          >
+            <button
+              type="button"
+              onClick={goFirst}
+              disabled={isFirstPage}
+              className="text-white transition-colors hover:text-sky-400 disabled:pointer-events-none disabled:opacity-35"
+              aria-label="Trang đầu"
+            >
+              <ChevronsLeft className="size-5 sm:size-6" strokeWidth={2} />
+            </button>
+            <div className="flex items-center gap-2 sm:gap-3">
+              <button
+                type="button"
+                onClick={goPrev}
+                disabled={isFirstPage}
+                className="flex size-8 items-center justify-center rounded-full text-white transition-colors hover:bg-white/10 disabled:pointer-events-none disabled:opacity-35"
+                aria-label="Trang trước"
+              >
+                <ChevronLeft className="size-5" strokeWidth={2} />
+              </button>
+              <span className="min-w-[7.5rem] text-center tabular-nums sm:min-w-[9rem]">
+                TRANG {currentPage} / {safeTotalPages}
+              </span>
+              <button
+                type="button"
+                onClick={goNext}
+                disabled={isLastPage}
+                className="flex size-8 items-center justify-center rounded-full text-white transition-colors hover:bg-white/10 disabled:pointer-events-none disabled:opacity-35"
+                aria-label="Trang sau"
+              >
+                <ChevronRight className="size-5" strokeWidth={2} />
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={goLast}
+              disabled={isLastPage || safeTotalPages <= 1}
+              className="text-white transition-colors hover:text-sky-400 disabled:pointer-events-none disabled:opacity-35"
+              aria-label="Trang cuối"
+            >
+              <ChevronsRight className="size-5 sm:size-6" strokeWidth={2} />
+            </button>
           </div>
-        )}
+        </div>
       </div>
     </div>
   );
