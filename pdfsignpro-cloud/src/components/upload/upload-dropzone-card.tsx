@@ -10,8 +10,8 @@ interface UploadDropzoneCardProps {
   maxSize?: number;
   disabled?: boolean;
   className?: string;
-  /** Dark hero variant for Linear-style homepage */
-  variant?: "default" | "dark";
+  /** Dark hero variant | Stitch marketing hero */
+  variant?: "default" | "dark" | "stitch";
 }
 
 export function UploadDropzoneCard({
@@ -72,6 +72,7 @@ export function UploadDropzoneCard({
   );
 
   const isDark = variant === "dark";
+  const isStitch = variant === "stitch";
 
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -86,13 +87,18 @@ export function UploadDropzoneCard({
     <label
       className={cn(
         "group relative flex min-h-[200px] cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed transition-all duration-150",
-        isDragActive
-          ? isDark
-            ? "border-violet-400/50 bg-violet-500/10"
-            : "border-primary bg-primary/5"
-          : isDark
-            ? "border-white/25 hover:border-white/40 hover:bg-white/5"
-            : "border-border hover:border-muted-foreground/30 hover:bg-muted/30",
+        isStitch &&
+          (isDragActive
+            ? "border-stitch-primary-strong/50 bg-stitch-primary-fixed/40"
+            : "border-stitch-outline/30 bg-white hover:border-stitch-primary/40 hover:bg-stitch-container-low/80"),
+        !isStitch &&
+          (isDragActive
+            ? isDark
+              ? "border-violet-400/50 bg-violet-500/10"
+              : "border-primary bg-primary/5"
+            : isDark
+              ? "border-white/25 hover:border-white/40 hover:bg-white/5"
+              : "border-border hover:border-muted-foreground/30 hover:bg-muted/30"),
         disabled && "cursor-not-allowed opacity-60",
         className
       )}
@@ -110,25 +116,49 @@ export function UploadDropzoneCard({
       <div
         className={cn(
           "flex size-14 items-center justify-center rounded-xl transition-colors",
-          isDragActive ? (isDark ? "bg-violet-500/20" : "bg-primary/20") : isDark ? "bg-white/10" : "bg-muted"
+          isStitch
+            ? isDragActive
+              ? "bg-stitch-primary-fixed"
+              : "bg-stitch-primary-fixed"
+            : isDragActive
+              ? isDark
+                ? "bg-violet-500/20"
+                : "bg-primary/20"
+              : isDark
+                ? "bg-white/10"
+                : "bg-muted"
         )}
       >
-        <FileUp className={cn(
-          "size-7",
-          isDark ? "text-zinc-400 group-hover:text-zinc-200" : "text-muted-foreground group-hover:text-foreground"
-        )} />
+        <FileUp
+          className={cn(
+            "size-7",
+            isStitch
+              ? "text-stitch-primary-strong group-hover:text-stitch-primary"
+              : isDark
+                ? "text-zinc-400 group-hover:text-zinc-200"
+                : "text-muted-foreground group-hover:text-foreground"
+          )}
+        />
       </div>
       <div className="space-y-1 text-center">
-        <p className={cn(
-          "text-sm font-medium",
-          isDark ? "text-zinc-200" : "text-foreground"
-        )}>
+        <p
+          className={cn(
+            "text-sm font-medium",
+            isStitch
+              ? "text-stitch-on-surface"
+              : isDark
+                ? "text-zinc-200"
+                : "text-foreground"
+          )}
+        >
           {isDragActive ? "Thả file vào đây" : "Kéo thả file PDF hoặc nhấn để chọn"}
         </p>
-        <p className={cn(
-          "text-xs",
-          isDark ? "text-zinc-500" : "text-muted-foreground"
-        )}>
+        <p
+          className={cn(
+            "text-xs",
+            isStitch ? "text-stitch-muted" : isDark ? "text-zinc-500" : "text-muted-foreground"
+          )}
+        >
           Hỗ trợ file PDF, tối đa 50MB
         </p>
       </div>

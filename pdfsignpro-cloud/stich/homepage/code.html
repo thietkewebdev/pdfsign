@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+
+<html lang="vi"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>pdfsign.vn - Ký tài liệu PDF chuyên nghiệp &amp; Bảo mật pháp lý</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "surface": "#fbf9f9",
+              "on-primary-container": "#beceff",
+              "on-error": "#ffffff",
+              "surface-bright": "#fbf9f9",
+              "inverse-surface": "#303031",
+              "on-secondary-fixed": "#1b1c1c",
+              "surface-variant": "#e3e2e2",
+              "on-tertiary-container": "#ffc0b6",
+              "surface-container-highest": "#e3e2e2",
+              "primary-fixed": "#dae2ff",
+              "tertiary": "#870500",
+              "on-primary-fixed-variant": "#00419f",
+              "inverse-primary": "#b1c5ff",
+              "secondary-container": "#e4e2e1",
+              "secondary": "#5f5e5e",
+              "primary-container": "#0051c3",
+              "on-tertiary-fixed": "#400100",
+              "outline-variant": "#c3c6d6",
+              "on-primary": "#ffffff",
+              "on-error-container": "#93000a",
+              "secondary-fixed-dim": "#c8c6c6",
+              "secondary-fixed": "#e4e2e1",
+              "on-secondary-fixed-variant": "#474747",
+              "on-tertiary-fixed-variant": "#920600",
+              "tertiary-fixed-dim": "#ffb4a7",
+              "tertiary-fixed": "#ffdad4",
+              "surface-container-lowest": "#ffffff",
+              "on-tertiary": "#ffffff",
+              "surface-container": "#efeded",
+              "tertiary-container": "#b20f03",
+              "on-secondary-container": "#656464",
+              "error-container": "#ffdad6",
+              "surface-container-low": "#f5f3f3",
+              "surface-container-high": "#e9e8e7",
+              "outline": "#737785",
+              "on-surface-variant": "#434653",
+              "primary-fixed-dim": "#b1c5ff",
+              "on-surface": "#1b1c1c",
+              "on-secondary": "#ffffff",
+              "surface-tint": "#1357c9",
+              "error": "#ba1a1a",
+              "background": "#fbf9f9",
+              "on-primary-fixed": "#001947",
+              "surface-dim": "#dbdad9",
+              "on-background": "#1b1c1c",
+              "primary": "#003b93",
+              "inverse-on-surface": "#f2f0f0"
+            },
+            fontFamily: {
+              "headline": ["Inter", "sans-serif"],
+              "body": ["Inter", "sans-serif"],
+              "label": ["Inter", "sans-serif"]
+            },
+            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+      .material-symbols-outlined {
+        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      }
+      .tonal-architecture-no-borders {
+        border: none !important;
+      }
+      .ambient-shadow {
+        box-shadow: 0 12px 40px rgba(27, 28, 28, 0.06);
+      }
+      .hero-gradient {
+        background: linear-gradient(135deg, #003b93 0%, #0051c3 100%);
+      }
+      .glass-nav {
+        backdrop-filter: blur(20px);
+      }
+    </style>
+</head>
+<body class="bg-surface font-body text-on-surface selection:bg-primary-fixed selection:text-on-primary-fixed">
+<!-- Top Navigation Bar -->
+<nav class="fixed top-0 w-full z-50 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md shadow-sm dark:shadow-none tonal-architecture-no-borders">
+<div class="flex justify-between items-center px-6 py-4 max-w-7xl mx-auto">
+<div class="text-2xl font-black text-blue-900 dark:text-blue-100 tracking-tighter">pdfsign.vn</div>
+<div class="hidden md:flex items-center space-x-8">
+<a class="text-blue-700 dark:text-blue-400 font-bold border-b-2 border-blue-700 font-inter text-sm tracking-tight" href="#">Trang chủ</a>
+<a class="text-slate-600 dark:text-slate-400 hover:text-blue-600 transition-colors font-inter text-sm font-medium tracking-tight" href="#">Tính năng</a>
+<a class="text-slate-600 dark:text-slate-400 hover:text-blue-600 transition-colors font-inter text-sm font-medium tracking-tight" href="#">Bảng giá</a>
+<a class="text-slate-600 dark:text-slate-400 hover:text-blue-600 transition-colors font-inter text-sm font-medium tracking-tight" href="#">Bảo mật</a>
+<a class="text-slate-600 dark:text-slate-400 hover:text-blue-600 transition-colors font-inter text-sm font-medium tracking-tight" href="#">Hướng dẫn</a>
+</div>
+<div class="flex items-center space-x-4">
+<button class="text-blue-700 dark:text-blue-400 font-inter text-sm font-medium tracking-tight hover:bg-slate-100/50 p-2 rounded-lg transition-all active:scale-95">Đăng nhập</button>
+<button class="bg-primary-container text-on-primary rounded-lg px-5 py-2.5 font-inter text-sm font-medium tracking-tight hero-gradient shadow-md active:scale-95 transition-all">Dùng thử miễn phí</button>
+</div>
+</div>
+</nav>
+<!-- Hero Section -->
+<header class="pt-32 pb-20 px-6 overflow-hidden">
+<div class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+<div class="space-y-8">
+<div class="inline-flex items-center space-x-2 bg-primary-fixed px-3 py-1 rounded-full text-on-primary-fixed">
+<span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">verified_user</span>
+<span class="text-[11px] font-bold tracking-widest uppercase">Chuẩn Pháp Lý Việt Nam</span>
+</div>
+<h1 class="text-5xl md:text-6xl font-black leading-[1.1] tracking-tighter text-on-surface">
+                    Ký tài liệu PDF <br/><span class="text-primary-container">chuyên nghiệp</span> &amp; Bảo mật pháp lý
+                </h1>
+<p class="text-lg text-on-surface-variant leading-relaxed max-w-xl">
+                    Giải pháp ký số USB Token tối ưu cho Giám đốc &amp; Kế toán. Tương thích 100% với các nhà cung cấp Viettel, VNPT, FPT, BKAV, EasyCA... Đảm bảo tính pháp lý cao nhất theo Luật Giao dịch điện tử.
+                </p>
+<div class="flex flex-col sm:flex-row gap-4">
+<button class="bg-primary-container text-on-primary px-8 py-4 rounded-lg font-bold text-lg hero-gradient ambient-shadow active:scale-95 transition-all flex items-center justify-center gap-2">
+                        Thử ngay miễn phí
+                        <span class="material-symbols-outlined">arrow_forward</span>
+</button>
+<button class="bg-surface-container-highest text-on-surface px-8 py-4 rounded-lg font-bold text-lg active:scale-95 transition-all">
+                        Giải pháp doanh nghiệp
+                    </button>
+</div>
+</div>
+<!-- Upload Area -->
+<div class="relative">
+<div class="bg-surface-container-low p-8 rounded-xl border-2 border-dashed border-outline-variant/30 ambient-shadow">
+<div class="bg-surface-container-lowest rounded-lg p-12 flex flex-col items-center text-center space-y-6">
+<div class="w-20 h-20 bg-primary-fixed rounded-full flex items-center justify-center text-primary-container">
+<span class="material-symbols-outlined text-4xl" style="font-variation-settings: 'FILL' 1;">upload_file</span>
+</div>
+<div>
+<h3 class="text-xl font-bold mb-2">Tải tài liệu lên để ký</h3>
+<p class="text-on-surface-variant text-sm">Kéo thả file PDF vào đây hoặc nhấn để chọn file</p>
+</div>
+<div class="grid grid-cols-2 gap-4 w-full pt-4">
+<div class="bg-surface-container-low p-3 rounded-lg border border-outline-variant/10 flex items-center gap-3">
+<span class="material-symbols-outlined text-primary">usb</span>
+<span class="text-xs font-medium">Hỗ trợ USB Token</span>
+</div>
+<div class="bg-surface-container-low p-3 rounded-lg border border-outline-variant/10 flex items-center gap-3">
+<span class="material-symbols-outlined text-primary">verified</span>
+<span class="text-xs font-medium">Chứng thực CA</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Decorative Elements -->
+<div class="absolute -top-10 -right-10 w-40 h-40 bg-primary/5 rounded-full blur-3xl -z-10"></div>
+<div class="absolute -bottom-10 -left-10 w-40 h-40 bg-primary-container/5 rounded-full blur-3xl -z-10"></div>
+</div>
+</div>
+</header>
+<!-- Trusted By / Social Proof -->
+<section class="py-12 bg-surface-container-low">
+<div class="max-w-7xl mx-auto px-6">
+<p class="text-center text-label-md font-bold tracking-widest text-on-surface-variant/60 uppercase mb-8">Tương thích với tất cả nhà cung cấp CA &amp; Chứng chỉ bảo mật</p>
+<div class="flex flex-wrap justify-center items-center gap-12 opacity-70 grayscale hover:grayscale-0 transition-all duration-500">
+<img class="h-8 object-contain" data-alt="Official logo of Viettel-CA digital signature provider in minimalist blue professional style" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBKveIda054RjfPUVz4Dizt7fPKY1L3cSHB2bFbEuCaOq9rYw0e_C2UCYC2bnN9U46TDVpiFZ545Vh11AMuK835Q9IgIo69p69NiKEjJ0e4bCwvvu3mZpEPF4Vrga-xwz2kAPonn8qjVVMQ0K0DK1oBuj7Gzmfuj8CjEL1gddxaFTYLqO8QSKasSYAN8wpRtqXe-OzG3Y2RVz2ZHbY0FXObk08kNjqAu2dUasiQuPb_v358GXpzO9L5qcjA0mS2lCWHM4aP2Jq14Fs"/>
+<img class="h-8 object-contain" data-alt="Official logo of VNPT-CA digital signature provider in minimalist corporate style" src="https://lh3.googleusercontent.com/aida-public/AB6AXuANzSSYEM5I3DedtJRBAaMuoSCkvnk39hbYUVAnEoKhPlng1BwEiz1-vmbL4_klbMj6i-bVIUz5FgyXphL0OUl5-3lZeUKNoy4vmQdW2w_BVtDsY4c6_WnR_3tgyEbChM0ZILlHs94b51Kq_csppIg4mSZ6zn-oVMcwR5HY4gZtpmTRnRLJtHhXOEHkd80XtK6FEqnqDDySxEVV7SkaDHVzvKcEiP55f3Pvge6xXb3p_1KgvM5Waw4Jx8PRldWGWMlAiCb2CsJmNm8"/>
+<img class="h-8 object-contain" data-alt="Official logo of FPT-CA digital signature provider in professional tech aesthetic" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBbXelHznXzUefUl6rP2gVUrvg4zFeCyTKD11Ot7FwPw-K3AJBG9FcBOWe1tTNGqnO3i9l0Efy69m_ydX1gipoZcmQHZlLEuGuMIXjxv3zoaQaPp2bZtfmPwXgBk3ZNGIAhAgYoQgnDt0yonR3aCsC-N5A4Svzjh0EGCUWh72pB7RUVbmgSInsNnYVneO0j3MRihjSpxKvnQ5HJJZERIonY2sd5hchid-6FrAEceD0T0eK09HrwPZmuFJ3BR8REd6gTm_qjsXc5SPA"/>
+<img class="h-8 object-contain" data-alt="Official logo of BKAV-CA digital signature provider with security emphasis" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCfdDvZ6jMn6taYWMkrokdCkhcuWhkvWZnIgfSBqUfAz2drAMkLES70EBQYK-hn89w23wOpGdUpmwax7TA_M95IJZnDQJttIh1cA8itbD2BHOSrwDHrvE4s9yOsS0zvbOSusEpLusJGQIvAEE6r0AGtjnn_V5f01iFP2TlRKW7uapaV1K5l6olysoe5tjPGcURDkUQ59fzqLKv-pRaB_Lp0X8zv83BpGwm5LkS8rETMSFS19ZgTY_Brlt1rTPfhI5tHQizEsjvMdNw"/>
+<div class="h-10 w-px bg-outline-variant/30 hidden md:block"></div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">security</span>
+<span class="font-bold text-sm">ISO 27001</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">lock</span>
+<span class="font-bold text-sm">AES-256 Bit</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Why Choose Us: Bento Grid -->
+<section class="py-24 px-6 bg-surface">
+<div class="max-w-7xl mx-auto">
+<div class="mb-16">
+<h2 class="text-4xl font-black tracking-tighter mb-4 text-on-surface">Tại sao chọn pdfsign.vn?</h2>
+<div class="h-1.5 w-24 bg-primary-container rounded-full"></div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+<!-- Feature 1 -->
+<div class="md:col-span-2 bg-surface-container-lowest p-10 rounded-xl ambient-shadow flex flex-col justify-between">
+<div>
+<div class="w-14 h-14 bg-primary-fixed rounded-xl flex items-center justify-center text-primary-container mb-6">
+<span class="material-symbols-outlined text-3xl" style="font-variation-settings: 'FILL' 1;">gavel</span>
+</div>
+<h3 class="text-2xl font-bold mb-4">Tính pháp lý tuyệt đối</h3>
+<p class="text-on-surface-variant leading-relaxed max-w-lg">
+                            Mọi chữ ký được tạo ra thông qua hệ thống của chúng tôi đều tuân thủ nghiêm ngặt Luật Giao dịch điện tử 2005 và Nghị định 130/2018/NĐ-CP. Có giá trị tương đương với chữ ký tay và con dấu đỏ.
+                        </p>
+</div>
+<div class="mt-8 pt-8 border-t border-outline-variant/10 flex items-center gap-4 text-primary font-bold">
+                        Xem chi tiết cơ sở pháp lý
+                        <span class="material-symbols-outlined">north_east</span>
+</div>
+</div>
+<!-- Feature 2 -->
+<div class="bg-primary-container p-10 rounded-xl text-on-primary flex flex-col justify-between hero-gradient">
+<div class="w-14 h-14 bg-white/20 rounded-xl flex items-center justify-center text-white mb-6">
+<span class="material-symbols-outlined text-3xl" style="font-variation-settings: 'FILL' 1;">admin_panel_settings</span>
+</div>
+<h3 class="text-2xl font-bold mb-4">Bảo mật chuẩn ngân hàng</h3>
+<p class="text-blue-100/80 leading-relaxed">
+                        Dữ liệu của bạn được mã hóa AES-256 bit ngay tại trình duyệt. Chúng tôi không bao giờ lưu trữ khóa bí mật của khách hàng.
+                    </p>
+</div>
+<!-- Feature 3 -->
+<div class="bg-surface-container-high p-10 rounded-xl flex flex-col justify-between">
+<div class="w-14 h-14 bg-white rounded-xl flex items-center justify-center text-primary mb-6 shadow-sm">
+<span class="material-symbols-outlined text-3xl" style="font-variation-settings: 'FILL' 1;">account_tree</span>
+</div>
+<h3 class="text-2xl font-bold mb-4">Ký nhiều bên cùng lúc</h3>
+<p class="text-on-surface-variant leading-relaxed">
+                        Thiết lập quy trình ký tuần tự (Sequential) hoặc song song (Parallel) linh hoạt cho nhiều phòng ban.
+                    </p>
+</div>
+<!-- Feature 4 -->
+<div class="md:col-span-2 bg-surface-container-low p-10 rounded-xl border border-outline-variant/10 flex items-center gap-12">
+<div class="hidden sm:block">
+<img class="rounded-lg shadow-xl w-64 rotate-2" data-alt="Clean software dashboard interface showing document signing status with professional blue accents" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCjYuKmtJ3R_Zb0BYoqvLZBCVMrNYMht9VlYEgoAt6QN67h_p6TDi1sehgHMTc1wxAkm5Bcb28GMPKpOjhEtNRpWule2EHVRvmCwH35CVK7Xy-W5rM_fLS_8-RC1VTCOV7X1Aeh2twCi8b8xJFoUGEZ23YLTdDksKg2Bzc3yqnwRhQRnpZjxqSlrPtUIxb0BiVcVbE9GSxFiGGzscE296ieOvNKKtYy0Pidj4Wy95SxMWR16d_dxVuyqEiS5RQGf4_ou8v0pavZwQ8"/>
+</div>
+<div>
+<h3 class="text-2xl font-bold mb-4">Quản lý tập trung</h3>
+<p class="text-on-surface-variant leading-relaxed">
+                            Theo dõi trạng thái tài liệu thời gian thực. Tự động nhắc nhở các bên chưa ký qua Email/Zalo.
+                        </p>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Detailed Pricing -->
+<section class="py-24 px-6 bg-surface-container-lowest">
+<div class="max-w-7xl mx-auto">
+<div class="text-center mb-16">
+<h2 class="text-4xl font-black tracking-tighter mb-4">Bảng giá linh hoạt</h2>
+<p class="text-on-surface-variant">Phù hợp cho cả cá nhân và doanh nghiệp lớn</p>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+<!-- Free Plan -->
+<div class="p-8 rounded-xl bg-surface border border-outline-variant/20 flex flex-col">
+<div class="mb-8">
+<h4 class="text-label-md font-bold tracking-widest uppercase text-on-surface-variant/60 mb-2">MIỄN PHÍ</h4>
+<div class="text-4xl font-black">0đ<span class="text-lg font-normal text-on-surface-variant">/tháng</span></div>
+</div>
+<ul class="space-y-4 mb-10 flex-grow">
+<li class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary text-sm" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<span class="text-sm">50 tài liệu/tháng</span>
+</li>
+<li class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary text-sm" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<span class="text-sm">Lưu trữ 30 ngày</span>
+</li>
+<li class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary text-sm" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<span class="text-sm">Ký nhiều bên</span>
+</li>
+</ul>
+<button class="w-full py-3 rounded-lg border border-primary text-primary font-bold hover:bg-primary-fixed transition-all">Bắt đầu ngay</button>
+</div>
+<!-- Professional Plan -->
+<div class="p-8 rounded-xl bg-white ambient-shadow border-2 border-primary-container relative flex flex-col">
+<div class="absolute -top-4 left-1/2 -translate-x-1/2 bg-primary-container text-on-primary px-4 py-1 rounded-full text-xs font-bold tracking-widest">PHỔ BIẾN NHẤT</div>
+<div class="mb-8">
+<h4 class="text-label-md font-bold tracking-widest uppercase text-primary-container mb-2">CHUYÊN NGHIỆP</h4>
+<div class="text-4xl font-black text-primary-container">99.000đ<span class="text-lg font-normal text-on-surface-variant">/tháng</span></div>
+</div>
+<ul class="space-y-4 mb-10 flex-grow">
+<li class="flex items-center gap-3 font-medium">
+<span class="material-symbols-outlined text-primary text-sm" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<span class="text-sm">Không giới hạn tài liệu</span>
+</li>
+<li class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary text-sm" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<span class="text-sm">Lưu trữ trọn đời</span>
+</li>
+<li class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary text-sm" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<span class="text-sm">Quản lý danh mục chữ ký</span>
+</li>
+<li class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary text-sm" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<span class="text-sm">Tùy chỉnh mẫu email</span>
+</li>
+</ul>
+<button class="w-full py-4 rounded-lg bg-primary-container text-on-primary font-bold hero-gradient ambient-shadow hover:scale-[1.02] transition-all">Mua ngay</button>
+</div>
+<!-- Enterprise Plan -->
+<div class="p-8 rounded-xl bg-surface border border-outline-variant/20 flex flex-col">
+<div class="mb-8">
+<h4 class="text-label-md font-bold tracking-widest uppercase text-on-surface-variant/60 mb-2">DOANH NGHIỆP</h4>
+<div class="text-4xl font-black">Liên hệ</div>
+</div>
+<ul class="space-y-4 mb-10 flex-grow">
+<li class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary text-sm" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<span class="text-sm">Quản trị nhóm (Team management)</span>
+</li>
+<li class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary text-sm" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<span class="text-sm">API tích hợp hệ thống ERP/CRM</span>
+</li>
+<li class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary text-sm" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<span class="text-sm">Phân quyền người dùng chi tiết</span>
+</li>
+<li class="flex items-center gap-3 font-medium text-primary">
+<span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1;">support_agent</span>
+<span class="text-sm">Hỗ trợ 24/7 trực tiếp</span>
+</li>
+</ul>
+<button class="w-full py-3 rounded-lg bg-surface-container-highest text-on-surface font-bold hover:bg-outline-variant transition-all">Liên hệ chúng tôi</button>
+</div>
+</div>
+</div>
+</section>
+<!-- Testimonials -->
+<section class="py-24 px-6 bg-surface-container-low">
+<div class="max-w-7xl mx-auto">
+<h2 class="text-3xl font-black text-center mb-16">Khách hàng nói về chúng tôi</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+<div class="bg-white p-8 rounded-xl shadow-sm border-l-4 border-primary">
+<span class="material-symbols-outlined text-primary-fixed-dim text-4xl mb-4">format_quote</span>
+<p class="text-lg italic text-on-surface mb-6">"Hệ thống ký rất mượt, tương thích hoàn toàn với Token Viettel tôi đang dùng. Giúp việc ký hồ sơ thầu nhanh hơn gấp 10 lần."</p>
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 rounded-full bg-primary-fixed overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="Portrait of a professional female accountant in a modern office setting, smiling confidently" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDAoeRHwbin0bJIUU9maWynVxDQdWSSCr3Wu0mq2Twb5KY-ug8A70jqqXdPk7Cs52XIqiAws_RKZVW_Pju9iG5hTs6DEhQMtaDqVRIQ3k8r2kBZvOd14--vg-bDE7ce0UTeGaLbVnkRvlyKNZ-eXMhEHauPqNB9hUNWQoHmvetlz0S4HQT0Q689fxBzsbs62mX1au6s0Ugnf1RVpFPUQip3lffZTzlxespdt0cKYjU2CkiD-E3V5BBHUpdEOLE451qcKNU47HsNnTo"/>
+</div>
+<div>
+<div class="font-bold">Chị Mai Phương</div>
+<div class="text-sm text-on-surface-variant">Kế toán trưởng - TechCorp Vietnam</div>
+</div>
+</div>
+</div>
+<div class="bg-white p-8 rounded-xl shadow-sm border-l-4 border-primary-container">
+<span class="material-symbols-outlined text-primary-fixed-dim text-4xl mb-4">format_quote</span>
+<p class="text-lg italic text-on-surface mb-6">"Tính pháp lý là điều tôi quan tâm nhất. pdfsign.vn đã giải quyết triệt để bài toán này với sự hỗ trợ nhiệt tình cho doanh nghiệp."</p>
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 rounded-full bg-primary-fixed overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="Close-up portrait of a successful male CEO in a professional suit with a neutral, authoritative expression" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCGYX-hCnkIVINCH0TFydzRFyoi_GKmMy8T1RJOrYA0L2hDlHf9cQAtlPOmNtwqX5jdDY44RlCcwvibrkmsjYI9MJ1RmPXWTl5YoAeVtFJZKeVkx2e0hLdCNl83ZbZAtYV6_McdIH_X0MwdNqB8im0YIVjqYpUp1F3DLvsY2dU23li-DV4REAwRmT9hlC4jBiLJZ8cCnnxuzNWHfLLyMTsAqYpo-Hyx0oOLlqy6r4RwFY2Je2Y_s83aaZakG-WH_p46tCgGaFIFp0Q"/>
+</div>
+<div>
+<div class="font-bold">Anh Hoàng Nam</div>
+<div class="text-sm text-on-surface-variant">Giám đốc điều hành - NamAn Logistic</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- FAQ Section -->
+<section class="py-24 px-6">
+<div class="max-w-3xl mx-auto">
+<h2 class="text-3xl font-black text-center mb-12">Câu hỏi thường gặp</h2>
+<div class="space-y-4">
+<details class="group bg-surface-container-low p-6 rounded-xl cursor-pointer" open="">
+<summary class="flex justify-between items-center font-bold text-lg list-none">
+                        Chữ ký số USB Token có hợp pháp không?
+                        <span class="material-symbols-outlined group-open:rotate-180 transition-transform">expand_more</span>
+</summary>
+<p class="mt-4 text-on-surface-variant leading-relaxed">
+                        Hoàn toàn hợp pháp. Theo Luật Giao dịch điện tử và Nghị định 130/2018/NĐ-CP, chữ ký số sử dụng chứng thư số công cộng (như USB Token của Viettel, VNPT...) có giá trị pháp lý tương đương chữ ký tay và con dấu của tổ chức.
+                    </p>
+</details>
+<details class="group bg-surface-container-low p-6 rounded-xl cursor-pointer">
+<summary class="flex justify-between items-center font-bold text-lg list-none">
+                        Tôi có thể ký trên nhiều thiết bị không?
+                        <span class="material-symbols-outlined group-open:rotate-180 transition-transform">expand_more</span>
+</summary>
+<p class="mt-4 text-on-surface-variant leading-relaxed">
+                        Có, pdfsign.vn là nền tảng web. Bạn có thể đăng nhập từ bất kỳ máy tính nào có cài đặt plugin hỗ trợ USB Token của chúng tôi để thực hiện thao tác ký.
+                    </p>
+</details>
+<details class="group bg-surface-container-low p-6 rounded-xl cursor-pointer">
+<summary class="flex justify-between items-center font-bold text-lg list-none">
+                        Làm sao để kiểm tra tính toàn vẹn của file?
+                        <span class="material-symbols-outlined group-open:rotate-180 transition-transform">expand_more</span>
+</summary>
+<p class="mt-4 text-on-surface-variant leading-relaxed">
+                        Bạn có thể sử dụng các phần mềm đọc PDF chuyên dụng như Adobe Acrobat Reader hoặc trực tiếp trên công cụ kiểm tra của chúng tôi để xác thực chữ ký và đảm bảo nội dung file không bị thay đổi sau khi ký.
+                    </p>
+</details>
+</div>
+</div>
+</section>
+<!-- Contact Form Section -->
+<section class="py-24 px-6 bg-surface-container-highest/20">
+<div class="max-w-5xl mx-auto bg-white rounded-2xl ambient-shadow overflow-hidden flex flex-col md:flex-row">
+<div class="md:w-1/3 bg-primary p-10 text-on-primary hero-gradient">
+<h3 class="text-2xl font-bold mb-6">Liên hệ tư vấn</h3>
+<p class="mb-8 opacity-80">Chúng tôi luôn sẵn sàng hỗ trợ bạn triển khai giải pháp ký số cho doanh nghiệp.</p>
+<div class="space-y-4">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-sm">mail</span>
+<span>contact@pdfsign.vn</span>
+</div>
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-sm">call</span>
+<span>1900 8888</span>
+</div>
+</div>
+</div>
+<div class="md:w-2/3 p-10">
+<form class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+<div class="flex flex-col gap-2">
+<label class="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Họ và tên</label>
+<input class="bg-surface-container-low border-none rounded-lg p-3 focus:ring-2 focus:ring-primary" placeholder="Nguyễn Văn A" type="text"/>
+</div>
+<div class="flex flex-col gap-2">
+<label class="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Số điện thoại</label>
+<input class="bg-surface-container-low border-none rounded-lg p-3 focus:ring-2 focus:ring-primary" placeholder="0901 xxx xxx" type="tel"/>
+</div>
+<div class="sm:col-span-2 flex flex-col gap-2">
+<label class="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Tên doanh nghiệp</label>
+<input class="bg-surface-container-low border-none rounded-lg p-3 focus:ring-2 focus:ring-primary" placeholder="Công ty TNHH..." type="text"/>
+</div>
+<div class="sm:col-span-2 flex flex-col gap-2">
+<label class="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Nội dung cần tư vấn</label>
+<textarea class="bg-surface-container-low border-none rounded-lg p-3 focus:ring-2 focus:ring-primary h-32" placeholder="Tôi cần tư vấn giải pháp ký số API cho hệ thống kế toán..."></textarea>
+</div>
+<button class="sm:col-span-2 bg-primary-container text-on-primary font-bold py-4 rounded-lg hero-gradient ambient-shadow">Gửi yêu cầu ngay</button>
+</form>
+</div>
+</div>
+</section>
+<!-- Footer -->
+<footer class="bg-slate-50 dark:bg-slate-950 w-full py-12 border-t border-slate-200 dark:border-slate-800">
+<div class="grid grid-cols-1 md:grid-cols-4 gap-8 px-6 max-w-7xl mx-auto">
+<div class="col-span-1 md:col-span-1">
+<div class="text-lg font-bold text-slate-900 dark:white mb-4">pdfsign.vn</div>
+<p class="font-inter text-xs font-normal text-slate-500 leading-relaxed">
+                    Giải pháp ký số chuyên nghiệp giúp chuyển đổi số quy trình ký kết tài liệu cho doanh nghiệp Việt Nam.
+                </p>
+</div>
+<div class="space-y-4">
+<h5 class="text-sm font-bold text-slate-900 uppercase tracking-widest">Sản phẩm</h5>
+<ul class="space-y-2">
+<li><a class="font-inter text-xs font-normal text-slate-500 hover:text-blue-500 hover:underline transition-all" href="#">Tính năng chính</a></li>
+<li><a class="font-inter text-xs font-normal text-slate-500 hover:text-blue-500 hover:underline transition-all" href="#">Bảng giá</a></li>
+<li><a class="font-inter text-xs font-normal text-slate-500 hover:text-blue-500 hover:underline transition-all" href="#">API tài liệu</a></li>
+</ul>
+</div>
+<div class="space-y-4">
+<h5 class="text-sm font-bold text-slate-900 uppercase tracking-widest">Pháp lý</h5>
+<ul class="space-y-2">
+<li><a class="font-inter text-xs font-normal text-slate-500 hover:text-blue-500 hover:underline transition-all" href="#">Điều khoản sử dụng</a></li>
+<li><a class="font-inter text-xs font-normal text-slate-500 hover:text-blue-500 hover:underline transition-all" href="#">Chính sách bảo mật</a></li>
+<li><a class="font-inter text-xs font-normal text-slate-500 hover:text-blue-500 hover:underline transition-all" href="#">Hồ sơ năng lực</a></li>
+</ul>
+</div>
+<div class="space-y-4">
+<h5 class="text-sm font-bold text-slate-900 uppercase tracking-widest">Hỗ trợ</h5>
+<ul class="space-y-2">
+<li><a class="font-inter text-xs font-normal text-slate-500 hover:text-blue-500 hover:underline transition-all" href="#">Trung tâm trợ giúp</a></li>
+<li><a class="font-inter text-xs font-normal text-slate-500 hover:text-blue-500 hover:underline transition-all" href="#">Video hướng dẫn</a></li>
+<li><a class="font-inter text-xs font-normal text-slate-500 hover:text-blue-500 hover:underline transition-all" href="#">Liên hệ hỗ trợ</a></li>
+</ul>
+</div>
+</div>
+<div class="max-w-7xl mx-auto px-6 mt-12 pt-8 border-t border-slate-200/50">
+<div class="flex flex-col md:flex-row justify-between items-center gap-4">
+<p class="font-inter text-xs font-normal text-slate-500">
+                    © 2024 pdfsign.vn - Giải pháp ký số chuyên nghiệp cho Doanh nghiệp.
+                </p>
+<div class="flex gap-4">
+<span class="material-symbols-outlined text-slate-400 hover:text-primary cursor-pointer">social_leaderboard</span>
+<span class="material-symbols-outlined text-slate-400 hover:text-primary cursor-pointer">link</span>
+</div>
+</div>
+</div>
+</footer>
+</body></html>

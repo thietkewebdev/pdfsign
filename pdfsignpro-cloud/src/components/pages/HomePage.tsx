@@ -2,282 +2,130 @@
 
 import { useState, useRef, useCallback } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import * as m from "motion/react-m";
-import { useInView, useReducedMotion } from "motion/react";
+import { useReducedMotion } from "motion/react";
 import {
   Upload,
   Monitor,
-  Cloud,
-  Laptop,
-  FileUp,
-  MousePointer,
-  Shield,
-  Check,
-  FileCheck,
-  Usb,
-  BadgeCheck,
   X,
   Loader2,
-  Download,
-  ChevronDown,
   ArrowRight,
-  Calendar,
-  Users,
-  Mail,
-  ClipboardCheck,
-  Send,
-  Sparkles,
+  Shield,
+  Lock,
+  Usb,
+  BadgeCheck,
+  Gavel,
+  UserCog,
+  GitBranch,
+  CheckCircle2,
+  Quote,
+  Headphones,
+  ChevronDown,
+  Verified,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  UploadDropzoneCard,
-  UploadProgress,
-} from "@/components/upload";
-import { FeatureMockStrip } from "@/components/home/FeatureMockStrip";
+import { UploadDropzoneCard, UploadProgress } from "@/components/upload";
 import { ContactSection } from "@/components/home/ContactSection";
-import { BLOG_POSTS } from "@/lib/blog-data";
-import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
 
-const MOTION = { duration: 0.25, ease: [0.22, 1, 0.36, 1] as const };
 const MOTION_SLOW = { duration: 0.4, ease: [0.22, 1, 0.36, 1] as const };
-const STAGGER = 0.08;
 
-const STEPS = [
+const CA_LOGOS = [
   {
-    icon: FileUp,
-    title: "Bước 1: Tải PDF hoặc hợp đồng",
-    copy: "Kéo thả file lên web. Không cần cài gì thêm ngoài Signer nhỏ trên Windows.",
+    src: "https://lh3.googleusercontent.com/aida-public/AB6AXuBKveIda054RjfPUVz4Dizt7fPKY1L3cSHB2bFbEuCaOq9rYw0e_C2UCYC2bnN9U46TDVpiFZ545Vh11AMuK835Q9IgIo69p69NiKEjJ0e4bCwvvu3mZpEPF4Vrga-xwz2kAPonn8qjVVMQ0K0DK1oBuj7Gzmfuj8CjEL1gddxaFTYLqO8QSKasSYAN8wpRtqXe-OzG3Y2RVz2ZHbY0FXObk08kNjqAu2dUasiQuPb_v358GXpzO9L5qcjA0mS2lCWHM4aP2Jq14Fs",
+    alt: "Viettel-CA",
   },
   {
-    icon: MousePointer,
-    title: "Bước 2: Đặt vị trí & người ký",
-    copy: "Chọn chỗ đặt ô ký. Với hợp đồng nhiều bên, nhập email từng bên và thứ tự ký.",
+    src: "https://lh3.googleusercontent.com/aida-public/AB6AXuANzSSYEM5I3DedtJRBAaMuoSCkvnk39hbYUVAnEoKhPlng1BwEiz1-vmbL4_klbMj6i-bVIUz5FgyXphL0OUl5-3lZeUKNoy4vmQdW2w_BVtDsY4c6_WnR_3tgyEbChM0ZILlHs94b51Kq_csppIg4mSZ6zn-oVMcwR5HY4gZtpmTRnRLJtHhXOEHkd80XtK6FEqnqDDySxEVV7SkaDHVzvKcEiP55f3Pvge6xXb3p_1KgvM5Waw4Jx8PRldWGWMlAiCb2CsJmNm8",
+    alt: "VNPT-CA",
   },
   {
-    icon: Shield,
-    title: "Bước 3: Ký số bằng USB Token",
-    copy: "Cắm USB Token, mở Signer và bấm ký. PDF đã ký được lưu và có thể chia sẻ qua link.",
+    src: "https://lh3.googleusercontent.com/aida-public/AB6AXuBbXelHznXzUefUl6rP2gVUrvg4zFeCyTKD11Ot7FwPw-K3AJBG9FcBOWe1tTNGqnO3i9l0Efy69m_ydX1gipoZcmQHZlLEuGuMIXjxv3zoaQaPp2bZtfmPwXgBk3ZNGIAhAgYoQgnDt0yonR3aCsC-N5A4Svzjh0EGCUWh72pB7RUVbmgSInsNnYVneO0j3MRihjSpxKvnQ5HJJZERIonY2sd5hchid-6FrAEceD0T0eK09HrwPZmuFJ3BR8REd6gTm_qjsXc5SPA",
+    alt: "FPT-CA",
+  },
+  {
+    src: "https://lh3.googleusercontent.com/aida-public/AB6AXuCfdDvZ6jMn6taYWMkrokdCkhcuWhkvWZnIgfSBqUfAz2drAMkLES70EBQYK-hn89w23wOpGdUpmwax7TA_M95IJZnDQJttIh1cA8itbD2BHOSrwDHrvE4s9yOsS0zvbOSusEpLusJGQIvAEE6r0AGtjnn_V5f01iFP2TlRKW7uapaV1K5l6olysoe5tjPGcURDkUQ59fzqLKv-pRaB_Lp0X8zv83BpGwm5LkS8rETMSFS19ZgTY_Brlt1rTPfhI5tHQizEsjvMdNw",
+    alt: "BKAV-CA",
   },
 ] as const;
 
-const FEATURES = [
-  "Ký số PDF bằng USB Token (Viettel, EasyCA, FastCA…)",
-  "Tạo hợp đồng điện tử nhiều bên, ký theo thứ tự, có email nhắc ký và báo hoàn tất",
-  "Phần mềm Signer nhỏ gọn trên Windows, kết nối trực tiếp với trình duyệt",
-  "Xem trước chữ ký, thông tin chứng thư số và thời gian ký",
-  "Dashboard quản lý tài liệu, hợp đồng và trạng thái ký",
-  "Chia sẻ link xem bản PDF đã ký, tải về bất cứ lúc nào",
-] as const;
+const DASHBOARD_IMG =
+  "https://lh3.googleusercontent.com/aida-public/AB6AXuCjYuKmtJ3R_Zb0BYoqvLZBCVMrNYMht9VlYEgoAt6QN67h_p6TDi1sehgHMTc1wxAkm5Bcb28GMPKpOjhEtNRpWule2EHVRvmCwH35CVK7Xy-W5rM_fLS_8-RC1VTCOV7X1Aeh2twCi8b8xJFoUGEZ23YLTdDksKg2Bzc3yqnwRhQRnpZjxqSlrPtUIxb0BiVcVbE9GSxFiGGzscE296ieOvNKKtYy0Pidj4Wy95SxMWR16d_dxVuyqEiS5RQGf4_ou8v0pavZwQ8";
 
-const TRUST_ITEMS = [
-  { icon: FileCheck, label: "PAdES" },
-  { icon: Usb, label: "USB Token" },
-  { icon: BadgeCheck, label: "Adobe Verify" },
-] as const;
-
-const TESTIMONIALS = [
+const STITCH_TESTIMONIALS = [
   {
-    name: "Nguyễn Văn Minh",
-    role: "Giám đốc, Công ty TNHH Thiên An",
     quote:
-      "Trước đây ký hợp đồng phải cài phần mềm rất nặng. Giờ chỉ cần tải PDF lên, đặt vị trí ký là xong. Tiết kiệm rất nhiều thời gian cho đội ngũ.",
+      "Hệ thống ký rất mượt, tương thích hoàn toàn với Token Viettel tôi đang dùng. Giúp việc ký hồ sơ thầu nhanh hơn gấp 10 lần.",
+    name: "Chị Mai Phương",
+    role: "Kế toán trưởng — TechCorp Vietnam",
+    image:
+      "https://lh3.googleusercontent.com/aida-public/AB6AXuDAoeRHwbin0bJIUU9maWynVxDQdWSSCr3Wu0mq2Twb5KY-ug8A70jqqXdPk7Cs52XIqiAws_RKZVW_Pju9iG5hTs6DEhQMtaDqVRIQ3k8r2kBZvOd14--vg-bDE7ce0UTeGaLbVnkRvlyKNZ-eXMhEHauPqNB9hUNWQoHmvetlz0S4HQT0Q689fxBzsbs62mX1au6s0Ugnf1RVpFPUQip3lffZTzlxespdt0cKYjU2CkiD-E3V5BBHUpdEOLE451qcKNU47HsNnTo",
+    leftBorder: "border-l-stitch-primary",
   },
   {
-    name: "Trần Thị Hương",
-    role: "Kế toán trưởng, Tập đoàn Phú Thịnh",
     quote:
-      "Ký hóa đơn và chứng từ hàng ngày rất nhanh. Adobe verify được ngay, đối tác rất yên tâm. Giao diện đơn giản, nhân viên mới cũng dùng được luôn.",
-  },
-  {
-    name: "Lê Hoàng Nam",
-    role: "Luật sư, Văn phòng luật Nam Phong",
-    quote:
-      "Chữ ký PAdES chuẩn quốc tế, hợp lệ theo Luật Giao dịch điện tử. Tôi dùng ký văn bản pháp lý hàng ngày, rất tin tưởng về mặt pháp lý.",
-  },
-  {
-    name: "Phạm Quốc Bảo",
-    role: "CTO, Startup GreenTech",
-    quote:
-      "Tích hợp dễ dàng vào quy trình nội bộ. API rõ ràng, Signer chạy mượt. Team dev chúng tôi rất thích cách nó hoạt động — đơn giản mà hiệu quả.",
-  },
-  {
-    name: "Võ Thị Mai Anh",
-    role: "Trưởng phòng HC, Bệnh viện Đa khoa Sài Gòn",
-    quote:
-      "Bệnh viện ký rất nhiều văn bản mỗi ngày. PDFSignPro giúp số hóa quy trình ký hoàn toàn, giảm giấy tờ và lưu trữ gọn gàng hơn nhiều.",
-  },
-  {
-    name: "Đặng Minh Tuấn",
-    role: "Freelancer, Tư vấn tài chính",
-    quote:
-      "Không cần cài phần mềm nặng nề, chỉ cần trình duyệt và USB Token là ký được. Chia sẻ link cho khách hàng xem tài liệu đã ký rất tiện lợi.",
+      "Tính pháp lý là điều tôi quan tâm nhất. pdfsign.vn đã giải quyết triệt để bài toán này với sự hỗ trợ nhiệt tình cho doanh nghiệp.",
+    name: "Anh Hoàng Nam",
+    role: "Giám đốc điều hành — NamAn Logistic",
+    image:
+      "https://lh3.googleusercontent.com/aida-public/AB6AXuCGYX-hCnkIVINCH0TFydzRFyoi_GKmMy8T1RJOrYA0L2hDlHf9cQAtlPOmNtwqX5jdDY44RlCcwvibrkmsjYI9MJ1RmPXWTl5YoAeVtFJZKeVkx2e0hLdCNl83ZbZAtYV6_McdIH_X0MwdNqB8im0YIVjqYpUp1F3DLvsY2dU23li-DV4REAwRmT9hlC4jBiLJZ8cCnnxuzNWHfLLyMTsAqYpo-Hyx0oOLlqy6r4RwFY2Je2Y_s83aaZakG-WH_p46tCgGaFIFp0Q",
+    leftBorder: "border-l-stitch-primary-strong",
   },
 ] as const;
 
-const FAQ_HOME = [
+const FAQ_STITCH = [
   {
-    q: "PDFSignPro Cloud hỗ trợ USB Token nào?",
-    a: "Hỗ trợ hầu hết USB Token chữ ký số tại Việt Nam (PKCS#11): Viettel-CA, EasyCA, FastCA, VNPT-CA, FPT-CA, BKAV-CA, CyberLotus và các CA khác.",
+    q: "Chữ ký số USB Token có hợp pháp không?",
+    a: "Hoàn toàn hợp pháp. Theo Luật Giao dịch điện tử và Nghị định 130/2018/NĐ-CP, chữ ký số sử dụng chứng thư số công cộng (như USB Token của Viettel, VNPT…) có giá trị pháp lý tương đương chữ ký tay và con dấu của tổ chức.",
   },
   {
-    q: "Chữ ký có hợp lệ theo pháp luật Việt Nam không?",
-    a: "Có. Chữ ký PAdES chuẩn quốc tế. Tính hợp lệ pháp lý phụ thuộc vào chứng thư số do CA được Bộ TT&TT cấp phép. Hoàn toàn có giá trị theo Luật Giao dịch điện tử 2023.",
+    q: "Tôi có thể ký trên nhiều thiết bị không?",
+    a: "Có, pdfsign.vn là nền tảng web. Bạn có thể đăng nhập từ bất kỳ máy tính nào có cài đặt PDFSignPro Signer để thực hiện thao tác ký với USB Token.",
   },
   {
-    q: "Adobe Acrobat có verify được chữ ký không?",
-    a: 'Có. Adobe Acrobat Reader nhận diện và xác minh chữ ký PAdES. Nếu CA nằm trong danh sách AATL (hầu hết CA lớn tại VN), bạn sẽ thấy "Signed and all signatures are valid".',
-  },
-  {
-    q: "Dữ liệu tài liệu có an toàn không?",
-    a: "An toàn. Truyền tải qua HTTPS, lưu trữ trên Cloudflare R2. Khóa riêng không bao giờ rời USB Token — ký diễn ra hoàn toàn trên máy bạn qua PDFSignPro Signer.",
-  },
-  {
-    q: "Có phí sử dụng không?",
-    a: "Miễn phí cho người dùng cá nhân. Tải lên, ký số và chia sẻ tài liệu không tốn phí.",
-  },
-  {
-    q: "PDFSignPro Signer là gì?",
-    a: "Phần mềm nhỏ trên Windows, cầu nối trình duyệt với USB Token. Nhấn \"Ký số\" trên web → Signer tự mở, đọc chứng thư và ký. Bắt buộc cài vì trình duyệt không truy cập USB Token trực tiếp.",
-  },
-  {
-    q: "Hợp đồng điện tử nhiều bên hoạt động như thế nào?",
-    a: "Bạn tải PDF lên, thêm email từng bên ký theo thứ tự. Bên ký đầu tiên nhận email mời, ký xong thì bên tiếp theo tự động nhận email. Khi tất cả ký xong, mọi bên đều nhận thông báo hoàn tất.",
-  },
-  {
-    q: "Người ký hợp đồng có cần đăng nhập không?",
-    a: "Không. Mỗi bên ký nhận link riêng qua email, chỉ cần mở link và ký bằng USB Token. Chỉ người tạo hợp đồng cần đăng nhập.",
+    q: "Làm sao để kiểm tra tính toàn vẹn của file?",
+    a: "Bạn có thể dùng Adobe Acrobat Reader hoặc công cụ kiểm tra chữ ký để xác thực chữ ký và đảm bảo nội dung file không bị thay đổi sau khi ký.",
   },
 ] as const;
 
-function StepCard({
-  icon: Icon,
-  title,
-  copy,
-  index,
-  isInView,
-  reduceMotion,
-}: {
-  icon: React.ComponentType<{ className?: string }>;
-  title: string;
-  copy: string;
-  index: number;
-  isInView: boolean;
-  reduceMotion: boolean;
-}) {
-  const y = reduceMotion ? 0 : 12;
-  const opacity = isInView ? 1 : 0.5;
-
+function FaqStitchBlock({ reduceMotion }: { reduceMotion: boolean }) {
   return (
-    <m.div
-      className={cn(
-        "group relative overflow-hidden rounded-xl border p-6 backdrop-blur-sm transition-colors duration-200",
-        "border-zinc-200/80 bg-white/60 shadow-sm dark:border-white/10 dark:bg-white/5 dark:shadow-none",
-        "hover:border-zinc-300 hover:bg-white/80 dark:hover:border-white/20 dark:hover:bg-white/[0.07]"
-      )}
-      initial={false}
-      animate={{
-        opacity,
-        y: isInView ? 0 : y,
-      }}
-      transition={{ ...MOTION_SLOW, delay: index * STAGGER }}
-      whileHover={
-        reduceMotion ? undefined : { y: -4, scale: 1.02, transition: MOTION }
-      }
-    >
-      <div className="mb-5 flex size-12 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500/20 to-blue-500/10">
-        <Icon className="size-6 text-violet-600 dark:text-violet-300" />
-      </div>
-      <h3 className="mb-2 text-lg font-semibold text-zinc-900 dark:text-white">
-        {title}
-      </h3>
-      <p className="text-sm text-zinc-600 dark:text-zinc-400">{copy}</p>
-    </m.div>
-  );
-}
-
-function FaqSection({ reduceMotion }: { reduceMotion: boolean }) {
-  const [openIndex, setOpenIndex] = useState<number | null>(0);
-
-  return (
-    <section className="relative border-t border-zinc-200/80 px-6 py-20 dark:border-white/5 sm:py-28">
-      <div className="container mx-auto max-w-3xl">
+    <section className="px-6 py-24">
+      <div className="mx-auto max-w-3xl">
         <m.h2
-          className="mb-4 text-center text-2xl font-semibold text-zinc-900 dark:text-white sm:text-3xl"
+          className="mb-12 text-center text-3xl font-black tracking-tighter text-stitch-on-surface"
           initial={{ opacity: 0, y: reduceMotion ? 0 : 12 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-50px" }}
-          transition={MOTION}
+          viewport={{ once: true }}
+          transition={MOTION_SLOW}
         >
-          Câu hỏi thường gặp khi bắt đầu ký số
+          Câu hỏi thường gặp
         </m.h2>
-        <m.p
-          className="mb-10 text-center text-zinc-500 dark:text-zinc-400"
-          initial={{ opacity: 0 }}
-          whileInView={{ opacity: 1 }}
-          viewport={{ once: true }}
-          transition={{ ...MOTION, delay: 0.05 }}
-        >
-          Giải đáp nhanh những thắc mắc phổ biến: chữ ký có hợp lệ không, Adobe có kiểm tra được không, dữ liệu có an toàn không…
-        </m.p>
-        <m.div
-          className={cn(
-            "rounded-xl border backdrop-blur-sm",
-            "border-zinc-200/80 bg-white/60 shadow-sm dark:border-white/10 dark:bg-white/5 dark:shadow-none"
-          )}
-          initial={{ opacity: 0, y: reduceMotion ? 0 : 12 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-30px" }}
-          transition={MOTION}
-        >
-          <div className="px-6">
-            {FAQ_HOME.map((item, i) => (
-              <div key={i} className="border-b border-zinc-200/80 last:border-b-0 dark:border-white/10">
-                <button
-                  type="button"
-                  onClick={() => setOpenIndex(openIndex === i ? null : i)}
-                  className="flex w-full items-center justify-between gap-4 py-5 text-left transition-colors hover:text-zinc-900 dark:hover:text-white"
-                >
-                  <span className="text-sm font-medium text-zinc-900 dark:text-white">{item.q}</span>
-                  <ChevronDown
-                    className={cn(
-                      "size-4 shrink-0 text-zinc-400 transition-transform duration-200 dark:text-zinc-500",
-                      openIndex === i && "rotate-180"
-                    )}
-                  />
-                </button>
-                <div
-                  className={cn(
-                    "grid transition-all duration-200 ease-in-out",
-                    openIndex === i ? "grid-rows-[1fr] pb-5 opacity-100" : "grid-rows-[0fr] opacity-0"
-                  )}
-                >
-                  <div className="overflow-hidden">
-                    <p className="text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">{item.a}</p>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </m.div>
-        <m.div
-          className="mt-6 text-center"
-          initial={{ opacity: 0 }}
-          whileInView={{ opacity: 1 }}
-          viewport={{ once: true }}
-          transition={{ ...MOTION, delay: 0.1 }}
-        >
-          <Link
-            href="/faq"
-            className="text-sm text-zinc-500 underline-offset-4 hover:underline hover:text-zinc-700 dark:hover:text-zinc-300"
-          >
-            Xem tất cả câu hỏi thường gặp →
+        <div className="space-y-4">
+          {FAQ_STITCH.map((item, i) => (
+            <details
+              key={item.q}
+              className="group cursor-pointer rounded-xl bg-stitch-container-low p-6"
+              open={i === 0}
+            >
+              <summary className="flex list-none items-center justify-between gap-4 text-lg font-bold text-stitch-on-surface [&::-webkit-details-marker]:hidden">
+                {item.q}
+                <ChevronDown className="size-5 shrink-0 text-stitch-muted transition-transform group-open:rotate-180" />
+              </summary>
+              <p className="mt-4 leading-relaxed text-stitch-muted">{item.a}</p>
+            </details>
+          ))}
+        </div>
+        <p className="mt-8 text-center text-sm text-stitch-muted">
+          <Link href="/faq" className="font-medium text-stitch-primary underline-offset-4 hover:underline">
+            Xem thêm câu hỏi thường gặp →
           </Link>
-        </m.div>
+        </p>
       </div>
     </section>
   );
@@ -289,15 +137,12 @@ export function HomePage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const stepsRef = useRef<HTMLDivElement>(null);
   const uploadRef = useRef<HTMLDivElement>(null);
-  const stepsInView = useInView(stepsRef, { once: true, margin: "0px 0px -80px 0px" });
+  const reduceMotion = useReducedMotion();
 
   const scrollToUpload = useCallback(() => {
     uploadRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
   }, []);
-  const reduceMotion = useReducedMotion();
-  const { resolvedTheme } = useTheme();
 
   const handleFileSelect = useCallback((file: File) => {
     setSelectedFile(file);
@@ -318,9 +163,9 @@ export function HomePage() {
 
       const xhr = new XMLHttpRequest();
 
-      xhr.upload.addEventListener("progress", (e) => {
-        if (e.lengthComputable) {
-          const pct = Math.round((e.loaded / e.total) * 100);
+      xhr.upload.addEventListener("progress", (ev) => {
+        if (ev.lengthComputable) {
+          const pct = Math.round((ev.loaded / ev.total) * 100);
           setUploadProgress(pct);
         }
       });
@@ -368,125 +213,114 @@ export function HomePage() {
   }, []);
 
   return (
-    <div className="relative min-h-screen home-bg">
-      {/* Clean background — two subtle radial glows only */}
-      <m.div
-        className="home-glow-hero"
-        initial={reduceMotion ? false : { opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.8, ease: "easeOut" }}
-      />
-      <m.div
-        className="home-glow-upload"
-        initial={reduceMotion ? false : { opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.8, delay: 0.2, ease: "easeOut" }}
-      />
-
-      {/* Hero — single column: headline + subtitle + upload */}
-      <section className="relative px-4 pb-10 pt-14 sm:px-6 sm:pb-16 sm:pt-20 md:pb-20 md:pt-24">
-        <div ref={uploadRef} className="container relative mx-auto max-w-2xl">
-          <div className="space-y-7 sm:space-y-8">
-              <div className="space-y-5">
-                <m.h1
-                  className="text-3xl font-semibold tracking-tight text-zinc-900 dark:text-white sm:text-5xl md:text-6xl md:leading-[1.1]"
-                  initial={{ opacity: 0, y: reduceMotion ? 0 : 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ ...MOTION_SLOW, delay: 0.05 }}
-                >
-                  Ký số PDF & Hợp đồng điện tử
-                </m.h1>
-                <m.p
-                  className="max-w-xl text-base text-zinc-600 dark:text-zinc-400 sm:text-lg sm:text-xl"
-                  initial={{ opacity: 0, y: reduceMotion ? 0 : 14 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ ...MOTION_SLOW, delay: 0.14 }}
-                >
-                  Cho kế toán, pháp chế, chủ doanh nghiệp: tải PDF lên, đặt vị trí chữ ký và ký bằng USB Token. Gửi hợp đồng cho nhiều bên ký theo thứ tự, có email thông báo.
-                </m.p>
-                <m.div
-                  className="flex flex-col gap-3 sm:flex-row sm:flex-wrap"
-                  initial={{ opacity: 0, y: reduceMotion ? 0 : 12 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ ...MOTION_SLOW, delay: 0.24 }}
-                >
-                  <m.div whileHover={reduceMotion ? undefined : { scale: 1.02 }} whileTap={reduceMotion ? undefined : { scale: 0.98 }} transition={MOTION}>
-                    <Button
-                      size="lg"
-                      className="rounded-lg bg-zinc-900 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-100"
-                      onClick={scrollToUpload}
-                    >
-                      <Upload className="size-4" />
-                      Ký 1 file PDF ngay
-                    </Button>
-                  </m.div>
-                  <m.div whileHover={reduceMotion ? undefined : { scale: 1.02 }} whileTap={reduceMotion ? undefined : { scale: 0.98 }} transition={MOTION}>
-                    <Button
-                      size="lg"
-                      variant="outline"
-                      asChild
-                      className="rounded-lg border-zinc-200 bg-white/80 text-zinc-700 hover:bg-zinc-50 hover:text-zinc-900 dark:border-white/20 dark:bg-white/5 dark:text-zinc-300 dark:hover:bg-white/10 dark:hover:text-white"
-                    >
-                      <Link href="/contract/create">
-                        <Users className="size-4" />
-                        Tạo hợp đồng điện tử nhiều bên
-                      </Link>
-                    </Button>
-                  </m.div>
-                </m.div>
-              </div>
-
-              {/* Upload card */}
-              <m.div
-                className={cn(
-                  "rounded-xl border p-1 shadow-lg backdrop-blur-sm",
-                  "border-zinc-200/80 bg-white/70 dark:border-white/15 dark:bg-white/[0.08] dark:shadow-xl dark:shadow-black/20"
-                )}
-                initial={{ opacity: 0, y: reduceMotion ? 0 : 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ ...MOTION_SLOW, delay: 0.32 }}
+    <div className="relative min-h-screen home-bg text-stitch-on-surface">
+      {/* Hero */}
+      <header className="overflow-hidden px-6 pb-20 pt-28 md:pt-32">
+        <div className="mx-auto grid max-w-7xl grid-cols-1 items-center gap-16 lg:grid-cols-2">
+          <div className="space-y-8">
+            <m.div
+              className="inline-flex items-center gap-2 rounded-full bg-stitch-primary-fixed px-3 py-1 text-stitch-on-primary-fixed"
+              initial={{ opacity: 0, y: reduceMotion ? 0 : 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={MOTION_SLOW}
+            >
+              <Verified className="size-4 shrink-0" aria-hidden />
+              <span className="text-[11px] font-bold uppercase tracking-widest">Chuẩn pháp lý Việt Nam</span>
+            </m.div>
+            <m.h1
+              className="text-4xl font-black leading-[1.1] tracking-tighter text-stitch-on-surface md:text-5xl lg:text-6xl"
+              initial={{ opacity: 0, y: reduceMotion ? 0 : 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ ...MOTION_SLOW, delay: 0.05 }}
+            >
+              Ký tài liệu PDF <br />
+              <span className="text-stitch-primary-strong">chuyên nghiệp</span>
+              {" "}&amp; bảo mật pháp lý
+            </m.h1>
+            <m.p
+              className="max-w-xl text-lg leading-relaxed text-stitch-muted"
+              initial={{ opacity: 0, y: reduceMotion ? 0 : 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ ...MOTION_SLOW, delay: 0.12 }}
+            >
+              Giải pháp ký số USB Token tối ưu cho Giám đốc &amp; Kế toán. Tương thích với Viettel, VNPT, FPT,
+              BKAV, EasyCA… Đảm bảo tính pháp lý theo Luật Giao dịch điện tử.
+            </m.p>
+            <m.div
+              className="flex flex-col gap-4 sm:flex-row"
+              initial={{ opacity: 0, y: reduceMotion ? 0 : 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ ...MOTION_SLOW, delay: 0.18 }}
+            >
+              <Button
+                size="lg"
+                className="hero-gradient-stitch h-14 gap-2 rounded-lg px-8 text-lg font-bold text-white ambient-shadow-stitch"
+                onClick={scrollToUpload}
               >
+                Thử ngay miễn phí
+                <ArrowRight className="size-5" />
+              </Button>
+              <Button
+                size="lg"
+                variant="outline"
+                className="h-14 rounded-lg border-2 border-blue-200 bg-white px-8 text-lg font-bold text-stitch-primary shadow-sm hover:bg-blue-50/90"
+                asChild
+              >
+                <Link href="/contract/create">Giải pháp doanh nghiệp</Link>
+              </Button>
+            </m.div>
+            <div className="flex flex-wrap items-center gap-3 pt-2">
+              <Button variant="outline" size="sm" asChild className="rounded-lg border-stitch-outline/40">
+                <a href="/api/signer/download">
+                  <Monitor className="size-4" />
+                  Tải Signer
+                </a>
+              </Button>
+              <Link
+                href="/signer"
+                className="text-sm text-stitch-primary underline-offset-4 hover:underline"
+              >
+                Hướng dẫn cài đặt
+              </Link>
+            </div>
+          </div>
+
+          {/* Upload — Stitch card */}
+          <div className="relative" id="upload" ref={uploadRef}>
+            <div className="rounded-xl border-2 border-dashed border-stitch-outline/30 bg-stitch-container-low p-6 ambient-shadow-stitch md:p-8">
+              <div className="flex flex-col space-y-6 rounded-lg bg-white p-8 md:p-10">
+                <div className="flex flex-col items-center text-center">
+                  <div className="mb-6 flex size-20 items-center justify-center rounded-full bg-stitch-primary-fixed text-stitch-primary-strong">
+                    <Upload className="size-9" strokeWidth={2} />
+                  </div>
+                  <h3 className="mb-2 text-xl font-bold text-stitch-on-surface">Tải tài liệu lên để ký</h3>
+                  <p className="text-sm text-stitch-muted">Kéo thả file PDF vào đây hoặc chọn file bên dưới</p>
+                </div>
                 {!selectedFile ? (
                   <UploadDropzoneCard
                     onFileSelect={handleFileSelect}
                     disabled={isSubmitting}
-                    variant={resolvedTheme === "dark" ? "dark" : "default"}
-                    className="min-h-[200px]"
+                    variant="stitch"
+                    className="min-h-[160px] rounded-lg"
                   />
                 ) : (
-                  <div className="space-y-4 p-4">
+                  <div className="space-y-4">
                     {isSubmitting ? (
                       <UploadProgress
                         fileName={selectedFile.name}
                         progress={uploadProgress}
                         status={uploadProgress >= 100 ? "done" : "uploading"}
-                        className="border-zinc-200/50 bg-white/50 dark:border-white/10 dark:bg-white/5 [&_p]:text-zinc-700 dark:[&_p]:text-zinc-300"
+                        className="rounded-lg border border-stitch-outline/30 bg-stitch-container-low"
                       />
                     ) : (
                       <>
-                        <div
-                          className={cn(
-                            "flex items-center gap-4 rounded-lg border p-4",
-                            "border-zinc-200/60 bg-white/50 dark:border-white/10 dark:bg-white/5"
-                          )}
-                        >
-                          <div
-                            className={cn(
-                              "flex size-10 shrink-0 items-center justify-center rounded-lg",
-                              "bg-zinc-100 dark:bg-white/10"
-                            )}
-                          >
-                            <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                              PDF
-                            </span>
+                        <div className="flex items-center gap-4 rounded-lg border border-stitch-outline/30 bg-stitch-container-low p-4">
+                          <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-white text-xs font-medium">
+                            PDF
                           </div>
                           <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-medium text-zinc-900 dark:text-white">
-                              {selectedFile.name}
-                            </p>
-                            <p className="text-xs text-zinc-500 dark:text-zinc-500">
-                              {(selectedFile.size / 1024).toFixed(1)} KB
-                            </p>
+                            <p className="truncate text-sm font-medium">{selectedFile.name}</p>
+                            <p className="text-xs text-stitch-muted">{(selectedFile.size / 1024).toFixed(1)} KB</p>
                           </div>
                           <Button
                             type="button"
@@ -494,7 +328,6 @@ export function HomePage() {
                             size="icon"
                             onClick={handleClear}
                             disabled={isSubmitting}
-                            className="shrink-0 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-white/10 dark:hover:text-white"
                             aria-label="Xóa file"
                           >
                             <X className="size-4" />
@@ -502,619 +335,275 @@ export function HomePage() {
                         </div>
                         <form onSubmit={handleUpload} className="space-y-4">
                           <div className="space-y-2">
-                            <Label
-                              htmlFor="title"
-                              className="text-zinc-700 dark:text-zinc-300"
-                            >
-                              Tiêu đề tài liệu
-                            </Label>
+                            <Label htmlFor="title">Tiêu đề tài liệu</Label>
                             <Input
                               id="title"
                               placeholder="VD: Hợp đồng 2024"
                               value={title}
                               onChange={(e) => setTitle(e.target.value)}
-                              className="rounded-lg border-zinc-200 bg-white text-zinc-900 placeholder:text-zinc-400 focus-visible:ring-zinc-400 dark:border-white/20 dark:bg-white/5 dark:text-white dark:placeholder:text-zinc-500 dark:focus-visible:ring-white/30"
                               disabled={isSubmitting}
+                              className="rounded-lg border-stitch-outline/40 bg-stitch-container-low"
                             />
                           </div>
                           <Button
                             type="submit"
                             size="lg"
-                            className="w-full rounded-lg bg-zinc-900 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-100"
+                            className="hero-gradient-stitch w-full font-bold text-white"
                             disabled={isSubmitting}
                           >
-                            {isSubmitting ? (
-                              <Loader2 className="size-4 animate-spin" />
-                            ) : (
-                              <Upload className="size-4" />
-                            )}
+                            {isSubmitting ? <Loader2 className="size-4 animate-spin" /> : <Upload className="size-4" />}
                             {isSubmitting
                               ? uploadProgress >= 100
                                 ? "Hoàn tất"
                                 : "Đang tải lên…"
-                              : "Upload tài liệu và ký số"}
+                              : "Upload và ký số"}
                           </Button>
                         </form>
                       </>
                     )}
                   </div>
                 )}
-              </m.div>
-
-              <m.div
-                className="flex flex-wrap items-center gap-3"
-                initial={{ opacity: 0, y: reduceMotion ? 0 : 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ ...MOTION, delay: 0.15 }}
-              >
-                <Button
-                  variant="outline"
-                  size="sm"
-                  asChild
-                  className="rounded-lg border-zinc-200 bg-white/80 text-zinc-700 hover:bg-zinc-50 hover:text-zinc-900 dark:border-white/20 dark:bg-white/5 dark:text-zinc-300 dark:hover:bg-white/10 dark:hover:text-white"
-                >
-                  <a href="/api/signer/download">
-                    <Monitor className="size-4" />
-                    Tải Signer
-                  </a>
-                </Button>
-                <Link
-                  href="/signer"
-                  className="text-sm text-zinc-500 underline-offset-4 hover:underline hover:text-zinc-700 dark:hover:text-zinc-400"
-                >
-                  Hướng dẫn cài đặt
-                </Link>
-              </m.div>
-          </div>
-        </div>
-      </section>
-
-      {/* Mock cards strip */}
-      <section className="relative px-0">
-        <div className="container mx-auto max-w-6xl px-6">
-          <FeatureMockStrip />
-        </div>
-      </section>
-
-      {/* Chọn phiên bản */}
-      <section className="relative border-t border-zinc-200/80 bg-zinc-50/30 px-6 py-20 dark:border-white/5 dark:bg-transparent sm:py-24">
-        <div className="container mx-auto max-w-4xl">
-          <m.h2
-            className="mb-3 text-center text-2xl font-semibold text-zinc-900 dark:text-white sm:text-3xl"
-            initial={{ opacity: 0, y: reduceMotion ? 0 : 14 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-60px" }}
-            transition={MOTION_SLOW}
-          >
-            Chọn cách ký phù hợp
-          </m.h2>
-          <m.p
-            className="mb-10 text-center text-sm text-zinc-500 dark:text-zinc-400"
-            initial={{ opacity: 0, y: reduceMotion ? 0 : 10 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-40px" }}
-            transition={{ ...MOTION_SLOW, delay: STAGGER }}
-          >
-            Nếu bạn chỉ cần ký nhanh vài file hoặc hợp đồng đơn giản → chọn Cloud. Nếu môi trường nội bộ
-            yêu cầu không lên Internet → dùng bản Offline.
-          </m.p>
-          <div
-            className={cn(
-              "grid gap-6",
-              process.env.NEXT_PUBLIC_OFFLINE_APP_URL
-                ? "sm:grid-cols-2"
-                : "mx-auto max-w-md sm:max-w-lg"
-            )}
-          >
-            {/* PDFSignPro Cloud */}
-            <m.div
-              className={cn(
-                "group relative flex flex-col rounded-xl border p-6 backdrop-blur-sm transition-all duration-200",
-                "border-zinc-200/80 bg-white/70 shadow-sm dark:border-white/10 dark:bg-white/[0.06] dark:shadow-none",
-                "hover:border-violet-300/50 hover:shadow-md hover:shadow-violet-500/5 dark:hover:border-violet-400/30 dark:hover:bg-white/[0.08]"
-              )}
-              initial={{ opacity: 0, y: reduceMotion ? 0 : 16 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-40px" }}
-              transition={{ ...MOTION_SLOW, delay: STAGGER * 2 }}
-              whileHover={reduceMotion ? undefined : { y: -6, scale: 1.02, transition: MOTION }}
-            >
-              <div className="mb-4 flex items-center justify-between gap-3">
-                <div className="flex size-12 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500/25 to-blue-500/15">
-                  <Cloud className="size-6 text-violet-600 dark:text-violet-400" />
+                <div className="grid grid-cols-2 gap-4 border-t border-stitch-outline/20 pt-6">
+                  <div className="flex items-center gap-3 rounded-lg border border-stitch-outline/15 bg-stitch-container-low p-3">
+                    <Usb className="size-5 shrink-0 text-stitch-primary" />
+                    <span className="text-xs font-medium">Hỗ trợ USB Token</span>
+                  </div>
+                  <div className="flex items-center gap-3 rounded-lg border border-stitch-outline/15 bg-stitch-container-low p-3">
+                    <BadgeCheck className="size-5 shrink-0 text-stitch-primary" />
+                    <span className="text-xs font-medium">Chứng thực CA</span>
+                  </div>
                 </div>
-                <span className="rounded-full bg-violet-100 px-2.5 py-1 text-xs font-medium text-violet-700 dark:bg-violet-900/40 dark:text-violet-200">
-                  Đề xuất
-                </span>
               </div>
-              <h3 className="mb-1 text-lg font-semibold text-zinc-900 dark:text-white">
-                Ký online trên trình duyệt
-              </h3>
-              <p className="mb-6 flex-1 text-sm text-zinc-600 dark:text-zinc-400">
-                Dùng cho đa số trường hợp: tải PDF/hợp đồng lên, đặt vị trí ký, ký bằng USB Token qua Signer.
-                Không cần cài thêm phần mềm phức tạp, chỉ cần trình duyệt + USB Token.
-              </p>
-              <Button
-                size="lg"
-                onClick={scrollToUpload}
-                className="w-full rounded-lg bg-zinc-900 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-100"
-              >
-                <Upload className="size-4" />
-                Ký online ngay
-              </Button>
-            </m.div>
-
-            {/* PDFSignPro Offline */}
-            {process.env.NEXT_PUBLIC_OFFLINE_APP_URL ? (
-              <m.div
-                className={cn(
-                  "group relative flex flex-col rounded-xl border p-6 backdrop-blur-sm transition-all duration-200",
-                  "border-zinc-200/80 bg-white/70 shadow-sm dark:border-white/10 dark:bg-white/[0.06] dark:shadow-none",
-                  "hover:border-zinc-300 hover:shadow-md dark:hover:border-white/20 dark:hover:bg-white/[0.08]"
-                )}
-                initial={{ opacity: 0, y: reduceMotion ? 0 : 16 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: "-40px" }}
-                transition={{ ...MOTION_SLOW, delay: STAGGER * 3 }}
-                whileHover={reduceMotion ? undefined : { y: -6, scale: 1.02, transition: MOTION }}
-              >
-                <div className="mb-4 flex size-12 items-center justify-center rounded-xl bg-gradient-to-br from-zinc-500/20 to-zinc-400/10 dark:from-white/15 dark:to-white/5">
-                  <Laptop className="size-6 text-zinc-600 dark:text-zinc-300" />
-                </div>
-                <h3 className="mb-1 text-lg font-semibold text-zinc-900 dark:text-white">
-                  Ký offline trong mạng nội bộ
-                </h3>
-                <p className="mb-6 flex-1 text-sm text-zinc-600 dark:text-zinc-400">
-                  Ứng dụng Windows độc lập. Ký PDF khi không kết nối Internet hoặc trong mạng nội bộ khép
-                  kín. Phù hợp cho đơn vị có quy định bảo mật nghiêm ngặt.
-                </p>
-                <Button
-                  size="lg"
-                  variant="outline"
-                  asChild
-                  className="w-full rounded-lg border-zinc-200 bg-white/80 hover:bg-zinc-50 dark:border-white/20 dark:bg-white/5 dark:hover:bg-white/10"
-                >
-                  <a href={process.env.NEXT_PUBLIC_OFFLINE_APP_URL} target="_blank" rel="noopener noreferrer">
-                    <Download className="size-4" />
-                    Tải PDFSignPro Offline
-                  </a>
-                </Button>
-              </m.div>
-            ) : null}
+            </div>
+            <div className="pointer-events-none absolute -right-10 -top-10 -z-10 size-40 rounded-full bg-stitch-primary/5 blur-3xl" aria-hidden />
+            <div className="pointer-events-none absolute -bottom-10 -left-10 -z-10 size-40 rounded-full bg-stitch-primary-strong/5 blur-3xl" aria-hidden />
           </div>
         </div>
-      </section>
+      </header>
 
-      {/* Cách hoạt động */}
-      <section
-        id="how-it-works"
-        className="relative border-t border-zinc-200/80 bg-zinc-50/50 px-6 py-20 dark:border-white/5 dark:bg-transparent sm:py-28"
-      >
-        <div className="container mx-auto max-w-6xl">
-          <m.h2
-            className="text-left text-2xl font-semibold text-zinc-900 dark:text-white sm:text-3xl"
-            ref={stepsRef}
-            initial={{ opacity: 0, y: reduceMotion ? 0 : 12 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-50px" }}
-            transition={MOTION_SLOW}
-          >
-            Cách hoạt động (3 bước)
-          </m.h2>
-          <m.p
-            className="mb-10 max-w-2xl text-sm text-zinc-500 dark:text-zinc-400"
-            initial={{ opacity: 0, y: reduceMotion ? 0 : 8 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-30px" }}
-            transition={{ ...MOTION_SLOW, delay: STAGGER }}
-          >
-            Dành cho người không rành công nghệ: chỉ cần làm lần lượt 3 bước dưới đây là ký xong. Không
-            cần hiểu khái niệm PAdES hay PKCS#11.
-          </m.p>
-          <div className="grid gap-6 sm:grid-cols-3">
-            {STEPS.map((step, i) => (
-              <StepCard
-                key={step.title}
-                {...step}
-                index={i}
-                isInView={!!stepsInView}
-                reduceMotion={!!reduceMotion}
+      {/* Trust */}
+      <section className="bg-stitch-container-low py-12">
+        <div className="mx-auto max-w-7xl px-6">
+          <p className="mb-8 text-center text-xs font-bold uppercase tracking-widest text-stitch-muted/80">
+            Tương thích với tất cả nhà cung cấp CA &amp; chứng chỉ bảo mật
+          </p>
+          <div className="flex flex-wrap items-center justify-center gap-10 grayscale transition-all duration-500 hover:grayscale-0 md:gap-12">
+            {CA_LOGOS.map((logo) => (
+              <Image
+                key={logo.alt}
+                src={logo.src}
+                alt={logo.alt}
+                width={120}
+                height={32}
+                className="h-8 w-auto object-contain opacity-70"
               />
             ))}
+            <div className="hidden h-10 w-px bg-stitch-outline/30 md:block" />
+            <div className="flex items-center gap-2">
+              <Shield className="size-5 text-stitch-primary" />
+              <span className="text-sm font-bold">ISO 27001</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Lock className="size-5 text-stitch-primary" />
+              <span className="text-sm font-bold">AES-256</span>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Hợp đồng điện tử */}
-      <section className="relative border-t border-zinc-200/80 px-6 py-20 dark:border-white/5 sm:py-28">
-        <div className="container mx-auto max-w-6xl">
-          <m.div
-            className="mb-4 text-center"
-            initial={{ opacity: 0, y: reduceMotion ? 0 : 12 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-50px" }}
-            transition={MOTION}
-          >
-            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-violet-200/80 bg-violet-50/80 px-4 py-1.5 dark:border-violet-500/20 dark:bg-violet-500/10">
-              <Users className="size-4 text-violet-600 dark:text-violet-400" />
-              <span className="text-sm font-medium text-violet-700 dark:text-violet-300">Mới</span>
-            </div>
-            <h2 className="text-2xl font-semibold text-zinc-900 dark:text-white sm:text-3xl">
-              Hợp đồng điện tử nhiều bên
+      {/* Why — bento */}
+      <section id="why-pdfsign" className="bg-stitch-bg px-6 py-24">
+        <div className="mx-auto max-w-7xl">
+          <div className="mb-16">
+            <h2 className="mb-4 text-4xl font-black tracking-tighter text-stitch-on-surface">
+              Tại sao chọn pdfsign.vn?
             </h2>
-          </m.div>
-          <m.p
-            className="mx-auto mb-14 max-w-2xl text-center text-zinc-500 dark:text-zinc-400"
-            initial={{ opacity: 0 }}
-            whileInView={{ opacity: 1 }}
-            viewport={{ once: true }}
-            transition={{ ...MOTION, delay: 0.05 }}
-          >
-            Gửi hợp đồng cho nhiều bên ký số theo thứ tự. Mỗi bên nhận email mời, mở link riêng và ký bằng USB Token — không cần đăng nhập tài khoản. Bạn theo dõi tiến độ và lịch sử ký ở một nơi.
-          </m.p>
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {([
-              { icon: FileUp, title: "Tải PDF lên", desc: "Upload hợp đồng, đặt tên và thêm lời nhắn" },
-              { icon: Users, title: "Thêm bên ký", desc: "Nhập email, tên và thứ tự ký cho từng bên" },
-              { icon: Send, title: "Gửi email mời", desc: "Bên ký nhận email với link riêng, ký bằng USB Token" },
-              { icon: ClipboardCheck, title: "Hoàn tất", desc: "Tất cả bên ký xong → email thông báo & PDF có đầy đủ chữ ký" },
-            ] as const).map((step, i) => (
-              <m.div
-                key={step.title}
-                className={cn(
-                  "relative rounded-xl border p-6 backdrop-blur-sm transition-colors",
-                  "border-zinc-200/80 bg-white/60 shadow-sm dark:border-white/10 dark:bg-white/5 dark:shadow-none",
-                  "hover:border-violet-200 dark:hover:border-violet-500/20"
-                )}
-                initial={{ opacity: 0, y: reduceMotion ? 0 : 14 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: "-30px" }}
-                transition={{ ...MOTION_SLOW, delay: i * STAGGER }}
-                whileHover={reduceMotion ? undefined : { y: -3, scale: 1.02, transition: MOTION }}
-              >
-                <div className="mb-4 flex items-center gap-3">
-                  <div className="flex size-10 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500/20 to-blue-500/10">
-                    <step.icon className="size-5 text-violet-600 dark:text-violet-300" />
-                  </div>
-                  <span className="flex size-6 items-center justify-center rounded-full bg-zinc-100 text-xs font-bold text-zinc-500 dark:bg-white/10 dark:text-zinc-400">
-                    {i + 1}
-                  </span>
-                </div>
-                <h3 className="mb-2 text-sm font-semibold text-zinc-900 dark:text-white">{step.title}</h3>
-                <p className="text-sm text-zinc-500 dark:text-zinc-400">{step.desc}</p>
-              </m.div>
-            ))}
+            <div className="h-1.5 w-24 rounded-full bg-stitch-primary-strong" />
           </div>
-          <m.div
-            className="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center"
-            initial={{ opacity: 0, y: reduceMotion ? 0 : 8 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ ...MOTION, delay: 0.2 }}
-          >
-            <Button
-              size="lg"
-              asChild
-              className="rounded-lg bg-gradient-to-r from-violet-600 to-blue-600 text-white hover:from-violet-700 hover:to-blue-700"
-            >
-              <Link href="/contract/create">
-                <Users className="size-4" />
-                Tạo hợp đồng điện tử
-              </Link>
-            </Button>
-            <Link
-              href="/blog"
-              className="text-sm text-zinc-500 underline-offset-4 hover:underline hover:text-zinc-700 dark:hover:text-zinc-300"
-            >
-              Tìm hiểu thêm →
-            </Link>
-          </m.div>
-        </div>
-      </section>
-
-      {/* Tính năng */}
-      <section className="relative border-t border-zinc-200/80 px-6 py-20 dark:border-white/5 sm:py-28">
-        <div className="container mx-auto max-w-6xl">
-          <div className="grid gap-16 lg:grid-cols-2 lg:items-start lg:gap-24">
-            <div>
-              <m.h2
-                className="mb-10 text-2xl font-semibold text-zinc-900 dark:text-white sm:text-3xl"
-                initial={{ opacity: 0, y: reduceMotion ? 0 : 12 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: "-50px" }}
-                transition={MOTION_SLOW}
-              >
-                Những gì bạn làm được với PDFSignPro
-              </m.h2>
-              <ul className="space-y-5">
-                {FEATURES.map((text, i) => (
-                  <m.li
-                    key={i}
-                    className="flex items-start gap-3"
-                    initial={{ opacity: 0, x: reduceMotion ? 0 : -8 }}
-                    whileInView={{ opacity: 1, x: 0 }}
-                    viewport={{ once: true, margin: "-20px" }}
-                    transition={{ ...MOTION_SLOW, delay: i * STAGGER }}
-                  >
-                    <span className="mt-1.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-violet-500/20">
-                      <Check className="size-3 text-violet-600 dark:text-violet-400" />
-                    </span>
-                    <span className="text-zinc-600 dark:text-zinc-400">
-                      {text}
-                    </span>
-                  </m.li>
-                ))}
-              </ul>
-            </div>
-            <m.div
-              className={cn(
-                "rounded-xl border p-6 backdrop-blur-sm sm:p-8",
-                "border-zinc-200/80 bg-white/60 shadow-sm dark:border-white/10 dark:bg-white/5 dark:shadow-none"
-              )}
-              initial={{ opacity: 0, y: reduceMotion ? 0 : 14 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-50px" }}
-              transition={{ ...MOTION_SLOW, delay: STAGGER * 4 }}
-              whileHover={reduceMotion ? undefined : { scale: 1.02, transition: MOTION }}
-            >
-              <h3 className="mb-6 text-lg font-semibold text-zinc-900 dark:text-white">
-                Đáng tin cậy về mặt pháp lý
-              </h3>
-              <div className="flex flex-wrap gap-3">
-                {TRUST_ITEMS.map(({ icon: Icon, label }) => (
-                  <div
-                    key={label}
-                    className={cn(
-                      "flex items-center gap-2 rounded-lg border px-4 py-2.5",
-                      "border-zinc-200/80 bg-white/50 dark:border-white/10 dark:bg-white/5"
-                    )}
-                  >
-                    <Icon className="size-4 text-violet-600 dark:text-violet-400" />
-                    <span className="text-sm font-medium text-zinc-900 dark:text-white">
-                      {label}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </m.div>
-          </div>
-        </div>
-      </section>
-
-      {/* Gói & Bảng giá */}
-      <section id="pricing" className="relative border-t border-zinc-200/80 px-6 py-20 dark:border-white/5 sm:py-28">
-        <div className="container mx-auto max-w-6xl">
-          <m.div
-            className="mb-4 text-center"
-            initial={{ opacity: 0, y: reduceMotion ? 0 : 12 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-50px" }}
-            transition={MOTION}
-          >
-            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-zinc-200/80 bg-zinc-50/80 px-4 py-1.5 dark:border-white/10 dark:bg-zinc-800/50">
-              <Sparkles className="size-4 text-violet-600 dark:text-violet-400" />
-              <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Đơn giản, rõ ràng</span>
-            </div>
-            <h2 className="text-2xl font-semibold text-zinc-900 dark:text-white sm:text-3xl">
-              Gói miễn phí cho cá nhân & thử nghiệm
-            </h2>
-          </m.div>
-          <m.p
-            className="mx-auto mb-12 max-w-xl text-center text-zinc-500 dark:text-zinc-400"
-            initial={{ opacity: 0 }}
-            whileInView={{ opacity: 1 }}
-            viewport={{ once: true }}
-            transition={{ ...MOTION, delay: 0.05 }}
-          >
-            50 file ký thành công mỗi tháng. Reset đầu tháng. Không cần thẻ tín dụng. Phù hợp để thử nghiệm
-            hoặc dùng cho cá nhân/nhóm nhỏ trước khi nâng cấp gói doanh nghiệp.
-          </m.p>
-          <m.div
-            className="mx-auto max-w-md rounded-2xl border-2 border-violet-200/80 bg-white/80 p-8 shadow-sm dark:border-violet-500/30 dark:bg-white/5"
-            initial={{ opacity: 0, y: reduceMotion ? 0 : 16 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ ...MOTION_SLOW, delay: 0.15 }}
-            whileHover={reduceMotion ? undefined : { scale: 1.02, y: -2, transition: MOTION }}
-          >
-            <div className="mb-6 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">Free</h3>
-              <span className="rounded-full bg-violet-100 px-3 py-1 text-sm font-medium text-violet-700 dark:bg-violet-900/50 dark:text-violet-300">Hiện tại</span>
-            </div>
-            <p className="mb-6 text-3xl font-bold text-zinc-900 dark:text-white">
-              0₫<span className="text-sm font-normal text-muted-foreground">/tháng</span>
-            </p>
-            <ul className="mb-8 space-y-3 text-sm text-zinc-600 dark:text-zinc-400">
-              <li className="flex items-center gap-2">
-                <Check className="size-4 text-violet-600 dark:text-violet-400" />
-                50 file PDF ký thành công / tháng
-              </li>
-              <li className="flex items-center gap-2">
-                <Check className="size-4 text-violet-600 dark:text-violet-400" />
-                Ký đơn & hợp đồng nhiều bên
-              </li>
-              <li className="flex items-center gap-2">
-                <Check className="size-4 text-violet-600 dark:text-violet-400" />
-                Email mời ký & thông báo hoàn tất
-              </li>
-              <li className="flex items-center gap-2">
-                <Check className="size-4 text-violet-600 dark:text-violet-400" />
-                Dashboard quản lý tài liệu & gói sử dụng
-              </li>
-            </ul>
-            <Button
-              size="lg"
-              className="w-full rounded-lg bg-gradient-to-r from-violet-600 to-blue-600 text-white hover:from-violet-700 hover:to-blue-700"
-              asChild
-            >
-              <Link href="/dashboard">
-                Bắt đầu miễn phí <ArrowRight className="ml-1 size-4" />
-              </Link>
-            </Button>
-          </m.div>
-        </div>
-      </section>
-
-      {/* Testimonials / Social proof */}
-      <section className="relative border-t border-zinc-200/80 bg-zinc-50/30 px-6 py-20 dark:border-white/5 dark:bg-transparent sm:py-28">
-        <div className="container mx-auto max-w-6xl">
-          <m.h2
-            className="mb-4 text-center text-2xl font-semibold text-zinc-900 dark:text-white sm:text-3xl"
-            initial={{ opacity: 0, y: reduceMotion ? 0 : 12 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-50px" }}
-            transition={MOTION}
-          >
-            Khách hàng đang sử dụng nói gì
-          </m.h2>
-          <m.p
-            className="mb-14 text-center text-zinc-500 dark:text-zinc-400"
-            initial={{ opacity: 0 }}
-            whileInView={{ opacity: 1 }}
-            viewport={{ once: true }}
-            transition={{ ...MOTION, delay: 0.05 }}
-          >
-            Chia sẻ từ kế toán, pháp chế, chủ doanh nghiệp và đội ngũ vận hành đang dùng PDFSignPro hằng ngày
-          </m.p>
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {TESTIMONIALS.map((t, i) => (
-              <m.div
-                key={i}
-                className={cn(
-                  "flex flex-col rounded-xl border p-6 backdrop-blur-sm",
-                  "border-zinc-200/80 bg-white/60 shadow-sm dark:border-white/10 dark:bg-white/5 dark:shadow-none"
-                )}
-                initial={{ opacity: 0, y: reduceMotion ? 0 : 14 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: "-30px" }}
-                transition={{ ...MOTION_SLOW, delay: i * STAGGER }}
-                whileHover={reduceMotion ? undefined : { y: -4, scale: 1.02, transition: MOTION }}
-              >
-                <div className="mb-3 flex gap-0.5">
-                  {Array.from({ length: 5 }).map((_, s) => (
-                    <svg key={s} className="size-4 text-amber-400" viewBox="0 0 20 20" fill="currentColor">
-                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                    </svg>
-                  ))}
+          <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
+            <div className="flex flex-col justify-between rounded-xl bg-white p-10 ambient-shadow-stitch md:col-span-2">
+              <div>
+                <div className="mb-6 flex size-14 items-center justify-center rounded-xl bg-stitch-primary-fixed text-stitch-primary-strong">
+                  <Gavel className="size-7" />
                 </div>
-                <p className="mb-4 flex-1 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">
-                  &ldquo;{t.quote}&rdquo;
+                <h3 className="mb-4 text-2xl font-bold">Tính pháp lý tuyệt đối</h3>
+                <p className="max-w-lg leading-relaxed text-stitch-muted">
+                  Mọi chữ ký tuân thủ Luật Giao dịch điện tử và quy định hiện hành. Có giá trị tương đương chữ ký tay và con dấu khi dùng chứng thư số hợp lệ.
                 </p>
-                <div className="flex items-center gap-3">
-                  <div className="flex size-9 items-center justify-center rounded-full bg-gradient-to-br from-violet-500/30 to-blue-500/20 text-sm font-semibold text-violet-700 dark:text-violet-300">
-                    {t.name.charAt(0)}
+              </div>
+              <Link
+                href="/faq"
+                className="mt-8 flex items-center gap-2 border-t border-stitch-outline/15 pt-8 text-sm font-bold text-stitch-primary"
+              >
+                Xem chi tiết cơ sở pháp lý
+                <ArrowRight className="size-4 rotate-[-45deg]" />
+              </Link>
+            </div>
+            <div className="hero-gradient-stitch flex flex-col justify-between rounded-xl p-10 text-white">
+              <div className="mb-6 flex size-14 items-center justify-center rounded-xl bg-white/20">
+                <UserCog className="size-7" />
+              </div>
+              <h3 className="mb-4 text-2xl font-bold">Bảo mật chuẩn ngân hàng</h3>
+              <p className="leading-relaxed text-blue-100/85">
+                Dữ liệu truyền tải qua HTTPS, lưu trữ an toàn. Khóa bí mật không rời USB Token — ký cục bộ qua Signer trên máy bạn.
+              </p>
+            </div>
+            <div className="flex flex-col justify-between rounded-xl bg-stitch-container-high p-10">
+              <div className="mb-6 flex size-14 items-center justify-center rounded-xl bg-white shadow-sm">
+                <GitBranch className="size-7 text-stitch-primary" />
+              </div>
+              <h3 className="mb-4 text-2xl font-bold">Ký nhiều bên cùng lúc</h3>
+              <p className="leading-relaxed text-stitch-muted">
+                Hợp đồng điện tử: ký tuần tự hoặc song song, email mời từng bên, theo dõi tiến độ trên dashboard.
+              </p>
+            </div>
+            <div className="flex flex-col items-center gap-10 rounded-xl border border-stitch-outline/15 bg-stitch-container-low p-10 md:col-span-2 md:flex-row">
+              <div className="hidden shrink-0 sm:block">
+                <Image
+                  src={DASHBOARD_IMG}
+                  alt="Giao diện quản lý tài liệu"
+                  width={256}
+                  height={180}
+                  className="w-64 rotate-2 rounded-lg shadow-xl"
+                />
+              </div>
+              <div>
+                <h3 className="mb-4 text-2xl font-bold">Quản lý tập trung</h3>
+                <p className="leading-relaxed text-stitch-muted">
+                  Theo dõi trạng thái tài liệu thời gian thực. Nhắc các bên chưa ký qua email khi dùng hợp đồng nhiều bên.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Pricing */}
+      <section id="pricing" className="bg-white px-6 py-24">
+        <div className="mx-auto max-w-7xl">
+          <div className="mb-16 text-center">
+            <h2 className="mb-4 text-4xl font-black tracking-tighter text-stitch-on-surface">
+              Bảng giá linh hoạt
+            </h2>
+            <p className="text-stitch-muted">Phù hợp cho cả cá nhân và doanh nghiệp</p>
+          </div>
+          <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
+            <div className="flex flex-col rounded-xl border border-stitch-outline/20 bg-stitch-bg p-8">
+              <div className="mb-8">
+                <h4 className="mb-2 text-xs font-bold uppercase tracking-widest text-stitch-muted">Miễn phí</h4>
+                <div className="text-4xl font-black">
+                  0đ<span className="text-lg font-normal text-stitch-muted">/tháng</span>
+                </div>
+              </div>
+              <ul className="mb-10 flex flex-grow flex-col gap-4 text-sm">
+                <li className="flex items-center gap-3">
+                  <CheckCircle2 className="size-4 shrink-0 text-stitch-primary" />
+                  50 tài liệu ký thành công / tháng
+                </li>
+                <li className="flex items-center gap-3">
+                  <CheckCircle2 className="size-4 shrink-0 text-stitch-primary" />
+                  Ký đơn &amp; hợp đồng nhiều bên
+                </li>
+                <li className="flex items-center gap-3">
+                  <CheckCircle2 className="size-4 shrink-0 text-stitch-primary" />
+                  Dashboard &amp; chia sẻ link
+                </li>
+              </ul>
+              <Button variant="outline" className="w-full rounded-lg border-stitch-primary font-bold text-stitch-primary" asChild>
+                <Link href="/#upload">Bắt đầu ngay</Link>
+              </Button>
+            </div>
+            <div className="relative flex flex-col rounded-xl border-2 border-stitch-primary-strong bg-white p-8 ambient-shadow-stitch">
+              <div className="absolute -top-4 left-1/2 -translate-x-1/2 rounded-full bg-stitch-primary-strong px-4 py-1 text-xs font-bold uppercase tracking-widest text-white">
+                Phổ biến nhất
+              </div>
+              <div className="mb-8">
+                <h4 className="mb-2 text-xs font-bold uppercase tracking-widest text-stitch-primary-strong">Chuyên nghiệp</h4>
+                <div className="text-4xl font-black text-stitch-primary-strong">
+                  99.000đ<span className="text-lg font-normal text-stitch-muted">/tháng</span>
+                </div>
+                <p className="mt-2 text-xs text-stitch-muted">Đang mở đăng ký — liên hệ để ưu tiên truy cập.</p>
+              </div>
+              <ul className="mb-10 flex flex-grow flex-col gap-4 text-sm">
+                <li className="flex items-center gap-3 font-medium">
+                  <CheckCircle2 className="size-4 shrink-0 text-stitch-primary" />
+                  Nâng hạn mức &amp; tính năng nâng cao
+                </li>
+                <li className="flex items-center gap-3">
+                  <CheckCircle2 className="size-4 shrink-0 text-stitch-primary" />
+                  Lưu trữ &amp; quy trình doanh nghiệp
+                </li>
+                <li className="flex items-center gap-3">
+                  <CheckCircle2 className="size-4 shrink-0 text-stitch-primary" />
+                  Hỗ trợ ưu tiên
+                </li>
+              </ul>
+              <Button className="hero-gradient-stitch h-12 w-full font-bold text-white" asChild>
+                <Link href="/#contact">Liên hệ nâng cấp</Link>
+              </Button>
+            </div>
+            <div className="flex flex-col rounded-xl border border-stitch-outline/20 bg-stitch-bg p-8">
+              <div className="mb-8">
+                <h4 className="mb-2 text-xs font-bold uppercase tracking-widest text-stitch-muted">Doanh nghiệp</h4>
+                <div className="text-4xl font-black">Liên hệ</div>
+              </div>
+              <ul className="mb-10 flex flex-grow flex-col gap-4 text-sm">
+                <li className="flex items-center gap-3">
+                  <CheckCircle2 className="size-4 shrink-0 text-stitch-primary" />
+                  Quản trị nhóm &amp; phân quyền
+                </li>
+                <li className="flex items-center gap-3">
+                  <CheckCircle2 className="size-4 shrink-0 text-stitch-primary" />
+                  Tích hợp API / ERP
+                </li>
+                <li className="flex items-center gap-3 font-medium text-stitch-primary">
+                  <Headphones className="size-4 shrink-0" />
+                  Hỗ trợ trực tiếp
+                </li>
+              </ul>
+              <Button className="w-full rounded-lg bg-stitch-container-highest font-bold" asChild>
+                <Link href="/#contact">Liên hệ chúng tôi</Link>
+              </Button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Testimonials */}
+      <section className="bg-stitch-container-low px-6 py-24">
+        <div className="mx-auto max-w-7xl">
+          <h2 className="mb-16 text-center text-3xl font-black tracking-tighter text-stitch-on-surface">
+            Khách hàng nói về chúng tôi
+          </h2>
+          <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
+            {STITCH_TESTIMONIALS.map((t) => (
+              <div
+                key={t.name}
+                className={cn(
+                  "rounded-xl border border-stitch-outline/20 bg-white p-8 shadow-sm",
+                  "border-l-4",
+                  t.leftBorder
+                )}
+              >
+                <Quote className="mb-4 size-10 text-stitch-primary-fixed opacity-80" />
+                <p className="mb-6 text-lg italic text-stitch-on-surface">&ldquo;{t.quote}&rdquo;</p>
+                <div className="flex items-center gap-4">
+                  <div className="relative size-12 overflow-hidden rounded-full bg-stitch-primary-fixed">
+                    <Image src={t.image} alt={t.name} fill className="object-cover" sizes="48px" />
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-zinc-900 dark:text-white">{t.name}</p>
-                    <p className="text-xs text-zinc-500 dark:text-zinc-500">{t.role}</p>
+                    <div className="font-bold">{t.name}</div>
+                    <div className="text-sm text-stitch-muted">{t.role}</div>
                   </div>
                 </div>
-              </m.div>
+              </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Blog */}
-      <section className="relative border-t border-zinc-200/80 px-6 py-20 dark:border-white/5 sm:py-28">
-        <div className="container mx-auto max-w-6xl">
-          <m.div
-            className="mb-4 flex items-center justify-between"
-            initial={{ opacity: 0, y: reduceMotion ? 0 : 12 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-50px" }}
-            transition={MOTION}
-          >
-            <h2 className="text-2xl font-semibold text-zinc-900 dark:text-white sm:text-3xl">
-              Hướng dẫn & kiến thức về chữ ký số
-            </h2>
-            <Link
-              href="/blog"
-              className="hidden items-center gap-1 text-sm text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 sm:inline-flex"
-            >
-              Xem tất cả
-              <ArrowRight className="size-3.5" />
-            </Link>
-          </m.div>
-          <m.p
-            className="mb-10 text-zinc-500 dark:text-zinc-400"
-            initial={{ opacity: 0 }}
-            whileInView={{ opacity: 1 }}
-            viewport={{ once: true }}
-            transition={{ ...MOTION, delay: 0.05 }}
-          >
-            Giải thích rõ ràng các khái niệm như chữ ký số, USB Token, PAdES… bằng tiếng Việt dễ hiểu.
-          </m.p>
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {BLOG_POSTS.slice(0, 3).map((post, i) => (
-              <m.div
-                key={post.slug}
-                initial={{ opacity: 0, y: reduceMotion ? 0 : 14 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: "-30px" }}
-                transition={{ ...MOTION_SLOW, delay: i * STAGGER }}
-                whileHover={reduceMotion ? undefined : { y: -4, scale: 1.02, transition: MOTION }}
-              >
-                <Link href={`/blog/${post.slug}`} className="group block h-full">
-                  <div
-                    className={cn(
-                      "flex h-full flex-col overflow-hidden rounded-xl border backdrop-blur-sm transition-all duration-200",
-                      "border-zinc-200/80 bg-white/60 shadow-sm dark:border-white/10 dark:bg-white/5 dark:shadow-none",
-                      "hover:-translate-y-0.5 hover:shadow-md dark:hover:bg-white/[0.08]"
-                    )}
-                  >
-                    <div
-                      className="flex h-32 items-center justify-center"
-                      style={{
-                        background: `linear-gradient(135deg, ${post.gradient[0]}, ${post.gradient[1]})`,
-                      }}
-                    >
-                      <span className="text-4xl">{post.emoji}</span>
-                    </div>
-                    <div className="flex flex-1 flex-col p-5">
-                      <div className="mb-2 flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-500">
-                        <span className="rounded bg-zinc-100 px-1.5 py-0.5 font-medium text-zinc-600 dark:bg-white/10 dark:text-zinc-400">
-                          {post.category}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Calendar className="size-3" />
-                          {new Date(post.date).toLocaleDateString("vi-VN")}
-                        </span>
-                      </div>
-                      <h3 className="mb-2 font-semibold text-zinc-900 group-hover:text-violet-600 dark:text-white dark:group-hover:text-violet-400 transition-colors line-clamp-2">
-                        {post.title}
-                      </h3>
-                      <p className="flex-1 text-sm text-zinc-600 dark:text-zinc-400 line-clamp-2">
-                        {post.description}
-                      </p>
-                    </div>
-                  </div>
-                </Link>
-              </m.div>
-            ))}
-          </div>
-          <m.div
-            className="mt-6 text-center sm:hidden"
-            initial={{ opacity: 0 }}
-            whileInView={{ opacity: 1 }}
-            viewport={{ once: true }}
-            transition={{ ...MOTION, delay: 0.15 }}
-          >
-            <Link
-              href="/blog"
-              className="text-sm text-zinc-500 underline-offset-4 hover:underline hover:text-zinc-700 dark:hover:text-zinc-300"
-            >
-              Xem tất cả bài viết →
-            </Link>
-          </m.div>
-        </div>
-      </section>
-
-      {/* FAQ */}
-      <FaqSection reduceMotion={!!reduceMotion} />
-
-      {/* Liên hệ */}
-      <ContactSection />
+      <FaqStitchBlock reduceMotion={!!reduceMotion} />
+      <ContactSection variant="stitch" />
     </div>
   );
 }

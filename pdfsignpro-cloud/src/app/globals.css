@@ -3,54 +3,65 @@
 /* Class-based dark mode for next-themes */
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* Light: zinc-50 bg, white cards, zinc-200 borders — Linear-style */
+/* Light: nền trắng xanh nhạt, chữ xanh navy (không đen tuyền) */
 :root {
   --radius: 0.375rem;
-  --background: oklch(0.985 0.001 286);
-  --foreground: oklch(0.145 0.01 285);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0.01 285);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0.01 285);
-  --primary: oklch(0.21 0.006 285);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.965 0.002 286);
-  --secondary-foreground: oklch(0.21 0.006 285);
-  --muted: oklch(0.965 0.002 286);
-  --muted-foreground: oklch(0.45 0.01 286);
-  --accent: oklch(0.965 0.002 286);
-  --accent-foreground: oklch(0.21 0.006 285);
+  --background: #f3f7fd;
+  --foreground: #1a2f4a;
+  --card: #ffffff;
+  --card-foreground: #1a2f4a;
+  --popover: #ffffff;
+  --popover-foreground: #1a2f4a;
+  --primary: #003b93;
+  --primary-foreground: #ffffff;
+  --secondary: #e8f0fc;
+  --secondary-foreground: #153a66;
+  --muted: #e8eef8;
+  --muted-foreground: #4a6080;
+  --accent: #dbe8fd;
+  --accent-foreground: #0c2d5c;
   --destructive: oklch(0.55 0.22 27);
   --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.9 0.005 286);
-  --input: oklch(0.9 0.005 286);
-  --ring: oklch(0.55 0.01 286);
+  --border: #c8d8f0;
+  --input: #c8d8f0;
+  --ring: #3b82c4;
 }
 
-/* Dark: zinc-950 bg, zinc-900 cards, subtle borders, minimal shadows */
+/* Dark: xanh slate (đêm nhẹ), tránh đen tuyền */
 .dark {
-  --background: oklch(0.13 0.012 285);
-  --foreground: oklch(0.98 0 0);
-  --card: oklch(0.17 0.012 285);
-  --card-foreground: oklch(0.98 0 0);
-  --popover: oklch(0.17 0.012 285);
-  --popover-foreground: oklch(0.98 0 0);
-  --primary: oklch(0.98 0 0);
-  --primary-foreground: oklch(0.13 0.012 285);
-  --secondary: oklch(0.22 0.012 285);
-  --secondary-foreground: oklch(0.98 0 0);
-  --muted: oklch(0.22 0.012 285);
-  --muted-foreground: oklch(0.65 0.01 286);
-  --accent: oklch(0.22 0.012 285);
-  --accent-foreground: oklch(0.98 0 0);
+  --background: #152238;
+  --foreground: #e8f0fc;
+  --card: #1c2d47;
+  --card-foreground: #e8f0fc;
+  --popover: #1c2d47;
+  --popover-foreground: #e8f0fc;
+  --primary: #6eb3ff;
+  --primary-foreground: #0c1929;
+  --secondary: #243652;
+  --secondary-foreground: #e8f0fc;
+  --muted: #243652;
+  --muted-foreground: #9cb0cc;
+  --accent: #243652;
+  --accent-foreground: #e8f0fc;
   --destructive: oklch(0.65 0.2 22);
   --destructive-foreground: oklch(0.98 0 0);
-  --border: oklch(0.28 0.01 285);
-  --input: oklch(0.25 0.01 285);
-  --ring: oklch(0.5 0.01 286);
+  --border: #2d4264;
+  --input: #2d4264;
+  --ring: #4f8fd9;
 }
 
 @theme inline {
+  --color-stitch-bg: #f3f7fd;
+  --color-stitch-on-surface: #153a66;
+  --color-stitch-muted: #4a6080;
+  --color-stitch-primary: #003b93;
+  --color-stitch-primary-strong: #0051c3;
+  --color-stitch-container-low: #e8f0fc;
+  --color-stitch-container-high: #dce8f8;
+  --color-stitch-container-highest: #cfddef;
+  --color-stitch-outline: #a8c0e8;
+  --color-stitch-primary-fixed: #d4e4ff;
+  --color-stitch-on-primary-fixed: #0a2860;
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -77,12 +88,20 @@
   --radius-xl: calc(var(--radius) + 6px);
 }
 
-/* Homepage: clean solid background, subtle radial glows only */
+/* Trang chủ marketing: luôn tone trắng–xanh (kể cả khi bật dark ở trang khác) */
 .home-bg {
-  background-color: oklch(0.98 0.002 286);
+  background-color: #f3f7fd;
 }
 .dark .home-bg {
-  background-color: #0a0a0f;
+  background-color: #f3f7fd;
+}
+
+.hero-gradient-stitch {
+  background: linear-gradient(135deg, #003b93 0%, #0051c3 100%);
+}
+
+.ambient-shadow-stitch {
+  box-shadow: 0 12px 40px rgba(0, 59, 147, 0.08);
 }
 /* Glow behind hero illustration (right side) */
 .home-glow-hero {

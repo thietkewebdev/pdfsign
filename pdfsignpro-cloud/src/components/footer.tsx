@@ -10,101 +10,98 @@ import {
   SUPPORT_ZALO_URL,
 } from "@/lib/company-legal";
 
-const SERVICES = [
-  { label: "Thiết kế web", href: "https://thietkeweb.dev/" },
-  { label: "Chữ ký số Viettel", href: "https://tokenviettel.com/" },
-  { label: "Hóa đơn điện tử Viettel", href: "https://viettel-invoice.vn/" },
-  { label: "Chữ ký số EasyCA", href: "https://chukysoeasyca.vn/" },
-  { label: "Chữ ký số FastCA", href: "https://chukysofastca.com/" },
-  { label: "Đại lý chữ ký số", href: "https://dailychukyso.com.vn/" },
-] as const;
-
-const LEGAL_LINKS = [
-  { label: "Blog & Hướng dẫn", href: "/blog" },
-  { label: "Câu hỏi thường gặp", href: "/faq" },
-  { label: "Gói & Bảng giá", href: "/#pricing" },
-  { label: "Điều khoản dịch vụ", href: "/terms" },
-  { label: "Chính sách bảo mật", href: "/privacy" },
-] as const;
+const year = new Date().getFullYear();
 
 export function Footer() {
-  const year = new Date().getFullYear();
-
   return (
-    <footer className="border-t border-border bg-background/50">
-      <div className="container mx-auto max-w-6xl px-6 py-12">
-        <div className="grid gap-10 sm:grid-cols-3 md:gap-16">
-          <div>
-            <p className="mb-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-              Liên hệ
-            </p>
-            <div className="space-y-3 text-sm text-muted-foreground">
-              <p className="font-medium text-foreground/90 leading-snug">
-                {COMPANY_LEGAL_NAME}
-              </p>
-              <p className="text-xs">MST: {COMPANY_TAX_ID}</p>
-              <p className="text-xs leading-relaxed">{COMPANY_ADDRESS}</p>
-              <ul className="space-y-2 pt-1">
-                <li>
-                  <a
-                    href={SUPPORT_ZALO_URL}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="underline-offset-4 hover:underline hover:text-foreground transition-colors duration-150"
-                  >
-                    Zalo: {SUPPORT_ZALO_DISPLAY}
-                  </a>
-                </li>
-                <li>
-                  <a
-                    href={`mailto:${COMPANY_EMAIL}`}
-                    className="underline-offset-4 hover:underline hover:text-foreground transition-colors duration-150"
-                  >
-                    {COMPANY_EMAIL}
-                  </a>
-                </li>
-              </ul>
-            </div>
-          </div>
-          <div>
-            <p className="mb-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-              Hỗ trợ & Pháp lý
-            </p>
-            <ul className="space-y-2 text-sm text-muted-foreground">
-              {LEGAL_LINKS.map(({ label, href }) => (
-                <li key={href}>
-                  <Link
-                    href={href}
-                    className="underline-offset-4 hover:underline hover:text-foreground transition-colors duration-150"
-                  >
-                    {label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-          <div>
-            <p className="mb-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-              Dịch vụ
-            </p>
-            <ul className="space-y-2 text-sm text-muted-foreground">
-              {SERVICES.map(({ label, href }) => (
-                <li key={href}>
-                  <a
-                    href={href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="underline-offset-4 hover:underline hover:text-foreground transition-colors duration-150"
-                  >
-                    {label}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </div>
+    <footer className="w-full border-t border-blue-100 bg-gradient-to-b from-white to-blue-50/40 py-12">
+      <div className="mx-auto grid max-w-7xl grid-cols-1 gap-10 px-6 md:grid-cols-4 md:gap-8">
+        <div>
+          <div className="mb-4 text-lg font-bold text-stitch-primary">pdfsign.vn</div>
+          <p className="text-xs leading-relaxed text-stitch-muted">
+            Giải pháp ký số chuyên nghiệp giúp chuyển đổi số quy trình ký kết tài liệu cho doanh nghiệp Việt Nam.
+          </p>
+          <p className="mt-4 text-xs font-medium text-stitch-on-surface">{COMPANY_LEGAL_NAME}</p>
+          <p className="mt-1 text-xs text-stitch-muted">MST: {COMPANY_TAX_ID}</p>
+          <p className="mt-2 text-xs leading-relaxed text-stitch-muted">{COMPANY_ADDRESS}</p>
         </div>
-        <p className="mt-10 pt-8 border-t border-border text-xs text-muted-foreground leading-relaxed">
-          © {year} PDFSignPro / PDFSignPro Cloud — {COMPANY_LEGAL_NAME} (MST {COMPANY_TAX_ID}).
+        <div className="space-y-4">
+          <h5 className="text-sm font-bold uppercase tracking-widest text-stitch-on-surface">Sản phẩm</h5>
+          <ul className="space-y-2 text-xs text-stitch-muted">
+            <li>
+              <Link href="/#why-pdfsign" className="hover:text-stitch-primary hover:underline">
+                Tính năng chính
+              </Link>
+            </li>
+            <li>
+              <Link href="/#pricing" className="hover:text-stitch-primary hover:underline">
+                Bảng giá
+              </Link>
+            </li>
+            <li>
+              <Link href="/dashboard" className="hover:text-stitch-primary hover:underline">
+                Bảng điều khiển
+              </Link>
+            </li>
+          </ul>
+        </div>
+        <div className="space-y-4">
+          <h5 className="text-sm font-bold uppercase tracking-widest text-stitch-on-surface">Pháp lý</h5>
+          <ul className="space-y-2 text-xs text-stitch-muted">
+            <li>
+              <Link href="/terms" className="hover:text-stitch-primary hover:underline">
+                Điều khoản sử dụng
+              </Link>
+            </li>
+            <li>
+              <Link href="/privacy" className="hover:text-stitch-primary hover:underline">
+                Chính sách bảo mật
+              </Link>
+            </li>
+            <li>
+              <Link href="/faq" className="hover:text-stitch-primary hover:underline">
+                Câu hỏi thường gặp
+              </Link>
+            </li>
+          </ul>
+        </div>
+        <div className="space-y-4">
+          <h5 className="text-sm font-bold uppercase tracking-widest text-stitch-on-surface">Hỗ trợ</h5>
+          <ul className="space-y-2 text-xs text-stitch-muted">
+            <li>
+              <Link href="/blog" className="hover:text-stitch-primary hover:underline">
+                Blog &amp; hướng dẫn
+              </Link>
+            </li>
+            <li>
+              <Link href="/signer" className="hover:text-stitch-primary hover:underline">
+                Tải phần mềm Signer
+              </Link>
+            </li>
+            <li>
+              <a
+                href={SUPPORT_ZALO_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-stitch-primary hover:underline"
+              >
+                Zalo: {SUPPORT_ZALO_DISPLAY}
+              </a>
+            </li>
+            <li>
+              <a
+                href={`mailto:${COMPANY_EMAIL}`}
+                className="hover:text-stitch-primary hover:underline"
+              >
+                {COMPANY_EMAIL}
+              </a>
+            </li>
+          </ul>
+        </div>
+      </div>
+      <div className="mx-auto mt-12 max-w-7xl border-t border-blue-100/80 px-6 pt-8">
+        <p className="text-center text-xs text-stitch-muted">
+          © {year} pdfsign.vn / PDFSignPro Cloud — {COMPANY_LEGAL_NAME}.
         </p>
       </div>
     </footer>
