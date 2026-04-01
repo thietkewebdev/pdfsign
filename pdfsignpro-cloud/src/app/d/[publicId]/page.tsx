@@ -499,14 +499,18 @@ export default function SigningViewerPage() {
   const isSigned = currentVersion.version >= 2 || jobState?.status === "COMPLETED";
   const signingFlowComplete = isSigned;
 
+  const completedDownloadPath = `/api/documents/${publicId}/download?v=${currentVersion.version}`;
+
   const JobStatusCardContent = jobState ? (
     <JobStatusCard
       status={jobState.status}
       deepLink={jobState.deepLink}
       signedDownloadUrl={jobState.signedDownloadUrl}
       downloadLink={
-        jobState.status === "COMPLETED" && typeof window !== "undefined"
-          ? `${window.location.origin}/api/documents/${publicId}/download?v=${currentVersion.version}`
+        jobState.status === "COMPLETED"
+          ? typeof window !== "undefined"
+            ? `${window.location.origin}${completedDownloadPath}`
+            : completedDownloadPath
           : undefined
       }
       error={jobState.error}
@@ -521,7 +525,7 @@ export default function SigningViewerPage() {
       }
       viewLink={
         jobState.status === "COMPLETED" && typeof window !== "undefined"
-          ? `${window.location.origin}/api/documents/${publicId}/download?v=${currentVersion.version}`
+          ? `${window.location.origin}${completedDownloadPath}`
           : undefined
       }
       onReset={resetJobState}
@@ -530,6 +534,21 @@ export default function SigningViewerPage() {
       signInfo={jobState.status === "COMPLETED" ? data.signInfo : undefined}
       onShowDownloadHelp={() => setSignerDownloadModalOpen(true)}
       onSignNewDocument={isSigned ? () => setUploadModalOpen(true) : undefined}
+    />
+  ) : isSigned ? (
+    <JobStatusCard
+      status="COMPLETED"
+      downloadLink={completedDownloadPath}
+      onCopyShareLink={copyShareLink}
+      shareLinkCopied={shareLinkCopied}
+      shareLink={
+        typeof window !== "undefined"
+          ? `${window.location.origin}/d/${publicId}`
+          : undefined
+      }
+      documentTitle={doc.title ?? "signed.pdf"}
+      signInfo={data.signInfo ?? undefined}
+      onSignNewDocument={() => setUploadModalOpen(true)}
     />
   ) : null;
 
