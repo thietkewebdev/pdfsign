@@ -3,7 +3,7 @@
 ; Registers pdfsignpro:// URL protocol for all users (HKLM)
 
 #define MyAppName "PDFSignPro Signer"
-#define MyAppVersion "1.0.0"
+#define MyAppVersion "1.0.1"
 #define MyAppExe "PDFSignProSigner.exe"
 
 [Setup]

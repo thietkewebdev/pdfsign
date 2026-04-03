@@ -35,6 +35,30 @@ SANITIZE_REPAIR_HINT = (
 )
 
 
+def _pdf_already_has_pkcs7_signature(raw: bytes) -> bool:
+    """
+    Heuristic: PKCS#7 PDF signatures include a /ByteRange entry in the signature dict.
+    If present, we must NOT run pikepdf save (full rewrite) before signing — that
+    rewrites bytes and invalidates or drops existing digital signatures.
+    """
+    return b"/ByteRange" in raw
+
+
+def _pdf_bytes_for_signing(input_path: Path) -> bytes:
+    """
+    Bytes passed to IncrementalPdfFileWriter.
+    - Already-signed PDFs: use file as-is (incremental signature preserves prior sigs).
+    - Unsigned PDFs: optional pikepdf rewrite fixes many files pyHanko cannot parse.
+    Set PDFSIGN_FORCE_SANITIZE=1 to always use pikepdf (breaks existing signatures).
+    """
+    raw = input_path.read_bytes()
+    if os.environ.get("PDFSIGN_FORCE_SANITIZE", "").strip() in ("1", "true", "yes"):
+        return _sanitize_pdf_with_pikepdf(input_path)
+    if _pdf_already_has_pkcs7_signature(raw):
+        return raw
+    return _sanitize_pdf_with_pikepdf(input_path)
+
+
 def _sanitize_pdf_with_pikepdf(input_path: Path) -> bytes:
     """
     Sanitize PDF with pikepdf: open and save to BytesIO.
@@ -484,9 +508,9 @@ async def sign_pdf(
             else:
                 raise
 
-        # Sanitize with pikepdf first to avoid pyHanko parse errors
-        # (incorrect startxref, Object Streams, Dictionary read error, seek of closed file, etc.)
-        pdf_bytes = _sanitize_pdf_with_pikepdf(input_path)
+        # Do not pikepdf-rewrite PDFs that already contain a digital signature (see
+        # _pdf_bytes_for_signing). Rewrite invalidates prior /ByteRange-based sigs.
+        pdf_bytes = _pdf_bytes_for_signing(input_path)
 
         # Use BytesIO so stream stays in memory; no closed file handles
         pdf_stream = BytesIO(pdf_bytes)
