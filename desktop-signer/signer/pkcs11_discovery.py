@@ -1,23 +1,37 @@
 """
 PKCS#11 DLL discovery for Windows.
-Scans common directories for PKCS#11 modules (Viettel, VNPT, EasyCA, BKAV, FPT, etc.).
+Scans common directories for PKCS#11 modules (Viettel, VNPT, CA2, FPT, Newtel, One-CA,
+SmartSign, EFY, TrustCA, MISA, CMC, EasyCA, BKAV, SafeNet, etc.).
 """
 import ctypes
 import re
 from pathlib import Path
 from typing import Optional
 
-# Heuristic filename patterns for PKCS#11 DLLs
+# Heuristic filename patterns for PKCS#11 DLLs (substring match; still validated via
+# C_GetFunctionList). Covers Viettel, VNPT, CA2, FPT, Newtel, SAFE/SafeNet, SmartSign,
+# EFY, TrustCA, MISA, CMC, One-CA, EasyCA, BKAV, eToken, etc.
 DLL_PATTERNS = (
     "pkcs11",
     "csp11",
     "viettel",
     "vnpt",
+    "ca2",
+    "fpt",
+    "newtel",
+    "safe",
+    "safenet",
+    "smartsign",
+    "efy",
+    "trustca",
+    "trust-ca",
+    "misa",
+    "cmc",
+    "oneca",
+    "one-ca",
     "easyca",
     "bkav",
-    "fpt",
     "etoken",
-    "safenet",
 )
 
 # Directories to scan (Windows) - include subdirs for vendor-specific paths
@@ -26,10 +40,10 @@ SCAN_DIRS = [
     Path(r"C:\Program Files"),
     Path(r"C:\Program Files (x86)"),
 ]
-MAX_SCAN_DEPTH = 2  # Limit recursion for performance (non-Viettel paths)
-# Viettel Token Manager often installs PKCS#11 under Program Files\Viettel...\subfolders
-# whose names do not match DLL_PATTERNS; follow the whole subtree once "viettel" is seen.
-MAX_SCAN_DEPTH_VIETTEL = 8
+MAX_SCAN_DEPTH = 2  # Limit recursion for performance (non-vendor paths)
+# Vendors often install PKCS#11 under Program Files\<Vendor>\...\subfolders
+# whose names do not match DLL_PATTERNS; follow the whole subtree once vendor dir is seen.
+MAX_SCAN_DEPTH_VENDOR = 8
 
 # Prefer these when multiple PKCS#11 DLLs exist (Foxit may work via CSP while another
 # vendor's PKCS#11 loads first and reports no token).
@@ -59,21 +73,52 @@ def _matches_heuristic(name: str) -> bool:
     return any(p in lower for p in DLL_PATTERNS)
 
 
+# Program Files\<Vendor>\... trees where PKCS#11 DLLs are often nested deeply.
+_VENDOR_DIR_MARKERS = (
+    "viettel",
+    "vnpt",
+    "ca2",
+    "fpt",
+    "newtel",
+    "smartsign",
+    "efy",
+    "trustca",
+    "trust-ca",
+    "misa",
+    "cmc",
+    "safe",
+    "safenet",
+    "safesign",
+    "oneca",
+    "one-ca",
+    "one_ca",
+    "bkav",
+    "easyca",
+    "easysign",
+)
+
+
+def _vendor_deep_subtree_dir(name: str) -> bool:
+    """Folder names that typically contain deep PKCS#11 installs (scan full subtree)."""
+    n = name.lower()
+    return any(m in n for m in _VENDOR_DIR_MARKERS)
+
+
 def _iter_dlls(
-    base: Path, depth: int = 0, in_viettel_subtree: bool = False
+    base: Path, depth: int = 0, in_vendor_subtree: bool = False
 ) -> list[Path]:
-    """Recursively find PKCS#11 DLLs. Deeper scan under Viettel install trees."""
-    max_depth = MAX_SCAN_DEPTH_VIETTEL if in_viettel_subtree else MAX_SCAN_DEPTH
+    """Recursively find PKCS#11 DLLs. Deeper scan under known vendor install trees."""
+    max_depth = MAX_SCAN_DEPTH_VENDOR if in_vendor_subtree else MAX_SCAN_DEPTH
     found: list[Path] = []
     if depth > max_depth:
         return found
     try:
         for item in base.iterdir():
             if item.is_dir() and depth < max_depth:
-                child_viettel = in_viettel_subtree or "viettel" in item.name.lower()
-                enter = depth == 0 or _matches_heuristic(item.name) or in_viettel_subtree
+                child_vendor = in_vendor_subtree or _vendor_deep_subtree_dir(item.name)
+                enter = depth == 0 or _matches_heuristic(item.name) or in_vendor_subtree
                 if enter:
-                    found.extend(_iter_dlls(item, depth + 1, child_viettel))
+                    found.extend(_iter_dlls(item, depth + 1, child_vendor))
             elif item.is_file() and item.suffix.lower() == ".dll":
                 if _matches_heuristic(item.name) and _has_get_function_list(item):
                     found.append(item)
@@ -153,7 +198,8 @@ def get_pkcs11_dll(env_override: Optional[str] = None) -> Path:
     if not dlls:
         raise FileNotFoundError(
             "No PKCS#11 DLL found. Set PKCS11_DLL env var or install a token driver "
-            "(Viettel, VNPT, EasyCA, BKAV, FPT, etc.)."
+            "(Viettel, VNPT, CA2, FPT, Newtel, One-CA, SmartSign, EFY, TrustCA, MISA, CMC, "
+            "EasyCA, BKAV, SafeNet, etc.)."
         )
     return _pick_pkcs11_dll(dlls)
 
@@ -169,7 +215,8 @@ def ordered_pkcs11_dll_candidates(env_override: Optional[str] = None) -> list[Pa
     if not dlls:
         raise FileNotFoundError(
             "No PKCS#11 DLL found. Set PKCS11_DLL env var or install a token driver "
-            "(Viettel, VNPT, EasyCA, BKAV, FPT, etc.)."
+            "(Viettel, VNPT, CA2, FPT, Newtel, One-CA, SmartSign, EFY, TrustCA, MISA, CMC, "
+            "EasyCA, BKAV, SafeNet, etc.)."
         )
     primary = _pick_pkcs11_dll(dlls)
     rest = sorted(
