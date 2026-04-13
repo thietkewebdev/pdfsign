@@ -29,7 +29,7 @@ const STEPS = [
   {
     icon: Monitor,
     title: "Chạy file",
-    desc: "Double-click file .exe để chạy. Không cần cài đặt (portable).",
+    desc: "Nháy đúp file .exe để chạy. Không cần cài đặt (dạng portable).",
   },
   {
     icon: Shield,

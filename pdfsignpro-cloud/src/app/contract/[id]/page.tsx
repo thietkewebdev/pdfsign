@@ -160,13 +160,13 @@ export default function ContractPage() {
       const res = await fetch(url);
       if (!res.ok) {
         const data = await res.json().catch(() => null);
-        throw new Error(data?.error || "Failed to load contract");
+        throw new Error(data?.error || "Không tải được hợp đồng");
       }
       const data = await res.json();
       setContract(data);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown error");
+      setError(err instanceof Error ? err.message : "Lỗi không xác định");
     } finally {
       setLoading(false);
     }
@@ -342,7 +342,7 @@ export default function ContractPage() {
 
       if (!res.ok) {
         const data = await res.json().catch(() => null);
-        throw new Error(data?.error || "Failed to initialize signing");
+        throw new Error(data?.error || "Không khởi tạo được phiên ký");
       }
 
       const { jobId, deepLink } = await res.json();
@@ -375,7 +375,7 @@ export default function ContractPage() {
       });
       if (!res.ok) {
         const data = await res.json().catch(() => null);
-        throw new Error(data?.error || "Failed to cancel");
+        throw new Error(data?.error || "Không hủy được hợp đồng");
       }
       toast.success("Đã hủy hợp đồng");
       await fetchContract();
@@ -397,7 +397,7 @@ export default function ContractPage() {
       });
       if (!res.ok) {
         const data = await res.json().catch(() => null);
-        throw new Error(data?.error || "Failed to send reminder");
+        throw new Error(data?.error || "Không gửi được nhắc nhở");
       }
       const data = await res.json();
       toast.success(`Đã gửi nhắc nhở cho ${data.remindedSigner}`);
@@ -426,7 +426,9 @@ export default function ContractPage() {
           <CardContent className="pt-6 text-center">
             <AlertCircle className="h-12 w-12 mx-auto text-red-500 mb-4" />
             <h2 className="text-xl font-semibold mb-2">Không thể tải hợp đồng</h2>
-            <p className="text-muted-foreground">{error || "Contract not found"}</p>
+            <p className="text-muted-foreground">
+              {error || "Không tìm thấy hợp đồng"}
+            </p>
             <Button variant="outline" className="mt-4" asChild>
               <Link href="/">Về trang chủ</Link>
             </Button>
@@ -458,7 +460,7 @@ export default function ContractPage() {
             className="shrink-0 text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
           >
             <ArrowLeft className="h-4 w-4" />
-            Dashboard
+            Bảng điều khiển
           </Link>
           <span className="text-muted-foreground/50">/</span>
           <h2 className="truncate text-[15px] font-medium">{contract.title}</h2>
