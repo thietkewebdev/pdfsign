@@ -94,7 +94,7 @@ function formatBytes(bytes: number): string {
 async function fetchJson<T>(url: string): Promise<T> {
   const res = await fetch(url, { cache: "no-store" });
   if (!res.ok) {
-    throw new Error(`Request failed: ${url}`);
+    throw new Error(`Yeu cau that bai: ${url}`);
   }
   return res.json() as Promise<T>;
 }
@@ -218,7 +218,7 @@ export default function AdminPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Admin Dashboard</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Bảng điều khiển quản trị</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Giám sát hệ thống và thao tác quản trị users, tài liệu, hợp đồng, tài nguyên.
           </p>
@@ -286,35 +286,35 @@ export default function AdminPage() {
         <TabsList className="flex w-full flex-wrap gap-1">
           <TabsTrigger value="users" className="gap-1.5">
             <Users className="size-4" />
-            Users ({userCount})
+            Người dùng ({userCount})
           </TabsTrigger>
           <TabsTrigger value="plans" className="gap-1.5">
             <Shield className="size-4" />
-            Plans
+            Gói dịch vụ
           </TabsTrigger>
           <TabsTrigger value="documents" className="gap-1.5">
             <FileText className="size-4" />
-            Documents ({docCount})
+            Tài liệu ({docCount})
           </TabsTrigger>
           <TabsTrigger value="contracts" className="gap-1.5">
             <Files className="size-4" />
-            Contracts ({contractCount})
+            Hợp đồng ({contractCount})
           </TabsTrigger>
           <TabsTrigger value="usage" className="gap-1.5">
             <BarChart3 className="size-4" />
-            Usage
+            Sử dụng
           </TabsTrigger>
           <TabsTrigger value="storage" className="gap-1.5">
             <HardDrive className="size-4" />
-            Storage
+            Lưu trữ
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="users" className="space-y-3">
           <Card>
             <CardHeader>
-              <CardTitle>User management</CardTitle>
-              <CardDescription>Search, lock/unlock, verify email, change plan.</CardDescription>
+              <CardTitle>Quản lý người dùng</CardTitle>
+              <CardDescription>Tìm kiếm, khóa/mở khóa, xác minh email, đổi gói.</CardDescription>
               <Input
                 placeholder="Tìm theo tên hoặc email..."
                 value={searchUser}
@@ -330,18 +330,18 @@ export default function AdminPage() {
                   <div className="min-w-0">
                     <p className="truncate font-medium">{u.name ?? u.email ?? u.id}</p>
                     <p className="text-xs text-muted-foreground">
-                      {u.email ?? "no-email"} · {u.plan} · {u.providers.join(", ") || "credentials"}
+                      {u.email ?? "chưa có email"} · {u.plan} · {u.providers.join(", ") || "tài khoản thường"}
                     </p>
                   </div>
                   <div className="flex flex-wrap items-center gap-1">
                     {u.isDisabled ? (
-                      <Badge variant="destructive">Locked</Badge>
+                      <Badge variant="destructive">Đã khóa</Badge>
                     ) : (
-                      <Badge variant="secondary">Active</Badge>
+                      <Badge variant="secondary">Hoạt động</Badge>
                     )}
                     {!u.emailVerified && (
                       <Button size="sm" variant="outline" onClick={() => void updateUser(u.id, "verifyEmail")}>
-                        Verify
+                        Xác minh
                       </Button>
                     )}
                     <Button
@@ -349,13 +349,13 @@ export default function AdminPage() {
                       variant="outline"
                       onClick={() => void updateUser(u.id, u.isDisabled ? "unlock" : "lock")}
                     >
-                      {u.isDisabled ? "Unlock" : "Lock"}
+                      {u.isDisabled ? "Mở khóa" : "Khóa"}
                     </Button>
                     <Button size="sm" variant="outline" onClick={() => void updateUser(u.id, "setPlan", "free")}>
-                      Free
+                      Miễn phí
                     </Button>
                     <Button size="sm" variant="outline" onClick={() => void updateUser(u.id, "setPlan", "pro")}>
-                      Pro
+                      Chuyên nghiệp
                     </Button>
                   </div>
                 </div>
@@ -367,20 +367,20 @@ export default function AdminPage() {
         <TabsContent value="plans" className="space-y-3">
           <Card>
             <CardHeader>
-              <CardTitle>Plan distribution</CardTitle>
+              <CardTitle>Phân bố gói dịch vụ</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
               {plans?.distribution.map((p) => (
                 <div key={p.plan} className="flex items-center justify-between rounded-md border p-3">
                   <span className="font-medium">{p.plan}</span>
-                  <Badge>{p.count} users</Badge>
+                  <Badge>{p.count} người dùng</Badge>
                 </div>
               ))}
             </CardContent>
           </Card>
           <Card>
             <CardHeader>
-              <CardTitle>Users over quota</CardTitle>
+              <CardTitle>Người dùng vượt quota</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
               {plans?.overQuotaUsers.length ? (
@@ -402,7 +402,7 @@ export default function AdminPage() {
         <TabsContent value="documents" className="space-y-3">
           <Card>
             <CardHeader>
-              <CardTitle>Document operations</CardTitle>
+              <CardTitle>Thao tác tài liệu</CardTitle>
               <Input
                 placeholder="Tìm theo title/publicId/email..."
                 value={searchDocument}
@@ -415,7 +415,7 @@ export default function AdminPage() {
                   <div className="min-w-0">
                     <p className="truncate font-medium">{d.title ?? d.publicId}</p>
                     <p className="text-xs text-muted-foreground">
-                      {d.publicId} · {d.owner?.email ?? "unknown"} · {formatBytes(d.latestVersion?.sizeBytes ?? 0)}
+                      {d.publicId} · {d.owner?.email ?? "không rõ"} · {formatBytes(d.latestVersion?.sizeBytes ?? 0)}
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-1">
@@ -436,11 +436,11 @@ export default function AdminPage() {
                     )}
                     {d.status === "ARCHIVED" ? (
                       <Button size="sm" variant="outline" onClick={() => void updateDocument(d.publicId, "restore")}>
-                        Restore
+                        Khôi phục
                       </Button>
                     ) : (
                       <Button size="sm" variant="outline" onClick={() => void updateDocument(d.publicId, "archive")}>
-                        Archive
+                        Lưu trữ
                       </Button>
                     )}
                     <Button
@@ -448,7 +448,7 @@ export default function AdminPage() {
                       variant="destructive"
                       onClick={() => void updateDocument(d.publicId, "delete")}
                     >
-                      Delete
+                      Xóa
                     </Button>
                   </div>
                 </div>
@@ -460,9 +460,9 @@ export default function AdminPage() {
         <TabsContent value="contracts" className="space-y-3">
           <Card>
             <CardHeader>
-              <CardTitle>Contract operations</CardTitle>
+              <CardTitle>Thao tác hợp đồng</CardTitle>
               <Input
-                placeholder="Tìm theo title/email signer..."
+                placeholder="Tìm theo tiêu đề/email bên ký..."
                 value={searchContract}
                 onChange={(e) => setSearchContract(e.target.value)}
               />
@@ -473,19 +473,19 @@ export default function AdminPage() {
                   <div className="min-w-0">
                     <p className="truncate font-medium">{c.title}</p>
                     <p className="text-xs text-muted-foreground">
-                      {c.owner?.email ?? "owner?"} · {c.signedCount}/{c.signers.length} signed ·
+                      {c.owner?.email ?? "không rõ chủ sở hữu"} · {c.signedCount}/{c.signers.length} đã ký ·
                       {" "}Hết hạn: {new Date(c.expiresAt).toLocaleDateString("vi-VN")}
                     </p>
                   </div>
                   <div className="flex gap-1">
                     <Button size="sm" variant="outline" onClick={() => void updateContract(c.id, "remind")}>
-                      Remind
+                      Nhắc nhở
                     </Button>
                     <Button size="sm" variant="outline" onClick={() => void updateContract(c.id, "extendExpiry")}>
                       +7 ngày
                     </Button>
                     <Button size="sm" variant="destructive" onClick={() => void updateContract(c.id, "cancel")}>
-                      Cancel
+                      Hủy
                     </Button>
                   </div>
                 </div>
@@ -497,13 +497,13 @@ export default function AdminPage() {
         <TabsContent value="usage" className="space-y-3">
           <Card>
             <CardHeader>
-              <CardTitle>Usage timeline (30 ngày)</CardTitle>
+              <CardTitle>Dòng thời gian sử dụng (30 ngày)</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
               {usage?.timeline.uploads.map((item) => (
                 <div key={item.day} className="flex items-center justify-between rounded-md border p-3 text-sm">
                   <span>{item.day}</span>
-                  <span>{item.count} uploads · {formatBytes(item.bytes)}</span>
+                  <span>{item.count} lượt tải lên · {formatBytes(item.bytes)}</span>
                 </div>
               ))}
             </CardContent>
@@ -529,13 +529,13 @@ export default function AdminPage() {
           </Card>
           <Card>
             <CardHeader>
-              <CardTitle>Top users by activity</CardTitle>
+              <CardTitle>Người dùng hoạt động nhiều nhất</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
               {usage?.topUsersByRecentActivity.map((u) => (
                 <div key={u.id} className="rounded-md border p-3 text-sm">
                   <p className="font-medium">{u.email ?? u.name ?? u.id}</p>
-                  <p className="text-muted-foreground">{u.documents} docs · {u.contracts} contracts</p>
+                  <p className="text-muted-foreground">{u.documents} tài liệu · {u.contracts} hợp đồng</p>
                 </div>
               ))}
             </CardContent>
@@ -545,9 +545,9 @@ export default function AdminPage() {
         <TabsContent value="storage" className="space-y-3">
           <Card>
             <CardHeader>
-              <CardTitle>Storage overview</CardTitle>
+              <CardTitle>Tổng quan lưu trữ</CardTitle>
               <CardDescription>
-                Total {storage?.totalVersions ?? 0} versions · {formatBytes(totalStorageBytes)}
+                Tổng {storage?.totalVersions ?? 0} phiên bản · {formatBytes(totalStorageBytes)}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-2">
@@ -555,7 +555,7 @@ export default function AdminPage() {
                 <div key={d.storageDriver} className="flex items-center justify-between rounded-md border p-3">
                   <span className="font-medium">{d.storageDriver}</span>
                   <span className="text-sm text-muted-foreground">
-                    {d.versionCount} files · {formatBytes(d.totalBytes)}
+                    {d.versionCount} tệp · {formatBytes(d.totalBytes)}
                   </span>
                 </div>
               ))}
@@ -563,13 +563,13 @@ export default function AdminPage() {
           </Card>
           <Card>
             <CardHeader>
-              <CardTitle>Top storage users</CardTitle>
+              <CardTitle>Người dùng dùng nhiều dung lượng nhất</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
               {storage?.byUser.slice(0, 20).map((u) => (
                 <div key={u.userId} className="rounded-md border p-3 text-sm">
                   <p className="font-medium">{u.email ?? u.userId}</p>
-                  <p className="text-muted-foreground">{u.versions} versions · {formatBytes(u.bytes)}</p>
+                  <p className="text-muted-foreground">{u.versions} phiên bản · {formatBytes(u.bytes)}</p>
                 </div>
               ))}
             </CardContent>

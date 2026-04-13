@@ -115,7 +115,7 @@ function CreateContractContent() {
         method: "POST",
         body: formData,
       });
-      if (!res.ok) throw new Error("Upload failed");
+      if (!res.ok) throw new Error("Tải tệp thất bại");
       const data = await res.json();
       setSelectedDoc({ id: data.documentId, title: data.title || file.name });
       setTitle(data.title || file.name.replace(/\.pdf$/i, ""));
@@ -218,7 +218,7 @@ function CreateContractContent() {
 
       if (!res.ok) {
         const data = await res.json().catch(() => null);
-        throw new Error(data?.error || "Failed to create contract");
+        throw new Error(data?.error || "Không tạo được hợp đồng");
       }
 
       const data = await res.json();
@@ -519,7 +519,7 @@ function CreateContractContent() {
               className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
             >
               <Send className="h-4 w-4 mr-1.5" />
-              {submitting ? "Đang tạo..." : "Tạo & Gửi email"}
+              {submitting ? "Đang tạo..." : "Tạo và gửi email"}
             </Button>
           </div>
         </div>
