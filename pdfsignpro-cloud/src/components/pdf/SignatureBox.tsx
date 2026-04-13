@@ -1,7 +1,7 @@
 "use client";
 
 import { Rnd } from "react-rnd";
-import { CheckCircle2, History } from "lucide-react";
+import { History } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { SignaturePlacement } from "@/lib/types";
 import { StampValidPreview } from "./StampValidPreview";
@@ -30,15 +30,11 @@ function StitchValidPreview() {
 
 function KySoPlaceholderPreview() {
   return (
-    <div className="flex flex-col items-center justify-center gap-2 text-center">
-      <div className="leading-none text-[#ef3b62]">
-        <div className="text-[24px] font-extrabold tracking-tight sm:text-[28px]">01</div>
-        <div className="-mt-1 flex items-center justify-center">
-          <span className="text-[24px] font-extrabold tracking-tight sm:text-[28px]">1C</span>
-          <CheckCircle2 className="-ml-1 size-4 fill-current sm:size-5" aria-hidden />
-        </div>
-      </div>
-      <p className="text-sm font-semibold text-[#4f5878] sm:text-base">Ký số</p>
+    <div className="flex flex-col items-center justify-center gap-1.5 px-2 text-center">
+      <p className="text-[11px] font-bold text-[#ef3b62] sm:text-xs">Ký bởi</p>
+      <p className="max-w-full truncate text-sm font-semibold text-[#4f5878] sm:text-base">
+        Tên công ty...
+      </p>
     </div>
   );
 }
