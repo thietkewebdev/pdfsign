@@ -11,6 +11,7 @@ import {
   ExternalLink,
   Sun,
   Moon,
+  AlertTriangle,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
@@ -33,6 +34,7 @@ import {
 import { SIGNATURE_TEMPLATES } from "@/lib/signature-templates";
 import { SignatureTemplateSelector } from "@/components/signature/SignatureTemplateSelector";
 import { SignaturePlacementFields } from "@/components/signature/SignaturePlacementFields";
+import { isWindowsClient, launchSignerWithFallback } from "@/lib/signer-launch";
 
 interface DocumentData {
   document: { id: string; publicId: string; title: string };
@@ -58,7 +60,6 @@ export default function SignPage() {
   } | null>(null);
   const [copied, setCopied] = useState(false);
   const [signerDownloadModalOpen, setSignerDownloadModalOpen] = useState(false);
-  const userLeftTabRef = useRef(false);
   const [selectedTemplateId, setSelectedTemplateId] = useState("valid");
   const [sealImageBase64, setSealImageBase64] = useState<string | null>(null);
 
@@ -163,20 +164,11 @@ export default function SignPage() {
 
     const data = await res.json();
     setJobResult({ jobId: data.jobId, deepLink: data.deepLink });
-    userLeftTabRef.current = false;
-    window.location.href = data.deepLink;
-    setTimeout(() => {
-      if (!userLeftTabRef.current) setSignerDownloadModalOpen(true);
-    }, 2500);
+    launchSignerWithFallback({
+      deepLink: data.deepLink,
+      onFallback: () => setSignerDownloadModalOpen(true),
+    });
   };
-
-  useEffect(() => {
-    const onVisibilityChange = () => {
-      if (document.hidden) userLeftTabRef.current = true;
-    };
-    document.addEventListener("visibilitychange", onVisibilityChange);
-    return () => document.removeEventListener("visibilitychange", onVisibilityChange);
-  }, []);
 
   const copyDeepLink = () => {
     if (!jobResult) return;
@@ -195,6 +187,7 @@ export default function SignPage() {
       : null;
 
   const fileName = docData?.document.title ?? file?.name ?? "document.pdf";
+  const isWindows = isWindowsClient();
 
   if (loading) {
     return (
@@ -333,6 +326,15 @@ export default function SignPage() {
               >
                 Ký số
               </Button>
+              {!isWindows && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-2.5 text-xs text-amber-800">
+                  <p className="flex items-center gap-1.5 font-medium">
+                    <AlertTriangle className="size-3.5" />
+                    PDFSignPro Signer hiện hỗ trợ Windows.
+                  </p>
+                  <p className="mt-1">Hãy mở trang này trên máy Windows để ký bằng USB Token.</p>
+                </div>
+              )}
               {jobResult && (
                 <div className="space-y-2 rounded-lg border border-border bg-muted/30 p-3">
                   <p className="text-xs font-medium text-foreground">
@@ -585,6 +587,20 @@ export default function SignPage() {
             >
               Đóng
             </Button>
+            {jobResult?.deepLink && (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  launchSignerWithFallback({
+                    deepLink: jobResult.deepLink,
+                    onFallback: () => setSignerDownloadModalOpen(true),
+                  });
+                }}
+              >
+                <ExternalLink className="size-4" />
+                Mở Signer lại
+              </Button>
+            )}
             <Button
               onClick={() => {
                 window.open("/api/signer/download", "_blank");

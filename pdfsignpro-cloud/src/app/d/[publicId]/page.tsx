@@ -20,6 +20,7 @@ import {
   XCircle,
   Info,
   CircleHelp,
+  ExternalLink,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -53,6 +54,7 @@ import { CreateContractModal } from "@/components/contract/CreateContractModal";
 import { getPdfViewerUrl } from "@/lib/pdf-view-url";
 import { SigningFlowGuideDialog } from "@/components/signing";
 import { cn } from "@/lib/utils";
+import { isWindowsClient, launchSignerWithFallback } from "@/lib/signer-launch";
 
 const POLL_INTERVAL_MS = 2000;
 const POLL_TIMEOUT_MS = 5 * 60 * 1000;
@@ -157,7 +159,6 @@ export default function SigningViewerPage() {
   const [signerDownloadModalOpen, setSignerDownloadModalOpen] = useState(false);
   const [signingGuideOpen, setSigningGuideOpen] = useState(false);
   const pollStartRef = useRef<number | null>(null);
-  const userLeftTabRef = useRef(false);
   /** Mỗi phiên bản tài liệu chỉ cuộn tới trang cuối một lần khi PDF đã biết số trang. */
   const scrollSigningDocToLastRef = useRef<string | null>(null);
   const pdfMetaRef = useRef<{ publicId: string; version: number } | null>(
@@ -170,6 +171,7 @@ export default function SigningViewerPage() {
   const [pageMode, setPageMode] = useState<"last" | "custom">("last");
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const searchParams = useSearchParams();
+  const isWindows = isWindowsClient();
 
   const {
     placements,
@@ -334,12 +336,10 @@ export default function SigningViewerPage() {
     });
     pollStartRef.current = Date.now();
     toast.success("Đã tạo phiên ký. Mở Signer để ký số.");
-    userLeftTabRef.current = false;
-    window.location.href = deepLink;
-
-    setTimeout(() => {
-      if (!userLeftTabRef.current) setSignerDownloadModalOpen(true);
-    }, 2500);
+    launchSignerWithFallback({
+      deepLink,
+      onFallback: () => setSignerDownloadModalOpen(true),
+    });
   };
 
   const copyDeepLink = () => {
@@ -418,14 +418,6 @@ export default function SigningViewerPage() {
     poll();
     return () => clearInterval(id);
   }, [jobState?.jobId, jobState?.status, fetchDocument]);
-
-  useEffect(() => {
-    const onVisibilityChange = () => {
-      if (document.hidden) userLeftTabRef.current = true;
-    };
-    document.addEventListener("visibilitychange", onVisibilityChange);
-    return () => document.removeEventListener("visibilitychange", onVisibilityChange);
-  }, []);
 
   const goToPdfPage = useCallback((p: number) => {
     setCurrentPage(p);
@@ -1094,6 +1086,11 @@ export default function SigningViewerPage() {
               Ký tài liệu mới
             </Button>
           )}
+          {!isSigned && !isWindows && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 sm:max-w-xs">
+              PDFSignPro Signer hiện hỗ trợ Windows. Vui lòng ký trên máy Windows có USB Token.
+            </div>
+          )}
         </div>
       </footer>
 
@@ -1133,6 +1130,20 @@ export default function SigningViewerPage() {
             >
               Đóng
             </Button>
+            {jobState?.deepLink && (
+              <Button
+                variant="outline"
+                onClick={() =>
+                  launchSignerWithFallback({
+                    deepLink: jobState.deepLink,
+                    onFallback: () => setSignerDownloadModalOpen(true),
+                  })
+                }
+              >
+                <ExternalLink className="size-4" />
+                Mở Signer lại
+              </Button>
+            )}
             <Button
               onClick={() => {
                 window.open("/api/signer/download", "_blank");
