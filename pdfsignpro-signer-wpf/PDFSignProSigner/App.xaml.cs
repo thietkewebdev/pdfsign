@@ -9,6 +9,7 @@ public partial class App : System.Windows.Application
     private SingleInstanceService? _singleInstance;
     private MainWindow? _mainWindow;
     private TrayIconService? _trayIcon;
+    private LocalBridgeService? _localBridge;
 
     /// <summary>Ẩn cửa sổ xuống khay sau khi ký thành công; tuỳ chọn balloon nhắc rút USB.</summary>
     public void HideMainWindowAfterSignSuccess(string? balloonMessage, bool remindUnplugUsb)
@@ -48,6 +49,8 @@ public partial class App : System.Windows.Application
 
         _mainWindow = new MainWindow();
         _trayIcon = new TrayIconService(_mainWindow, () => Shutdown(0));
+        _localBridge = new LocalBridgeService(new CoreService());
+        _localBridge.Start();
         _singleInstance.StartListening(url =>
         {
             Dispatcher.Invoke(() =>
@@ -65,6 +68,7 @@ public partial class App : System.Windows.Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        _localBridge?.Dispose();
         _trayIcon?.Dispose();
         _singleInstance?.Dispose();
         base.OnExit(e);

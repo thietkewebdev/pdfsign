@@ -34,7 +34,7 @@ import {
 import { SIGNATURE_TEMPLATES } from "@/lib/signature-templates";
 import { SignatureTemplateSelector } from "@/components/signature/SignatureTemplateSelector";
 import { SignaturePlacementFields } from "@/components/signature/SignaturePlacementFields";
-import { SignerEnvironmentChecklist } from "@/components/signing";
+import { LocalSignerCertPanel, SignerEnvironmentChecklist } from "@/components/signing";
 import { trackGaEvent } from "@/lib/analytics";
 import { isWindowsClient, launchSignerWithFallback } from "@/lib/signer-launch";
 
@@ -356,6 +356,7 @@ export default function SignPage() {
                 </p>
               </div>
               <SignerEnvironmentChecklist />
+              <LocalSignerCertPanel autoLaunchDeepLink={jobResult?.deepLink} />
               <Button
                 onClick={handleSign}
                 disabled={placements.length === 0}
@@ -541,6 +542,7 @@ export default function SignPage() {
                     </p>
                   </div>
                   <SignerEnvironmentChecklist />
+                  <LocalSignerCertPanel autoLaunchDeepLink={jobResult?.deepLink} />
                   <Button
                     onClick={handleSign}
                     disabled={placements.length === 0}
