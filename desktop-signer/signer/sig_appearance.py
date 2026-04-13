@@ -208,12 +208,18 @@ def _compute_stamp_layout(
     ts_lines = raw_ts_lines[:ts_budget]
 
     if signer_overflow and signer_lines:
-        signer_lines[-1] = _ellipsize_to_width(
-            engine, signer_lines[-1], text_max_width, float(content_size)
-        )
+        if signer_budget <= 1:
+            signer_lines[0] = _ellipsize_to_width(
+                engine, signer_text, text_max_width, float(content_size)
+            )
+        else:
+            remaining_signer = " ".join(raw_signer_lines[signer_budget - 1 :])
+            signer_lines[-1] = _ellipsize_to_width(
+                engine, remaining_signer, text_max_width, float(content_size)
+            )
     if ts_overflow and ts_lines:
         ts_lines[-1] = _ellipsize_to_width(
-            engine, ts_lines[-1], text_max_width, float(content_size)
+            engine, ts_text, text_max_width, float(content_size)
         )
 
     # Guard against renderer measurement drift: never draw a line wider than content area.
@@ -262,12 +268,14 @@ def _render_text_via_reportlab(
 
     c = canvas.Canvas(path, pagesize=(width, height))
     leading = content_size * leading_ratio
-    y = text_y_start
+    total_lines = len(signer_lines) + len(ts_lines)
+    text_block_h = total_lines * leading
+    y = max(PADDING + content_size, (height + text_block_h) / 2 - content_size)
     if title:
         c.setFont(font_name, title_size)
         c.setFillColorRGB(*_STAMP_RED_RGB)
         c.drawString(text_x, text_y_start, title)
-        y -= title_size * leading_ratio + 2
+        y = min(y, text_y_start - title_size * leading_ratio - 2)
 
     c.setFont(font_name, content_size)
     for line in signer_lines:

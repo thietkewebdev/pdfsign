@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { probeLocalSigner } from "@/lib/local-signer";
 import { CheckCircle2, Loader2, ShieldX } from "lucide-react";
 import { launchSignerWithFallback } from "@/lib/signer-launch";
@@ -13,7 +13,6 @@ export function LocalSignerCertPanel({ autoLaunchDeepLink }: LocalSignerCertPane
   const [connected, setConnected] = useState<boolean | null>(null);
   const [autoConnecting, setAutoConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const lastAutoLaunchedDeepLinkRef = useRef<string | null>(null);
 
   const checkConnection = useCallback(async () => {
     const health = await probeLocalSigner();
@@ -66,16 +65,6 @@ export function LocalSignerCertPanel({ autoLaunchDeepLink }: LocalSignerCertPane
     }
     setAutoConnecting(false);
   }, [autoLaunchDeepLink, checkConnection]);
-
-  useEffect(() => {
-    if (!autoLaunchDeepLink) return;
-    if (lastAutoLaunchedDeepLinkRef.current === autoLaunchDeepLink) return;
-    lastAutoLaunchedDeepLinkRef.current = autoLaunchDeepLink;
-    const t = window.setTimeout(() => {
-      void autoOpenSigner();
-    }, 0);
-    return () => window.clearTimeout(t);
-  }, [autoLaunchDeepLink, autoOpenSigner]);
 
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-4">

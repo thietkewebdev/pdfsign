@@ -67,16 +67,7 @@ export function launchSignerWithFallback({
   tryOpen();
 
   window.setTimeout(() => {
-    if (userLeftTab) {
-      document.removeEventListener("visibilitychange", onVisibilityChange);
-      return;
-    }
-
-    // Retry once before showing install/reopen fallback.
-    tryOpen();
-    window.setTimeout(() => {
-      document.removeEventListener("visibilitychange", onVisibilityChange);
-      if (!userLeftTab) onFallback();
-    }, Math.max(1200, Math.floor(fallbackDelayMs / 2)));
+    document.removeEventListener("visibilitychange", onVisibilityChange);
+    if (!userLeftTab) onFallback();
   }, fallbackDelayMs);
 }
