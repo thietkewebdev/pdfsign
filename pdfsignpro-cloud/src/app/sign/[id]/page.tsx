@@ -209,11 +209,15 @@ export default function SignPage() {
 
   const fileName = docData?.document.title ?? file?.name ?? "document.pdf";
   const isWindows = isWindowsClient();
+  const selectedTemplateName =
+    SIGNATURE_TEMPLATES.find((t) => t.id === selectedTemplateId)?.displayName ??
+    selectedTemplateId;
+  const selectedPlacement = placements[safePlacementEditorIdx];
 
   if (loading) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center">
-        <p className="text-muted-foreground">Loading…</p>
+        <p className="text-muted-foreground">Đang tải...</p>
       </div>
     );
   }
@@ -222,10 +226,10 @@ export default function SignPage() {
     return (
       <div className="flex min-h-[50vh] flex-col items-center justify-center gap-4 p-8">
         <p className="text-muted-foreground">
-          Chưa có file PDF. Vui lòng upload file trước.
+          Chưa có file PDF. Vui lòng tải tệp lên trước khi ký.
         </p>
         <Button asChild>
-          <Link href="/">Upload PDF</Link>
+          <Link href="/">Tải PDF lên</Link>
         </Button>
       </div>
     );
@@ -245,7 +249,7 @@ export default function SignPage() {
           </Link>
           <span className="text-muted-foreground">/</span>
           <span className="truncate text-foreground">{fileName}</span>
-          <Badge variant="secondary">Draft</Badge>
+          <Badge variant="secondary">Bản nháp</Badge>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <Button
@@ -259,11 +263,11 @@ export default function SignPage() {
           </Button>
           <Button variant="outline" size="sm" disabled>
             <Download className="size-4" />
-            Download
+            Tải xuống
           </Button>
           <Button variant="ghost" size="sm">
             <HelpCircle className="size-4" />
-            Help
+            Hướng dẫn
           </Button>
         </div>
       </div>
@@ -272,9 +276,7 @@ export default function SignPage() {
         <div className="hidden min-h-0 flex-1 lg:grid lg:grid-cols-[320px_1fr_280px] lg:min-h-0">
           <div className="flex min-h-0 flex-col overflow-y-auto border-r border-border p-4">
             <div className="space-y-4">
-              <h3 className="text-sm font-semibold text-foreground">
-                Signature
-              </h3>
+              <h3 className="text-sm font-semibold text-foreground">Thiết lập chữ ký</h3>
               <SignatureTemplateSelector
                 templates={SIGNATURE_TEMPLATES}
                 selectedId={selectedTemplateId}
@@ -303,10 +305,10 @@ export default function SignPage() {
                 }
                 className="w-full"
               >
-                Add box (current page)
+                Thêm ô ký (trang đang xem)
               </Button>
               <div className="flex items-center justify-between gap-2">
-                <Label htmlFor="default-placement">Default placement</Label>
+                <Label htmlFor="default-placement">Vị trí mặc định</Label>
                 <button
                   id="default-placement"
                   type="button"
@@ -330,14 +332,27 @@ export default function SignPage() {
                 selectedIdx={safePlacementEditorIdx}
                 onSelectIdx={setPlacementEditorIdx}
                 onPlacementPageChange={onPlacementPageChange}
-                lang="en"
+                lang="vi"
               />
+              <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 text-xs text-slate-700 space-y-1.5">
+                <p className="font-semibold text-slate-900">Tóm tắt trước khi ký</p>
+                <p>Tài liệu: <span className="font-medium">{fileName}</span></p>
+                <p>Mẫu ký: <span className="font-medium">{selectedTemplateName}</span></p>
+                <p>
+                  Vị trí ký:{" "}
+                  <span className="font-medium">
+                    {selectedPlacement
+                      ? `Ô ${safePlacementEditorIdx + 1} - Trang ${selectedPlacement.page}`
+                      : "Chưa có ô ký"}
+                  </span>
+                </p>
+              </div>
               <div className="rounded-lg border border-border bg-muted/30 p-3 text-xs text-muted-foreground space-y-2">
-                <p className="font-medium text-foreground">Appearance preview</p>
+                <p className="font-medium text-foreground">Xem trước hiển thị chữ ký</p>
                 <p>Ký bởi: &lt;Tên công ty từ chứng thư&gt;</p>
                 <p>Ngày ký: &lt;timestamp&gt;</p>
                 <p className="pt-2 text-muted-foreground/80">
-                  Certificate will be selected in PDFSignPro Desktop
+                  Chứng thư số sẽ được chọn trong ứng dụng PDFSignPro Signer
                 </p>
               </div>
               <SignerEnvironmentChecklist />
@@ -360,7 +375,7 @@ export default function SignPage() {
               {jobResult && (
                 <div className="space-y-2 rounded-lg border border-border bg-muted/30 p-3">
                   <p className="text-xs font-medium text-foreground">
-                    Deep link created
+                    Đã tạo liên kết mở Signer
                   </p>
                   <p className="break-all text-xs text-muted-foreground font-mono">
                     {jobResult.deepLink}
@@ -377,12 +392,12 @@ export default function SignPage() {
                       ) : (
                         <Copy className="size-4" />
                       )}
-                      {copied ? "Copied" : "Copy"}
+                      {copied ? "Đã sao chép" : "Sao chép"}
                     </Button>
                     <Button size="sm" asChild className="flex-1">
                       <a href={jobResult.deepLink}>
                         <ExternalLink className="size-4" />
-                        Open PDFSignPro Desktop
+                        Mở PDFSignPro Signer
                       </a>
                     </Button>
                   </div>
@@ -415,9 +430,7 @@ export default function SignPage() {
             />
           </div>
           <div className="flex min-h-0 flex-col overflow-hidden border-l border-border p-4">
-            <h3 className="text-sm font-semibold text-foreground mb-3">
-              Pages
-            </h3>
+            <h3 className="text-sm font-semibold text-foreground mb-3">Trang</h3>
             <ScrollArea className="min-h-0 flex-1">
               <div className="space-y-2 pr-2">
                 {Array.from({ length: Math.max(totalPages, 1) }, (_, i) => (
@@ -438,7 +451,7 @@ export default function SignPage() {
                     <div className="size-12 shrink-0 rounded bg-muted flex items-center justify-center text-xs text-muted-foreground">
                       {i + 1}
                     </div>
-                    <span className="text-sm">Page {i + 1}</span>
+                    <span className="text-sm">Trang {i + 1}</span>
                   </button>
                 ))}
               </div>
@@ -450,13 +463,13 @@ export default function SignPage() {
           <Tabs defaultValue="document" className="flex min-h-0 flex-1 flex-col">
             <div className="border-b border-border px-4">
               <TabsList className="w-full grid grid-cols-3">
-                <TabsTrigger value="signature">Signature</TabsTrigger>
-                <TabsTrigger value="document">Document</TabsTrigger>
-                <TabsTrigger value="pages">Pages</TabsTrigger>
+                <TabsTrigger value="signature">Thiết lập</TabsTrigger>
+                <TabsTrigger value="document">Tài liệu</TabsTrigger>
+                <TabsTrigger value="pages">Trang</TabsTrigger>
               </TabsList>
             </div>
             <div className="flex min-h-0 flex-1 flex-col overflow-auto">
-              <TabsContent value="signature" className="m-0 p-4 h-full">
+                <TabsContent value="signature" className="m-0 p-4 h-full">
                 <div className="space-y-4">
                   <SignatureTemplateSelector
                     templates={SIGNATURE_TEMPLATES}
@@ -484,10 +497,10 @@ export default function SignPage() {
                     }
                     className="w-full"
                   >
-                    Add box (current page)
+                    Thêm ô ký (trang đang xem)
                   </Button>
                   <div className="flex items-center justify-between gap-2">
-                    <Label>Default placement</Label>
+                    <Label>Vị trí mặc định</Label>
                     <button
                       type="button"
                       role="switch"
@@ -512,8 +525,21 @@ export default function SignPage() {
                     selectedIdx={safePlacementEditorIdx}
                     onSelectIdx={setPlacementEditorIdx}
                     onPlacementPageChange={onPlacementPageChange}
-                    lang="en"
+                    lang="vi"
                   />
+                  <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 text-xs text-slate-700 space-y-1.5">
+                    <p className="font-semibold text-slate-900">Tóm tắt trước khi ký</p>
+                    <p>Tài liệu: <span className="font-medium">{fileName}</span></p>
+                    <p>Mẫu ký: <span className="font-medium">{selectedTemplateName}</span></p>
+                    <p>
+                      Vị trí ký:{" "}
+                      <span className="font-medium">
+                        {selectedPlacement
+                          ? `Ô ${safePlacementEditorIdx + 1} - Trang ${selectedPlacement.page}`
+                          : "Chưa có ô ký"}
+                      </span>
+                    </p>
+                  </div>
                   <SignerEnvironmentChecklist />
                   <Button
                     onClick={handleSign}
@@ -533,11 +559,11 @@ export default function SignPage() {
                           size="sm"
                           onClick={copyDeepLink}
                         >
-                          {copied ? "Copied" : "Copy"}
+                          {copied ? "Đã sao chép" : "Sao chép"}
                         </Button>
                         <Button size="sm" asChild>
                           <a href={jobResult.deepLink}>
-                            Open PDFSignPro Desktop
+                            Mở PDFSignPro Signer
                           </a>
                         </Button>
                       </div>
@@ -582,7 +608,7 @@ export default function SignPage() {
                       <div className="size-12 shrink-0 rounded bg-muted flex items-center justify-center text-xs">
                         {i + 1}
                       </div>
-                      <span className="text-sm">Page {i + 1}</span>
+                      <span className="text-sm">Trang {i + 1}</span>
                     </button>
                   ))}
                 </div>

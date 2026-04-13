@@ -521,6 +521,9 @@ export default function SigningViewerPage() {
 
   const isSigned = currentVersion.version >= 2 || jobState?.status === "COMPLETED";
   const signingFlowComplete = isSigned;
+  const selectedTemplateName =
+    SIGNATURE_TEMPLATES.find((t) => t.id === selectedTemplateId)?.displayName ??
+    selectedTemplateId;
 
   const completedDownloadPath = `/api/documents/${publicId}/download?v=${currentVersion.version}`;
 
@@ -682,6 +685,23 @@ export default function SigningViewerPage() {
             lang="vi"
           />
         )}
+      </div>
+      <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 text-xs text-slate-700">
+        <p className="font-bold text-slate-900">Tóm tắt trước khi ký</p>
+        <p className="mt-1">
+          Tài liệu: <span className="font-semibold">{doc.title}</span>
+        </p>
+        <p>
+          Mẫu ký: <span className="font-semibold">{selectedTemplateName}</span>
+        </p>
+        <p>
+          Vị trí ký:{" "}
+          <span className="font-semibold">
+            {activePlacement
+              ? `Ô ${safePlacementEditorIdx + 1} - Trang ${activePlacement.page}`
+              : "Chưa có ô ký"}
+          </span>
+        </p>
       </div>
       <div className="border-t border-slate-100 pt-6">
         <button
