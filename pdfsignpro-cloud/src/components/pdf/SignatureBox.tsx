@@ -225,9 +225,10 @@ export function SignatureBox({
   const h = placement.hPct * pageHeight;
 
   const isStitch = chrome === "stitch";
+  const useKySoPlaceholder = templateId === "valid";
 
   const stitchBody =
-    templateId === "valid" ? (
+    useKySoPlaceholder ? (
       <StitchValidPreview />
     ) : templateId === "seal" ? (
       <SealPreview sealImageBase64={sealImageBase64} className="max-h-full" />
@@ -257,8 +258,10 @@ export function SignatureBox({
       dragGrid={[8, 8]}
       className={cn(
         isStitch
-          ? "overflow-hidden rounded-xl border-2 border-primary bg-white shadow-2xl ring-[6px] ring-primary/10 transition-transform hover:scale-[1.01]"
-          : templateId === "valid"
+          ? useKySoPlaceholder
+            ? "overflow-hidden rounded border border-[#ef3b62] bg-[#fcfcfd]"
+            : "overflow-hidden rounded-xl border-2 border-primary bg-white shadow-2xl ring-[6px] ring-primary/10 transition-transform hover:scale-[1.01]"
+          : useKySoPlaceholder
             ? "overflow-hidden rounded border border-[#ef3b62] bg-[#fcfcfd]"
             : "overflow-hidden rounded border-2 border-dashed border-primary/60 bg-primary/5",
         "flex flex-col",
@@ -267,17 +270,25 @@ export function SignatureBox({
       style={{ zIndex: isActive ? 10 : 1 }}
     >
       {isStitch ? (
-        <>
-          <div className="pointer-events-none shrink-0 border-b border-primary/15 bg-primary py-1 text-center text-[8px] font-black uppercase tracking-widest text-white sm:text-[9px]">
-            Chữ ký số USB Token
+        useKySoPlaceholder ? (
+          <div className="flex h-full w-full min-h-0 min-w-0 items-center justify-center overflow-hidden p-1 pointer-events-none">
+            <div className="flex h-full w-full items-center justify-center rounded-[2px] border border-dashed border-[#ef3b62]">
+              <KySoPlaceholderPreview />
+            </div>
           </div>
-          <div className="flex min-h-0 min-w-0 flex-1 items-center justify-center overflow-hidden p-1.5">
-            <div className="pointer-events-none max-h-full max-w-full">{stitchBody}</div>
-          </div>
-        </>
+        ) : (
+          <>
+            <div className="pointer-events-none shrink-0 border-b border-primary/15 bg-primary py-1 text-center text-[8px] font-black uppercase tracking-widest text-white sm:text-[9px]">
+              Chữ ký số USB Token
+            </div>
+            <div className="flex min-h-0 min-w-0 flex-1 items-center justify-center overflow-hidden p-1.5">
+              <div className="pointer-events-none max-h-full max-w-full">{stitchBody}</div>
+            </div>
+          </>
+        )
       ) : (
         <div className="flex h-full w-full min-h-0 min-w-0 items-center justify-center overflow-hidden p-1 pointer-events-none">
-          {templateId === "valid" ? (
+          {useKySoPlaceholder ? (
             <div className="flex h-full w-full items-center justify-center rounded-[2px] border border-dashed border-[#ef3b62]">
               <KySoPlaceholderPreview />
             </div>
