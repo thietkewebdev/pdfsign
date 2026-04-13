@@ -52,7 +52,7 @@ import { SignatureTemplateSelector } from "@/components/signature/SignatureTempl
 import { SignaturePlacementFields } from "@/components/signature/SignaturePlacementFields";
 import { CreateContractModal } from "@/components/contract/CreateContractModal";
 import { getPdfViewerUrl } from "@/lib/pdf-view-url";
-import { SigningFlowGuideDialog } from "@/components/signing";
+import { SignerEnvironmentChecklist, SigningFlowGuideDialog } from "@/components/signing";
 import { cn } from "@/lib/utils";
 import { isWindowsClient, launchSignerWithFallback } from "@/lib/signer-launch";
 
@@ -750,6 +750,7 @@ export default function SigningViewerPage() {
           </button>
         </div>
       )}
+      {!isSigned && <SignerEnvironmentChecklist />}
       {!isSigned && (
         <div className="rounded-xl border border-[var(--signing-kyso-info-border)] bg-[var(--signing-kyso-info-bg)] p-4">
           <div className="flex gap-3">

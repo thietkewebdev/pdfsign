@@ -6,11 +6,28 @@ export interface SignerLaunchOptions {
   onFallback: () => void;
 }
 
+const SIGNER_OPENED_KEY = "pdfsignpro.signer_opened_once";
+
 export function isWindowsClient(): boolean {
   if (typeof navigator === "undefined") return true;
   const ua = navigator.userAgent || "";
   const platform = navigator.platform || "";
   return /windows/i.test(ua) || /^win/i.test(platform);
+}
+
+export function isHttpsClient(): boolean {
+  if (typeof window === "undefined") return true;
+  const p = window.location.protocol;
+  return p === "https:" || p === "http:" || p === "file:";
+}
+
+export function hasOpenedSignerBefore(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return window.localStorage.getItem(SIGNER_OPENED_KEY) === "1";
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -25,7 +42,14 @@ export function launchSignerWithFallback({
   let userLeftTab = false;
 
   const onVisibilityChange = () => {
-    if (document.hidden) userLeftTab = true;
+    if (document.hidden) {
+      userLeftTab = true;
+      try {
+        window.localStorage.setItem(SIGNER_OPENED_KEY, "1");
+      } catch {
+        // Ignore storage failures (private mode, denied storage, ...)
+      }
+    }
   };
 
   document.addEventListener("visibilitychange", onVisibilityChange);
