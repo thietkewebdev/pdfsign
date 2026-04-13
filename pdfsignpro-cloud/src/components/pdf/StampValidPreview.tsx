@@ -24,25 +24,25 @@ export function StampValidPreview({
   boxHeight,
   className,
 }: StampValidPreviewProps) {
-  const { iconSize, textMaxWidth, textMaxHeight, titleSize, contentSize, lineHeight } =
-    useMemo(
-      () =>
-        computeStampValidLayout(boxWidth, boxHeight, companyName, signedAt),
-      [boxWidth, boxHeight, companyName, signedAt]
-    );
-
   const title =
     variant === "valid"
       ? STAMP_VALID_CONFIG.TITLE_VALID
       : STAMP_VALID_CONFIG.TITLE_STAMP;
+
+  const { iconSize, textMaxWidth, textMaxHeight, titleSize, contentSize, lineHeight } =
+    useMemo(
+      () =>
+        computeStampValidLayout(boxWidth, boxHeight, companyName, signedAt, title),
+      [boxWidth, boxHeight, companyName, signedAt, title]
+    );
 
   return (
     <div
       className={cn(
         "flex items-stretch rounded",
         variant === "valid"
-          ? "bg-emerald-50/90 dark:bg-emerald-950/40 border border-emerald-500/50"
-          : "bg-white/90 dark:bg-zinc-800/90 border border-emerald-500/30",
+          ? "bg-red-50/90 dark:bg-red-950/40 border border-red-500/50"
+          : "bg-white/90 dark:bg-zinc-800/90 border border-red-500/35",
         className
       )}
       style={{
@@ -56,13 +56,13 @@ export function StampValidPreview({
     >
       {/* Icon tick - left */}
       <div
-        className="shrink-0 flex items-center justify-center rounded-full bg-emerald-500/20"
+        className="shrink-0 flex items-center justify-center rounded-full bg-red-500/20"
         style={{ width: iconSize, height: iconSize, minWidth: iconSize }}
       >
         <svg
           viewBox="0 0 24 24"
           fill="none"
-          className="text-emerald-600 dark:text-emerald-400"
+          className="text-red-600 dark:text-red-400"
           style={{ width: iconSize * 0.6, height: iconSize * 0.6 }}
         >
           <path
@@ -84,20 +84,26 @@ export function StampValidPreview({
           gap: 2,
         }}
       >
-        <div
-          className="font-semibold text-red-600 dark:text-red-400 shrink-0"
-          style={{ fontSize: titleSize, lineHeight }}
-        >
-          {title}
-        </div>
+        {title && (
+          <div
+            className="font-semibold text-red-600 dark:text-red-400 shrink-0"
+            style={{ fontSize: titleSize, lineHeight }}
+          >
+            {title}
+          </div>
+        )}
         <div
           className="text-red-600 dark:text-red-400 font-medium"
           style={{
             fontSize: contentSize,
             lineHeight,
+            display: "-webkit-box",
+            WebkitLineClamp: STAMP_VALID_CONFIG.MAX_SIGNER_LINES,
+            WebkitBoxOrient: "vertical",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
             whiteSpace: "normal",
             overflowWrap: "anywhere",
-            wordBreak: "break-word",
           }}
         >
           Ký bởi: {companyName}
@@ -107,9 +113,13 @@ export function StampValidPreview({
           style={{
             fontSize: contentSize,
             lineHeight,
+            display: "-webkit-box",
+            WebkitLineClamp: STAMP_VALID_CONFIG.MAX_TS_LINES,
+            WebkitBoxOrient: "vertical",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
             whiteSpace: "normal",
             overflowWrap: "anywhere",
-            wordBreak: "break-word",
           }}
         >
           Thời gian: {signedAt}

@@ -11,13 +11,15 @@ export const STAMP_VALID_CONFIG = {
   ICON_RATIO: 0.55,
   TITLE_SIZE_RATIO: 0.2,
   CONTENT_SIZE_RATIO: 0.16,
-  TITLE_SIZE_MIN: 10,
+  TITLE_SIZE_MIN: 8,
   TITLE_SIZE_MAX: 14,
   CONTENT_SIZE_MIN: 6,
   CONTENT_SIZE_MAX: 12,
   LINE_HEIGHT: 1.25,
+  MAX_SIGNER_LINES: 2,
+  MAX_TS_LINES: 1,
   TITLE_STAMP: "Đã ký số",
-  TITLE_VALID: "Đã xác thực",
+  TITLE_VALID: "",
 } as const;
 
 export function clamp(v: number, lo: number, hi: number): number {
@@ -28,7 +30,8 @@ export function computeStampValidLayout(
   boxWidth: number,
   boxHeight: number,
   signerText?: string,
-  tsText?: string
+  tsText?: string,
+  titleText?: string
 ): {
   iconSize: number;
   textMaxWidth: number;
@@ -62,10 +65,11 @@ export function computeStampValidLayout(
   if (signerText !== undefined && tsText !== undefined) {
     const signer = `Ký bởi: ${signerText}`;
     const ts = `Thời gian: ${tsText}`;
+    const hasTitle = Boolean((titleText ?? "").trim());
     // Ước lượng chars/dòng: tiếng Việt ~0.6em/char
     const charWidthRatio = 0.6;
     const lineHeight = STAMP_VALID_CONFIG.LINE_HEIGHT;
-    const titleBlockHeight = titleSize * lineHeight + 4;
+    const titleBlockHeight = hasTitle ? titleSize * lineHeight + 4 : 0;
     const availableHeight = textMaxHeight - titleBlockHeight;
 
     // Thử giảm contentSize cho đến khi vừa

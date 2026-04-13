@@ -59,11 +59,24 @@ export function launchSignerWithFallback({
     }
   };
 
+  const tryOpen = () => {
+    window.location.href = deepLink;
+  };
+
   document.addEventListener("visibilitychange", onVisibilityChange);
-  window.location.href = deepLink;
+  tryOpen();
 
   window.setTimeout(() => {
-    document.removeEventListener("visibilitychange", onVisibilityChange);
-    if (!userLeftTab) onFallback();
+    if (userLeftTab) {
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      return;
+    }
+
+    // Retry once before showing install/reopen fallback.
+    tryOpen();
+    window.setTimeout(() => {
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      if (!userLeftTab) onFallback();
+    }, Math.max(1200, Math.floor(fallbackDelayMs / 2)));
   }, fallbackDelayMs);
 }

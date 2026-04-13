@@ -14,19 +14,19 @@ ICON_RATIO = 0.55
 # Font sizes (points)
 TITLE_SIZE_RATIO = 0.2
 CONTENT_SIZE_RATIO = 0.16
-TITLE_SIZE_MIN = 10
+TITLE_SIZE_MIN = 8
 TITLE_SIZE_MAX = 14
 CONTENT_SIZE_MIN = 6
 CONTENT_SIZE_MAX = 12
 LINE_HEIGHT = 1.25
 
-# Không giới hạn dòng - hiển thị đủ tên công ty, thời gian
-MAX_SIGNER_LINES = 10
-MAX_TS_LINES = 5
+# Giới hạn dòng để luôn nằm gọn trong box ký
+MAX_SIGNER_LINES = 2
+MAX_TS_LINES = 1
 
 # Labels
 TITLE_STAMP = "Đã ký số"
-TITLE_VALID = "Đã xác thực"
+TITLE_VALID = ""
 SIGNER_PREFIX = "Ký bởi: "
 TS_PREFIX = "Thời gian: "
 

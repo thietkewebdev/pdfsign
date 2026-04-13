@@ -37,6 +37,7 @@ from .stamp_valid_config import (
 logger = logging.getLogger(__name__)
 
 _FONT_PATH = Path(__file__).resolve().parent.parent / "assets" / "fonts" / "NotoSans-Regular.ttf"
+_STAMP_RED_RGB = (0.937, 0.231, 0.384)  # #ef3b62
 
 
 def _debug_print(*args, **kwargs) -> None:
@@ -117,6 +118,19 @@ def _wrap_text(
     return lines
 
 
+def _ellipsize_to_width(font_engine, text: str, max_width_pt: float, font_size: float) -> str:
+    """Trim text to max width and add ellipsis when needed."""
+    if _measure_width(font_engine, text, font_size) <= max_width_pt:
+        return text
+    ellipsis = "..."
+    if _measure_width(font_engine, ellipsis, font_size) > max_width_pt:
+        return ""
+    base = text
+    while base and _measure_width(font_engine, base + ellipsis, font_size) > max_width_pt:
+        base = base[:-1]
+    return (base + ellipsis).rstrip()
+
+
 def _compute_stamp_layout(
     width: float,
     height: float,
@@ -148,15 +162,17 @@ def _compute_stamp_layout(
     ts_text = f"{TS_PREFIX}{ts}" if ts else TS_PREFIX
 
     # Adaptive: giảm title_size nếu title quá rộng
-    title_text = title or TITLE_VALID
-    for try_title in range(int(title_size), 6, -1):
-        if _measure_width(engine, title_text, float(try_title)) <= text_max_width:
-            title_size = try_title
-            break
+    title_text = (title or "").strip()
+    has_title = bool(title_text)
+    if has_title:
+        for try_title in range(int(title_size), 6, -1):
+            if _measure_width(engine, title_text, float(try_title)) <= text_max_width:
+                title_size = try_title
+                break
 
     # Adaptive: giảm content_size cho đến khi tất cả text vừa trong box
     pad = PADDING
-    title_block_height = title_size * leading_ratio + 4
+    title_block_height = (title_size * leading_ratio + 4) if has_title else 0
     available_height = height - 2 * pad - title_block_height
 
     for try_size in range(int(content_size), CONTENT_SIZE_MIN - 1, -1):
@@ -171,10 +187,44 @@ def _compute_stamp_layout(
             content_size = try_size
             break
 
-    signer_lines = _wrap_text(engine, signer_text, text_max_width, float(content_size))
-    signer_lines = signer_lines[:MAX_SIGNER_LINES]
-    ts_lines = _wrap_text(engine, ts_text, text_max_width, float(content_size))
-    ts_lines = ts_lines[:MAX_TS_LINES]
+    raw_signer_lines = _wrap_text(engine, signer_text, text_max_width, float(content_size))
+    raw_ts_lines = _wrap_text(engine, ts_text, text_max_width, float(content_size))
+
+    # Hard cap to prevent any text from escaping box in very small placements.
+    leading = content_size * LINE_HEIGHT
+    max_total_lines = max(1, int(available_height // leading)) if leading > 0 else 1
+    has_ts_text = bool(ts_text.strip())
+
+    if has_ts_text and max_total_lines >= 2:
+        signer_budget = max(1, min(MAX_SIGNER_LINES, max_total_lines - 1))
+        ts_budget = min(MAX_TS_LINES, 1)
+    else:
+        signer_budget = max(1, min(MAX_SIGNER_LINES, max_total_lines))
+        ts_budget = 0
+
+    signer_overflow = len(raw_signer_lines) > signer_budget
+    ts_overflow = len(raw_ts_lines) > ts_budget
+    signer_lines = raw_signer_lines[:signer_budget]
+    ts_lines = raw_ts_lines[:ts_budget]
+
+    if signer_overflow and signer_lines:
+        signer_lines[-1] = _ellipsize_to_width(
+            engine, signer_lines[-1], text_max_width, float(content_size)
+        )
+    if ts_overflow and ts_lines:
+        ts_lines[-1] = _ellipsize_to_width(
+            engine, ts_lines[-1], text_max_width, float(content_size)
+        )
+
+    # Guard against renderer measurement drift: never draw a line wider than content area.
+    signer_lines = [
+        _ellipsize_to_width(engine, line, text_max_width, float(content_size))
+        for line in signer_lines
+    ]
+    ts_lines = [
+        _ellipsize_to_width(engine, line, text_max_width, float(content_size))
+        for line in ts_lines
+    ]
 
     if os.environ.get("PDFSIGN_DEBUG"):
         _debug_print(
@@ -211,16 +261,17 @@ def _render_text_via_reportlab(
     path = tmp.name
 
     c = canvas.Canvas(path, pagesize=(width, height))
-    c.setFont(font_name, title_size)
-    c.setFillColorRGB(0.863, 0.149, 0.149)  # #dc2626 red
-    c.drawString(text_x, text_y_start, title)
-
     leading = content_size * leading_ratio
-    y = text_y_start - title_size * leading_ratio - 2
+    y = text_y_start
+    if title:
+        c.setFont(font_name, title_size)
+        c.setFillColorRGB(*_STAMP_RED_RGB)
+        c.drawString(text_x, text_y_start, title)
+        y -= title_size * leading_ratio + 2
 
     c.setFont(font_name, content_size)
     for line in signer_lines:
-        c.setFillColorRGB(0.863, 0.149, 0.149)  # #dc2626 red - tên công ty
+        c.setFillColorRGB(*_STAMP_RED_RGB)
         c.drawString(text_x, y, line)
         y -= leading
 
@@ -279,8 +330,9 @@ def _build_stamp_content(
     tick_p2 = (icon_cx - 0.15 * r, icon_cy + 0.25 * r)
     tick_p3 = (icon_cx + 0.45 * r, icon_cy - 0.30 * r)
 
-    leading = content_size * LINE_HEIGHT
-    text_y_baseline = pad + title_size * LINE_HEIGHT
+    text_y_baseline = pad
+    if title:
+        text_y_baseline += title_size * LINE_HEIGHT + 2
 
     text_form_y = height - text_y_baseline
     text_pdf_path = _render_text_via_reportlab(
@@ -297,11 +349,11 @@ def _build_stamp_content(
         b"q",
         flip_cm,
         b"1 w",
-        b"0.063 0.722 0.506 RG",
+        b"%g %g %g RG" % _STAMP_RED_RGB,
         b"%g %g %g %g re S" % (pad, pad, width - 2 * pad, height - 2 * pad),
     ]
 
-    ops.append(b"0.063 0.722 0.506 rg")
+    ops.append(b"%g %g %g rg" % _STAMP_RED_RGB)
     ops.append(_pdf_circle_path(icon_cx, icon_cy, icon_r))
     ops.append(b"f")
 
