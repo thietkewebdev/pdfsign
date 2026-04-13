@@ -118,19 +118,6 @@ def _wrap_text(
     return lines
 
 
-def _ellipsize_to_width(font_engine, text: str, max_width_pt: float, font_size: float) -> str:
-    """Trim text to max width and add ellipsis when needed."""
-    if _measure_width(font_engine, text, font_size) <= max_width_pt:
-        return text
-    ellipsis = "..."
-    if _measure_width(font_engine, ellipsis, font_size) > max_width_pt:
-        return ""
-    base = text
-    while base and _measure_width(font_engine, base + ellipsis, font_size) > max_width_pt:
-        base = base[:-1]
-    return (base + ellipsis).rstrip()
-
-
 def _compute_stamp_layout(
     width: float,
     height: float,
@@ -170,67 +157,35 @@ def _compute_stamp_layout(
                 title_size = try_title
                 break
 
-    # Adaptive: giảm content_size cho đến khi tất cả text vừa trong box
+    # Adaptive: giảm content_size cho đến khi toàn bộ text vừa trong box
     pad = PADDING
     title_block_height = (title_size * leading_ratio + 4) if has_title else 0
     available_height = height - 2 * pad - title_block_height
 
+    chosen_signer_lines: List[str] = []
+    chosen_ts_lines: List[str] = []
+    found_fit = False
     for try_size in range(int(content_size), CONTENT_SIZE_MIN - 1, -1):
         fs = float(try_size)
         signer_lines = _wrap_text(engine, signer_text, text_max_width, fs)
-        signer_lines = signer_lines[:MAX_SIGNER_LINES]
         ts_lines = _wrap_text(engine, ts_text, text_max_width, fs)
-        ts_lines = ts_lines[:MAX_TS_LINES]
         leading = try_size * LINE_HEIGHT
         needed = (len(signer_lines) + len(ts_lines)) * leading
         if needed <= available_height:
             content_size = try_size
+            chosen_signer_lines = signer_lines
+            chosen_ts_lines = ts_lines
+            found_fit = True
             break
 
-    raw_signer_lines = _wrap_text(engine, signer_text, text_max_width, float(content_size))
-    raw_ts_lines = _wrap_text(engine, ts_text, text_max_width, float(content_size))
+    if not found_fit:
+        content_size = CONTENT_SIZE_MIN
+        chosen_signer_lines = _wrap_text(engine, signer_text, text_max_width, float(content_size))
+        chosen_ts_lines = _wrap_text(engine, ts_text, text_max_width, float(content_size))
 
-    # Hard cap to prevent any text from escaping box in very small placements.
-    leading = content_size * LINE_HEIGHT
-    max_total_lines = max(1, int(available_height // leading)) if leading > 0 else 1
-    has_ts_text = bool(ts_text.strip())
-
-    if has_ts_text and max_total_lines >= 2:
-        signer_budget = max(1, min(MAX_SIGNER_LINES, max_total_lines - 1))
-        ts_budget = min(MAX_TS_LINES, 1)
-    else:
-        signer_budget = max(1, min(MAX_SIGNER_LINES, max_total_lines))
-        ts_budget = 0
-
-    signer_overflow = len(raw_signer_lines) > signer_budget
-    ts_overflow = len(raw_ts_lines) > ts_budget
-    signer_lines = raw_signer_lines[:signer_budget]
-    ts_lines = raw_ts_lines[:ts_budget]
-
-    if signer_overflow and signer_lines:
-        if signer_budget <= 1:
-            signer_lines[0] = _ellipsize_to_width(
-                engine, signer_text, text_max_width, float(content_size)
-            )
-        else:
-            remaining_signer = " ".join(raw_signer_lines[signer_budget - 1 :])
-            signer_lines[-1] = _ellipsize_to_width(
-                engine, remaining_signer, text_max_width, float(content_size)
-            )
-    if ts_overflow and ts_lines:
-        ts_lines[-1] = _ellipsize_to_width(
-            engine, ts_text, text_max_width, float(content_size)
-        )
-
-    # Guard against renderer measurement drift: never draw a line wider than content area.
-    signer_lines = [
-        _ellipsize_to_width(engine, line, text_max_width, float(content_size))
-        for line in signer_lines
-    ]
-    ts_lines = [
-        _ellipsize_to_width(engine, line, text_max_width, float(content_size))
-        for line in ts_lines
-    ]
+    # No ellipsis: always keep full signer + timestamp text by wrapping lines.
+    signer_lines = chosen_signer_lines[:MAX_SIGNER_LINES]
+    ts_lines = chosen_ts_lines[:MAX_TS_LINES]
 
     if os.environ.get("PDFSIGN_DEBUG"):
         _debug_print(

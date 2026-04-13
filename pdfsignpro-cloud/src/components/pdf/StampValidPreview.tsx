@@ -97,13 +97,9 @@ export function StampValidPreview({
           style={{
             fontSize: contentSize,
             lineHeight,
-            display: "-webkit-box",
-            WebkitLineClamp: STAMP_VALID_CONFIG.MAX_SIGNER_LINES,
-            WebkitBoxOrient: "vertical",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
             whiteSpace: "normal",
             overflowWrap: "anywhere",
+            wordBreak: "break-word",
           }}
         >
           Ký bởi: {companyName}
@@ -113,13 +109,9 @@ export function StampValidPreview({
           style={{
             fontSize: contentSize,
             lineHeight,
-            display: "-webkit-box",
-            WebkitLineClamp: STAMP_VALID_CONFIG.MAX_TS_LINES,
-            WebkitBoxOrient: "vertical",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
             whiteSpace: "normal",
             overflowWrap: "anywhere",
+            wordBreak: "break-word",
           }}
         >
           Thời gian: {signedAt}

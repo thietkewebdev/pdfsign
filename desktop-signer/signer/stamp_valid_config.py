@@ -16,13 +16,13 @@ TITLE_SIZE_RATIO = 0.2
 CONTENT_SIZE_RATIO = 0.16
 TITLE_SIZE_MIN = 8
 TITLE_SIZE_MAX = 14
-CONTENT_SIZE_MIN = 6
+CONTENT_SIZE_MIN = 4
 CONTENT_SIZE_MAX = 12
 LINE_HEIGHT = 1.25
 
-# Giới hạn dòng để luôn nằm gọn trong box ký
-MAX_SIGNER_LINES = 2
-MAX_TS_LINES = 1
+# Ưu tiên hiển thị đầy đủ nội dung; cho phép xuống nhiều dòng.
+MAX_SIGNER_LINES = 99
+MAX_TS_LINES = 99
 
 # Labels
 TITLE_STAMP = "Đã ký số"
