@@ -1,7 +1,7 @@
 "use client";
 
 import { Rnd } from "react-rnd";
-import { History } from "lucide-react";
+import { CheckCircle2, History } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { SignaturePlacement } from "@/lib/types";
 import { StampValidPreview } from "./StampValidPreview";
@@ -24,6 +24,21 @@ function StitchValidPreview() {
           14/03/2026 09:33:05
         </span>
       </div>
+    </div>
+  );
+}
+
+function KySoPlaceholderPreview() {
+  return (
+    <div className="flex flex-col items-center justify-center gap-2 text-center">
+      <div className="leading-none text-[#ef3b62]">
+        <div className="text-[24px] font-extrabold tracking-tight sm:text-[28px]">01</div>
+        <div className="-mt-1 flex items-center justify-center">
+          <span className="text-[24px] font-extrabold tracking-tight sm:text-[28px]">1C</span>
+          <CheckCircle2 className="-ml-1 size-4 fill-current sm:size-5" aria-hidden />
+        </div>
+      </div>
+      <p className="text-sm font-semibold text-[#4f5878] sm:text-base">Ký số</p>
     </div>
   );
 }
@@ -243,7 +258,9 @@ export function SignatureBox({
       className={cn(
         isStitch
           ? "overflow-hidden rounded-xl border-2 border-primary bg-white shadow-2xl ring-[6px] ring-primary/10 transition-transform hover:scale-[1.01]"
-          : "overflow-hidden rounded border-2 border-dashed border-primary/60 bg-primary/5",
+          : templateId === "valid"
+            ? "overflow-hidden rounded border border-[#ef3b62] bg-[#fcfcfd]"
+            : "overflow-hidden rounded border-2 border-dashed border-primary/60 bg-primary/5",
         "flex flex-col",
         isActive && "cursor-move"
       )}
@@ -260,13 +277,19 @@ export function SignatureBox({
         </>
       ) : (
         <div className="flex h-full w-full min-h-0 min-w-0 items-center justify-center overflow-hidden p-1 pointer-events-none">
-          <TemplatePreview
-            templateId={templateId}
-            boxWidth={w}
-            boxHeight={h}
-            sealImageBase64={sealImageBase64}
-            className="max-h-full max-w-full"
-          />
+          {templateId === "valid" ? (
+            <div className="flex h-full w-full items-center justify-center rounded-[2px] border border-dashed border-[#ef3b62]">
+              <KySoPlaceholderPreview />
+            </div>
+          ) : (
+            <TemplatePreview
+              templateId={templateId}
+              boxWidth={w}
+              boxHeight={h}
+              sealImageBase64={sealImageBase64}
+              className="max-h-full max-w-full"
+            />
+          )}
         </div>
       )}
     </Rnd>
