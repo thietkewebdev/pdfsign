@@ -35,6 +35,7 @@ import { SIGNATURE_TEMPLATES } from "@/lib/signature-templates";
 import { SignatureTemplateSelector } from "@/components/signature/SignatureTemplateSelector";
 import { SignaturePlacementFields } from "@/components/signature/SignaturePlacementFields";
 import { SignerEnvironmentChecklist } from "@/components/signing";
+import { trackGaEvent } from "@/lib/analytics";
 import { isWindowsClient, launchSignerWithFallback } from "@/lib/signer-launch";
 
 interface DocumentData {
@@ -132,6 +133,11 @@ export default function SignPage() {
 
   const handleSign = async () => {
     if (placements.length === 0 || !docData) return;
+    trackGaEvent("sign_start_clicked", {
+      surface: "sign_page",
+      template_id: selectedTemplateId,
+      placement_count: placements.length,
+    });
     const placement = placements[safePlacementEditorIdx];
     if (!placement) return;
 
@@ -165,9 +171,23 @@ export default function SignPage() {
 
     const data = await res.json();
     setJobResult({ jobId: data.jobId, deepLink: data.deepLink });
+    trackGaEvent("sign_job_created", {
+      surface: "sign_page",
+      template_id: selectedTemplateId,
+    });
     launchSignerWithFallback({
       deepLink: data.deepLink,
-      onFallback: () => setSignerDownloadModalOpen(true),
+      onFallback: () => {
+        trackGaEvent("signer_launch_fallback_shown", {
+          surface: "sign_page",
+        });
+        setSignerDownloadModalOpen(true);
+      },
+      onLikelyOpened: () => {
+        trackGaEvent("signer_launch_likely_opened", {
+          surface: "sign_page",
+        });
+      },
     });
   };
 
@@ -594,6 +614,9 @@ export default function SignPage() {
               <Button
                 variant="outline"
                 onClick={() => {
+                  trackGaEvent("signer_reopen_clicked", {
+                    surface: "sign_page",
+                  });
                   launchSignerWithFallback({
                     deepLink: jobResult.deepLink,
                     onFallback: () => setSignerDownloadModalOpen(true),

@@ -4,6 +4,7 @@ export interface SignerLaunchOptions {
   deepLink: string;
   fallbackDelayMs?: number;
   onFallback: () => void;
+  onLikelyOpened?: () => void;
 }
 
 const SIGNER_OPENED_KEY = "pdfsignpro.signer_opened_once";
@@ -38,12 +39,18 @@ export function launchSignerWithFallback({
   deepLink,
   fallbackDelayMs = 2500,
   onFallback,
+  onLikelyOpened,
 }: SignerLaunchOptions): void {
   let userLeftTab = false;
+  let openedNotified = false;
 
   const onVisibilityChange = () => {
     if (document.hidden) {
       userLeftTab = true;
+      if (!openedNotified) {
+        openedNotified = true;
+        onLikelyOpened?.();
+      }
       try {
         window.localStorage.setItem(SIGNER_OPENED_KEY, "1");
       } catch {

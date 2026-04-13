@@ -35,6 +35,7 @@ import { SIGNATURE_TEMPLATES } from "@/lib/signature-templates";
 import { useSignaturePlacement } from "@/hooks/use-signature-placement";
 import { JobStatusResponseSchema } from "@/lib/job-status";
 import { getPdfViewerUrl } from "@/lib/pdf-view-url";
+import { trackGaEvent } from "@/lib/analytics";
 
 interface Signer {
   id: string;
@@ -213,6 +214,9 @@ export default function ContractPage() {
       const { status } = parsed.data;
 
       if (status === "COMPLETED") {
+        trackGaEvent("sign_completed", {
+          surface: "contract_page",
+        });
         setJobState(null);
         pollStartRef.current = null;
         toast.success("Đã ký thành công! Đang cập nhật hợp đồng...");
@@ -233,6 +237,10 @@ export default function ContractPage() {
       }
 
       if (status === "EXPIRED") {
+        trackGaEvent("sign_failed", {
+          surface: "contract_page",
+          reason: "job_expired",
+        });
         setJobState(null);
         pollStartRef.current = null;
         toast.error("Phiên ký đã hết hạn. Vui lòng thử lại.");
@@ -241,6 +249,10 @@ export default function ContractPage() {
 
       const elapsed = Date.now() - (pollStartRef.current ?? Date.now());
       if (elapsed >= POLL_TIMEOUT_MS) {
+        trackGaEvent("sign_failed", {
+          surface: "contract_page",
+          reason: "poll_timeout",
+        });
         setJobState(null);
         pollStartRef.current = null;
         toast.error("Hết thời gian chờ ký.");
@@ -292,6 +304,11 @@ export default function ContractPage() {
   const handleSign = async () => {
     const effectiveToken = token ?? contract?.currentSignerToken ?? null;
     if (!contract || !effectiveToken || placements.length === 0) return;
+    trackGaEvent("sign_start_clicked", {
+      surface: "contract_page",
+      template_id: selectedTemplateId,
+      placement_count: placements.length,
+    });
     setSigning(true);
 
     try {
@@ -331,7 +348,14 @@ export default function ContractPage() {
       const { jobId, deepLink } = await res.json();
       setJobState({ jobId, deepLink, status: "CREATED" });
       pollStartRef.current = Date.now();
+      trackGaEvent("sign_job_created", {
+        surface: "contract_page",
+        template_id: selectedTemplateId,
+      });
       toast.success("Đang mở ứng dụng ký số...");
+      trackGaEvent("signer_launch_attempted", {
+        surface: "contract_page",
+      });
       window.location.href = deepLink;
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Có lỗi xảy ra");

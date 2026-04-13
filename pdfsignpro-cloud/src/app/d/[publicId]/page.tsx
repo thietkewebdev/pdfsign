@@ -54,6 +54,7 @@ import { CreateContractModal } from "@/components/contract/CreateContractModal";
 import { getPdfViewerUrl } from "@/lib/pdf-view-url";
 import { SignerEnvironmentChecklist, SigningFlowGuideDialog } from "@/components/signing";
 import { cn } from "@/lib/utils";
+import { trackGaEvent } from "@/lib/analytics";
 import { isWindowsClient, launchSignerWithFallback } from "@/lib/signer-launch";
 
 const POLL_INTERVAL_MS = 2000;
@@ -278,6 +279,11 @@ export default function SigningViewerPage() {
 
   const handleSign = async () => {
     if (placements.length === 0 || !data) return;
+    trackGaEvent("sign_start_clicked", {
+      surface: "shared_signing_page",
+      template_id: selectedTemplateId,
+      placement_count: placements.length,
+    });
     const placement = placements[safePlacementEditorIdx];
     if (!placement) return;
     const page =
@@ -327,6 +333,10 @@ export default function SigningViewerPage() {
     }
 
     const { jobId, deepLink } = parsed.data;
+    trackGaEvent("sign_job_created", {
+      surface: "shared_signing_page",
+      template_id: selectedTemplateId,
+    });
     setJobState({
       jobId,
       deepLink,
@@ -338,7 +348,17 @@ export default function SigningViewerPage() {
     toast.success("Đã tạo phiên ký. Mở Signer để ký số.");
     launchSignerWithFallback({
       deepLink,
-      onFallback: () => setSignerDownloadModalOpen(true),
+      onFallback: () => {
+        trackGaEvent("signer_launch_fallback_shown", {
+          surface: "shared_signing_page",
+        });
+        setSignerDownloadModalOpen(true);
+      },
+      onLikelyOpened: () => {
+        trackGaEvent("signer_launch_likely_opened", {
+          surface: "shared_signing_page",
+        });
+      },
     });
   };
 
@@ -379,6 +399,9 @@ export default function SigningViewerPage() {
       const { status, signedDownloadUrl } = parsed.data;
 
       if (status === "COMPLETED" && signedDownloadUrl) {
+        trackGaEvent("sign_completed", {
+          surface: "shared_signing_page",
+        });
         await fetchDocument();
         setJobState((prev) =>
           prev
@@ -397,6 +420,10 @@ export default function SigningViewerPage() {
       }
 
       if (status === "EXPIRED") {
+        trackGaEvent("sign_failed", {
+          surface: "shared_signing_page",
+          reason: "job_expired",
+        });
         setJobState((prev) =>
           prev ? { ...prev, status, error: "expired" } : null
         );
@@ -405,6 +432,10 @@ export default function SigningViewerPage() {
 
       const elapsed = Date.now() - (pollStartRef.current ?? Date.now());
       if (elapsed >= POLL_TIMEOUT_MS) {
+        trackGaEvent("sign_failed", {
+          surface: "shared_signing_page",
+          reason: "poll_timeout",
+        });
         setJobState((prev) =>
           prev ? { ...prev, error: "timeout" } : null
         );
@@ -1134,12 +1165,15 @@ export default function SigningViewerPage() {
             {jobState?.deepLink && (
               <Button
                 variant="outline"
-                onClick={() =>
+                onClick={() => {
+                  trackGaEvent("signer_reopen_clicked", {
+                    surface: "shared_signing_page",
+                  });
                   launchSignerWithFallback({
                     deepLink: jobState.deepLink,
                     onFallback: () => setSignerDownloadModalOpen(true),
                   })
-                }
+                }}
               >
                 <ExternalLink className="size-4" />
                 Mở Signer lại
