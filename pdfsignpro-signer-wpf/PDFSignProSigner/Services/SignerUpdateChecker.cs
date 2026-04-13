@@ -16,6 +16,8 @@ public static class SignerUpdateChecker
     /// <summary>Đổi URL nếu fork repo hoặc dùng manifest nội bộ.</summary>
     public const string DefaultManifestUrl =
         "https://raw.githubusercontent.com/thietkewebdev/pdfsign/main/pdfsignpro-signer-wpf/signer-manifest.json";
+    public const string DefaultDownloadUrl =
+        "https://pdfsign.vn/api/signer/download";
 
     private static readonly HttpClient Http = new()
     {
@@ -89,7 +91,7 @@ public static class SignerUpdateChecker
         }
 
         var download = string.IsNullOrWhiteSpace(manifest.DownloadUrl)
-            ? "https://github.com/thietkewebdev/pdfsign/releases/latest"
+            ? DefaultDownloadUrl
             : manifest.DownloadUrl.Trim();
 
         await owner!.Dispatcher.InvokeAsync(() =>
