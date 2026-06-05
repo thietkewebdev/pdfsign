@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { isAdminSession, unauthorizedAdminResponse } from "@/lib/admin";
 import { recordAdminAnalyticsEvent, recordAdminAuditLog } from "@/lib/admin-events";
+import { isPlanId } from "@/lib/plans";
+import { activatePlan } from "@/lib/subscription";
 
 const UpdateUserSchema = z.object({
   userId: z.string().min(1),
@@ -67,6 +69,7 @@ export async function GET(request: NextRequest) {
           emailVerified: true,
           isDisabled: true,
           plan: true,
+          planExpiresAt: true,
           role: true,
           createdAt: true,
           _count: {
@@ -99,6 +102,7 @@ export async function GET(request: NextRequest) {
         emailVerified: u.emailVerified?.toISOString() ?? null,
         isDisabled: u.isDisabled,
         plan: u.plan,
+        planExpiresAt: u.planExpiresAt?.toISOString() ?? null,
         role: u.role,
         createdAt: u.createdAt.toISOString(),
         providers: Array.from(new Set(u.accounts.map((a) => a.provider))),
@@ -132,6 +136,18 @@ export async function PATCH(request: Request) {
     }
 
     const { userId, action, plan } = parsed.data;
+
+    if (action === "setPlan") {
+      if (!plan || !isPlanId(plan)) {
+        return NextResponse.json(
+          { error: "plan không hợp lệ (free | pro | premium)" },
+          { status: 400 }
+        );
+      }
+      // activatePlan sets planExpiresAt (+30d for paid plans, null for free).
+      await activatePlan(userId, plan);
+    }
+
     const updateData =
       action === "verifyEmail"
         ? { emailVerified: new Date() }
@@ -139,24 +155,22 @@ export async function PATCH(request: Request) {
           ? { isDisabled: true }
           : action === "unlock"
             ? { isDisabled: false }
-            : action === "setPlan"
-              ? plan
-                ? { plan }
-                : null
-              : null;
+            : null;
 
-    if (!updateData) {
-      return NextResponse.json(
-        { error: "plan is required for setPlan action" },
-        { status: 400 }
-      );
+    if (action !== "setPlan" && !updateData) {
+      return NextResponse.json({ error: "Hành động không hợp lệ" }, { status: 400 });
     }
 
-    const updatedUser = await prisma.user.update({
-      where: { id: userId },
-      data: updateData,
-      select: { id: true, email: true, plan: true, isDisabled: true },
-    });
+    const updatedUser = updateData
+      ? await prisma.user.update({
+          where: { id: userId },
+          data: updateData,
+          select: { id: true, email: true, plan: true, isDisabled: true },
+        })
+      : await prisma.user.findUniqueOrThrow({
+          where: { id: userId },
+          select: { id: true, email: true, plan: true, isDisabled: true },
+        });
 
     await Promise.all([
       recordAdminAuditLog({

@@ -16,11 +16,13 @@ model User {
   image         String?
   isDisabled    Boolean   @default(false)
   plan          String    @default("free")
+  planExpiresAt DateTime? // when a paid plan expires (null = free / no expiry)
   role          String    @default("USER")
   accounts      Account[]
   sessions      Session[]
   documents     Document[]
   contracts     Contract[]
+  payments      Payment[]
   adminAuditLogs   AdminAuditLog[] @relation("AdminAuditActor")
   adminEvents      AdminAnalyticsEvent[] @relation("AdminEventActor")
   analyticsEvents  AdminAnalyticsEvent[] @relation("AdminEventUser")
@@ -175,6 +177,27 @@ model ContractEvent {
   createdAt   DateTime @default(now())
 
   @@index([contractId])
+}
+
+model Payment {
+  id           String    @id @default(cuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan         String    // target plan id: pro | premium
+  amountVnd    Int       // expected transfer amount
+  code         String    @unique // matching reference embedded in transfer content
+  status       String    @default("PENDING") // PENDING, PAID, EXPIRED
+  provider     String    @default("sepay")
+  sepayTxId    String?   @unique // SePay transaction id (idempotency)
+  sepayRefCode String?   // bank reference code from SePay
+  paidAmount   Int?      // actually received amount
+  paidAt       DateTime?
+  createdAt    DateTime  @default(now())
+  expiresAt    DateTime  // payment window expiry (QR validity)
+
+  @@index([userId])
+  @@index([code])
+  @@index([status])
 }
 
 model AdminAuditLog {

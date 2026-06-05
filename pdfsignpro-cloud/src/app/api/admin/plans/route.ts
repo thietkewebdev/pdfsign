@@ -7,7 +7,7 @@ import { recordAdminAnalyticsEvent } from "@/lib/admin-events";
 const PLAN_QUOTA_BYTES: Record<string, number> = {
   free: 100 * 1024 * 1024,
   pro: 1024 * 1024 * 1024,
-  business: 5 * 1024 * 1024 * 1024,
+  premium: 5 * 1024 * 1024 * 1024,
 };
 
 export async function GET() {

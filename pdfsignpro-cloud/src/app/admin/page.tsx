@@ -30,7 +30,9 @@ type UserItem = {
   isDisabled: boolean;
   role: string;
   plan: string;
+  planExpiresAt: string | null;
   emailVerified: string | null;
+  createdAt: string;
   counts: { documents: number; contracts: number };
   providers: string[];
 };
@@ -48,8 +50,9 @@ type DocumentItem = {
   publicId: string;
   title: string | null;
   status: string;
+  createdAt: string;
   owner: { email: string | null; name: string | null } | null;
-  latestVersion: { version: number; sizeBytes: number } | null;
+  latestVersion: { version: number; sizeBytes: number; createdAt?: string } | null;
 };
 
 type DocumentsResponse = {
@@ -83,6 +86,21 @@ type StorageResponse = {
   byDriver: { storageDriver: string; versionCount: number; totalBytes: number }[];
   byUser: { userId: string; email: string | null; bytes: number; versions: number }[];
 };
+
+const PLAN_LABELS: Record<string, string> = {
+  free: "Miễn phí",
+  pro: "Chuyên nghiệp",
+  premium: "Doanh nghiệp",
+};
+
+function formatDate(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleDateString("vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+}
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -330,7 +348,13 @@ export default function AdminPage() {
                   <div className="min-w-0">
                     <p className="truncate font-medium">{u.name ?? u.email ?? u.id}</p>
                     <p className="text-xs text-muted-foreground">
-                      {u.email ?? "chưa có email"} · {u.plan} · {u.providers.join(", ") || "tài khoản thường"}
+                      {u.email ?? "chưa có email"} · {PLAN_LABELS[u.plan] ?? u.plan} · {u.providers.join(", ") || "tài khoản thường"}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Đăng ký: {formatDate(u.createdAt)} · {u.counts.documents} tài liệu · {u.counts.contracts} hợp đồng
+                      {u.planExpiresAt && (
+                        <> · Gói đến {formatDate(u.planExpiresAt)}</>
+                      )}
                     </p>
                   </div>
                   <div className="flex flex-wrap items-center gap-1">
@@ -356,6 +380,9 @@ export default function AdminPage() {
                     </Button>
                     <Button size="sm" variant="outline" onClick={() => void updateUser(u.id, "setPlan", "pro")}>
                       Chuyên nghiệp
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => void updateUser(u.id, "setPlan", "premium")}>
+                      Doanh nghiệp
                     </Button>
                   </div>
                 </div>
@@ -416,6 +443,9 @@ export default function AdminPage() {
                     <p className="truncate font-medium">{d.title ?? d.publicId}</p>
                     <p className="text-xs text-muted-foreground">
                       {d.publicId} · {d.owner?.email ?? "không rõ"} · {formatBytes(d.latestVersion?.sizeBytes ?? 0)}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Tải lên: {formatDate(d.latestVersion?.createdAt ?? d.createdAt)}
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-1">

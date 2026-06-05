@@ -1,8 +1,12 @@
 import { prisma } from "@/lib/prisma";
+import {
+  getEffectivePlanId,
+  getMonthlySignLimit,
+  getPlanDef,
+  type PlanId,
+} from "@/lib/plans";
 
-export const FREE_MONTHLY_LIMIT = 50;
-
-/** Start of current month (VN timezone) for reset date */
+/** Start of current month (UTC) for reset date */
 function startOfCurrentMonth(): Date {
   const now = new Date();
   return new Date(Date.UTC(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0));
@@ -40,8 +44,41 @@ export function getResetAt(): Date {
   return new Date(Date.UTC(now.getFullYear(), now.getMonth() + 1, 1, 0, 0, 0, 0));
 }
 
-export async function checkQuota(userId: string): Promise<{ allowed: boolean; used: number; limit: number }> {
-  const used = await getMonthlyUsage(userId);
-  const allowed = used < FREE_MONTHLY_LIMIT;
-  return { allowed, used, limit: FREE_MONTHLY_LIMIT };
+export interface QuotaResult {
+  allowed: boolean;
+  used: number;
+  limit: number;
+  plan: PlanId;
+  planName: string;
+  planExpiresAt: string | null;
+}
+
+/**
+ * Resolve the user's effective plan + monthly limit and current usage.
+ * Expired paid plans automatically fall back to the free quota.
+ */
+export async function checkQuota(userId: string): Promise<QuotaResult> {
+  const [user, used] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: userId },
+      select: { plan: true, planExpiresAt: true },
+    }),
+    getMonthlyUsage(userId),
+  ]);
+
+  const planContext = {
+    plan: user?.plan ?? "free",
+    planExpiresAt: user?.planExpiresAt ?? null,
+  };
+  const effectivePlan = getEffectivePlanId(planContext);
+  const limit = getMonthlySignLimit(planContext);
+
+  return {
+    allowed: used < limit,
+    used,
+    limit,
+    plan: effectivePlan,
+    planName: getPlanDef(effectivePlan).name,
+    planExpiresAt: user?.planExpiresAt?.toISOString() ?? null,
+  };
 }

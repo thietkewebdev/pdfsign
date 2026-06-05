@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { getMonthlyUsage, getResetAt, FREE_MONTHLY_LIMIT } from "@/lib/usage";
+import { getResetAt, checkQuota } from "@/lib/usage";
 import { prisma } from "@/lib/prisma";
 
 export async function GET() {
@@ -13,7 +13,8 @@ export async function GET() {
       );
     }
 
-    const used = await getMonthlyUsage(session.user.id);
+    const quota = await checkQuota(session.user.id);
+    const used = quota.used;
     const resetAt = getResetAt();
 
     const recentJobs = await prisma.signingJob.findMany({
@@ -41,9 +42,11 @@ export async function GET() {
 
     return NextResponse.json({
       used,
-      limit: FREE_MONTHLY_LIMIT,
+      limit: quota.limit,
       resetAt: resetAt.toISOString(),
-      plan: "free",
+      plan: quota.plan,
+      planName: quota.planName,
+      planExpiresAt: quota.planExpiresAt,
       recent: recentJobs.map((j) => ({
         id: j.id,
         completedAt: j.completedAt?.toISOString() ?? null,

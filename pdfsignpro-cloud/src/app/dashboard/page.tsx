@@ -27,6 +27,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { UpgradePlans } from "@/components/dashboard/UpgradePlans";
+import { isPlanId, type PlanId } from "@/lib/plans";
 
 interface DocumentItem {
   id: string;
@@ -83,6 +85,8 @@ function DashboardContent() {
     limit: number;
     resetAt: string;
     plan: string;
+    planName?: string;
+    planExpiresAt?: string | null;
     recent: { id: string; completedAt: string | null; documentTitle: string; documentPublicId: string; contractTitle?: string; contractId?: string; signerName?: string }[];
   } | null>(null);
   const [loading, setLoading] = useState(true);
@@ -199,7 +203,7 @@ function DashboardContent() {
         <div className="mb-6 flex items-center justify-between gap-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-800/50 dark:bg-amber-950/30">
           <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
             Bạn đã dùng <strong>{usage.used}/{usage.limit}</strong> file ký trong tháng.
-            {usage.used >= usage.limit ? " Đã đạt giới hạn gói Free." : " Sắp đạt giới hạn."}
+            {usage.used >= usage.limit ? ` Đã đạt giới hạn gói ${usage.planName ?? "Miễn phí"}.` : " Sắp đạt giới hạn."}
           </p>
           <Button variant="outline" size="sm" asChild className="shrink-0 border-amber-300 dark:border-amber-700">
             <Link href="/dashboard?tab=usage">Xem gói & Sử dụng</Link>
@@ -367,10 +371,13 @@ function DashboardContent() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <BarChart3 className="size-5" />
-                    Gói Free
+                    Gói {usage.planName ?? "Miễn phí"}
                   </CardTitle>
                   <CardDescription>
-                    Giới hạn 50 file ký thành công mỗi tháng. Reset vào đầu tháng sau.
+                    Giới hạn {usage.limit} file ký thành công mỗi tháng. Reset vào đầu tháng sau.
+                    {usage.planExpiresAt && (
+                      <> · Gói hết hạn ngày {new Date(usage.planExpiresAt).toLocaleDateString("vi-VN", { day: "numeric", month: "long", year: "numeric" })}.</>
+                    )}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -384,6 +391,14 @@ function DashboardContent() {
                   </p>
                 </CardContent>
               </Card>
+
+              <div>
+                <h3 className="text-sm font-semibold mb-3">Nâng cấp gói</h3>
+                <UpgradePlans
+                  currentPlan={isPlanId(usage.plan) ? (usage.plan as PlanId) : "free"}
+                  onActivated={() => void fetchData()}
+                />
+              </div>
 
               <div>
                 <h3 className="text-sm font-semibold mb-3">Lịch sử ký gần đây</h3>

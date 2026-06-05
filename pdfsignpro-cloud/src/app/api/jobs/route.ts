@@ -93,7 +93,7 @@ export async function POST(request: Request) {
       if (!quota.allowed) {
         return NextResponse.json(
           {
-            error: "Bạn đã đạt giới hạn 50 file ký/tháng. Vui lòng nâng cấp gói hoặc chờ reset tháng sau.",
+            error: `Bạn đã đạt giới hạn ${quota.limit} file ký/tháng của gói ${quota.planName}. Vui lòng nâng cấp gói hoặc chờ reset tháng sau.`,
             code: "QUOTA_EXCEEDED",
             used: quota.used,
             limit: quota.limit,
