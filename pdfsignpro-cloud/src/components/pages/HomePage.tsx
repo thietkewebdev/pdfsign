@@ -20,9 +20,7 @@ import {
   Gavel,
   UserCog,
   GitBranch,
-  CheckCircle2,
   Quote,
-  Headphones,
   ChevronDown,
   Verified,
 } from "lucide-react";
@@ -35,6 +33,7 @@ import {
   type UploadDropzoneCardHandle,
 } from "@/components/upload";
 import { ContactSection } from "@/components/home/ContactSection";
+import { HomePricing } from "@/components/home/HomePricing";
 import { cn } from "@/lib/utils";
 
 const MOTION_SLOW = { duration: 0.4, ease: [0.22, 1, 0.36, 1] as const };
@@ -514,95 +513,7 @@ export function HomePage() {
       </section>
 
       {/* Pricing */}
-      <section id="pricing" className="bg-white px-6 py-24">
-        <div className="mx-auto max-w-7xl">
-          <div className="mb-16 text-center">
-            <h2 className="mb-4 text-4xl font-black tracking-tighter text-stitch-on-surface">
-              Bảng giá linh hoạt
-            </h2>
-            <p className="text-stitch-muted">Phù hợp cho cả cá nhân và doanh nghiệp</p>
-          </div>
-          <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
-            <div className="flex flex-col rounded-xl border border-stitch-outline/20 bg-stitch-bg p-8">
-              <div className="mb-8">
-                <h4 className="mb-2 text-xs font-bold uppercase tracking-widest text-stitch-muted">Miễn phí</h4>
-                <div className="text-4xl font-black">
-                  0đ<span className="text-lg font-normal text-stitch-muted">/tháng</span>
-                </div>
-              </div>
-              <ul className="mb-10 flex flex-grow flex-col gap-4 text-sm">
-                <li className="flex items-center gap-3">
-                  <CheckCircle2 className="size-4 shrink-0 text-stitch-primary" />
-                  50 tài liệu ký thành công / tháng
-                </li>
-                <li className="flex items-center gap-3">
-                  <CheckCircle2 className="size-4 shrink-0 text-stitch-primary" />
-                  Ký đơn &amp; hợp đồng nhiều bên
-                </li>
-                <li className="flex items-center gap-3">
-                  <CheckCircle2 className="size-4 shrink-0 text-stitch-primary" />
-                  Dashboard &amp; chia sẻ link
-                </li>
-              </ul>
-              <Button variant="outline" className="w-full rounded-lg border-stitch-primary font-bold text-stitch-primary" asChild>
-                <Link href="/#upload">Bắt đầu ngay</Link>
-              </Button>
-            </div>
-            <div className="relative flex flex-col rounded-xl border-2 border-stitch-primary-strong bg-white p-8 ambient-shadow-stitch">
-              <div className="absolute -top-4 left-1/2 -translate-x-1/2 rounded-full bg-stitch-primary-strong px-4 py-1 text-xs font-bold uppercase tracking-widest text-white">
-                Phổ biến nhất
-              </div>
-              <div className="mb-8">
-                <h4 className="mb-2 text-xs font-bold uppercase tracking-widest text-stitch-primary-strong">Chuyên nghiệp</h4>
-                <div className="text-4xl font-black text-stitch-primary-strong">
-                  99.000đ<span className="text-lg font-normal text-stitch-muted">/tháng</span>
-                </div>
-                <p className="mt-2 text-xs text-stitch-muted">Đang mở đăng ký — liên hệ để ưu tiên truy cập.</p>
-              </div>
-              <ul className="mb-10 flex flex-grow flex-col gap-4 text-sm">
-                <li className="flex items-center gap-3 font-medium">
-                  <CheckCircle2 className="size-4 shrink-0 text-stitch-primary" />
-                  Nâng hạn mức &amp; tính năng nâng cao
-                </li>
-                <li className="flex items-center gap-3">
-                  <CheckCircle2 className="size-4 shrink-0 text-stitch-primary" />
-                  Lưu trữ &amp; quy trình doanh nghiệp
-                </li>
-                <li className="flex items-center gap-3">
-                  <CheckCircle2 className="size-4 shrink-0 text-stitch-primary" />
-                  Hỗ trợ ưu tiên
-                </li>
-              </ul>
-              <Button className="hero-gradient-stitch h-12 w-full font-bold text-white" asChild>
-                <Link href="/#contact">Liên hệ nâng cấp</Link>
-              </Button>
-            </div>
-            <div className="flex flex-col rounded-xl border border-stitch-outline/20 bg-stitch-bg p-8">
-              <div className="mb-8">
-                <h4 className="mb-2 text-xs font-bold uppercase tracking-widest text-stitch-muted">Doanh nghiệp</h4>
-                <div className="text-4xl font-black">Liên hệ</div>
-              </div>
-              <ul className="mb-10 flex flex-grow flex-col gap-4 text-sm">
-                <li className="flex items-center gap-3">
-                  <CheckCircle2 className="size-4 shrink-0 text-stitch-primary" />
-                  Quản trị nhóm &amp; phân quyền
-                </li>
-                <li className="flex items-center gap-3">
-                  <CheckCircle2 className="size-4 shrink-0 text-stitch-primary" />
-                  Tích hợp API / ERP
-                </li>
-                <li className="flex items-center gap-3 font-medium text-stitch-primary">
-                  <Headphones className="size-4 shrink-0" />
-                  Hỗ trợ trực tiếp
-                </li>
-              </ul>
-              <Button className="w-full rounded-lg bg-stitch-container-highest font-bold" asChild>
-                <Link href="/#contact">Liên hệ chúng tôi</Link>
-              </Button>
-            </div>
-          </div>
-        </div>
-      </section>
+      <HomePricing />
 
       {/* Testimonials */}
       <section className="bg-stitch-container-low px-6 py-24">
