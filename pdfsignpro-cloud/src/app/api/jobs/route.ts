@@ -6,7 +6,7 @@ import { generateJobToken, hashJobToken } from "@/lib/job-token";
 import { generateClaimCode, hashClaimCode } from "@/lib/claim-code";
 import { base64urlEncode } from "@/lib/base64url";
 import { getStorageDriver } from "@/storage";
-import { checkQuota } from "@/lib/usage";
+import { checkQuota, checkAnonymousQuota, hashClientIp } from "@/lib/usage";
 import { SIGNING_JOB_EXPIRES_MINUTES } from "@/lib/signing-job-config";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 
@@ -88,12 +88,28 @@ export async function POST(request: Request) {
       );
     }
 
+    let creatorIpHash: string | null = null;
     if (document.userId) {
       const quota = await checkQuota(document.userId);
       if (!quota.allowed) {
         return NextResponse.json(
           {
             error: `Bạn đã đạt giới hạn ${quota.limit} file ký/tháng của gói ${quota.planName}. Vui lòng nâng cấp gói hoặc chờ reset tháng sau.`,
+            code: "QUOTA_EXCEEDED",
+            used: quota.used,
+            limit: quota.limit,
+          },
+          { status: 402 }
+        );
+      }
+    } else {
+      // Anonymous (no-owner) document: limit signing per client IP.
+      creatorIpHash = hashClientIp(getClientIp(request));
+      const quota = await checkAnonymousQuota(creatorIpHash);
+      if (!quota.allowed) {
+        return NextResponse.json(
+          {
+            error: `Bạn đã dùng hết ${quota.limit} lượt ký miễn phí dành cho khách trong tháng. Vui lòng đăng nhập hoặc đăng ký tài khoản để ký thêm.`,
             code: "QUOTA_EXCEEDED",
             used: quota.used,
             limit: quota.limit,
@@ -138,6 +154,7 @@ export async function POST(request: Request) {
         placementJson: JSON.stringify(placement),
         sealImageKey,
         expiresAt,
+        creatorIpHash,
       },
     });
 

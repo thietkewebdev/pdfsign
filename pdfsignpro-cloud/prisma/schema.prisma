@@ -119,6 +119,7 @@ model SigningJob {
   completedAt         DateTime?
   claimedAt           DateTime? // when claim code was exchanged for token
   expiresAt           DateTime  // job expires after SIGNING_JOB_EXPIRES_MINUTES (90m)
+  creatorIpHash       String?   // hashed client IP for anonymous (no-owner) jobs, used for per-IP quota
 
   contractSigner  ContractSigner?
 
@@ -126,6 +127,7 @@ model SigningJob {
   @@index([documentId])
   @@index([jobTokenHash])
   @@index([claimCodeHash])
+  @@index([creatorIpHash])
 }
 
 model Contract {

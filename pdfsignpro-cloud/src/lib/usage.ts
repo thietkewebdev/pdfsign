@@ -1,3 +1,4 @@
+import { createHash } from "crypto";
 import { prisma } from "@/lib/prisma";
 import {
   getEffectivePlanId,
@@ -5,6 +6,9 @@ import {
   getPlanDef,
   type PlanId,
 } from "@/lib/plans";
+
+/** Monthly signing limit for anonymous (not logged-in) users, tracked per client IP. */
+export const ANON_MONTHLY_LIMIT = 3;
 
 /** Start of current month (UTC) for reset date */
 function startOfCurrentMonth(): Date {
@@ -81,4 +85,31 @@ export async function checkQuota(userId: string): Promise<QuotaResult> {
     planName: getPlanDef(effectivePlan).name,
     planExpiresAt: user?.planExpiresAt?.toISOString() ?? null,
   };
+}
+
+/** Hash a client IP so we never store raw IPs (salted with the auth secret). */
+export function hashClientIp(ip: string): string {
+  const salt = process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET ?? "pdfsign";
+  return createHash("sha256").update(`${salt}:${ip}`).digest("hex");
+}
+
+/** Count completed anonymous (no-owner) signing jobs for an IP in the current month. */
+export async function getAnonymousMonthlyUsage(ipHash: string): Promise<number> {
+  const start = startOfCurrentMonth();
+  const end = endOfCurrentMonth();
+  return prisma.signingJob.count({
+    where: {
+      status: "COMPLETED",
+      completedAt: { gte: start, lte: end },
+      creatorIpHash: ipHash,
+      document: { userId: null },
+    },
+  });
+}
+
+export async function checkAnonymousQuota(
+  ipHash: string
+): Promise<{ allowed: boolean; used: number; limit: number }> {
+  const used = await getAnonymousMonthlyUsage(ipHash);
+  return { allowed: used < ANON_MONTHLY_LIMIT, used, limit: ANON_MONTHLY_LIMIT };
 }
