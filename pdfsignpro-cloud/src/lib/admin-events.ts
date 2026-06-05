@@ -10,16 +10,23 @@ export async function recordAdminAuditLog(input: {
   detail?: string | null;
   metadata?: JsonLike;
 }) {
-  return prisma.adminAuditLog.create({
-    data: {
-      actorUserId: input.actorUserId ?? null,
-      action: input.action,
-      resource: input.resource,
-      resourceId: input.resourceId ?? null,
-      detail: input.detail ?? null,
-      metadataJson: input.metadata ? JSON.stringify(input.metadata) : null,
-    },
-  });
+  // Best-effort telemetry: never let logging break the actual request (e.g. a
+  // stale session whose actorUserId no longer exists → FK violation).
+  try {
+    return await prisma.adminAuditLog.create({
+      data: {
+        actorUserId: input.actorUserId ?? null,
+        action: input.action,
+        resource: input.resource,
+        resourceId: input.resourceId ?? null,
+        detail: input.detail ?? null,
+        metadataJson: input.metadata ? JSON.stringify(input.metadata) : null,
+      },
+    });
+  } catch (err) {
+    console.warn("recordAdminAuditLog failed (ignored):", err);
+    return null;
+  }
 }
 
 export async function recordAdminAnalyticsEvent(input: {
@@ -30,16 +37,22 @@ export async function recordAdminAnalyticsEvent(input: {
   subjectUserId?: string | null;
   metadata?: JsonLike;
 }) {
-  return prisma.adminAnalyticsEvent.create({
-    data: {
-      eventType: input.eventType,
-      path: input.path ?? null,
-      method: input.method ?? null,
-      actorUserId: input.actorUserId ?? null,
-      subjectUserId: input.subjectUserId ?? null,
-      metadataJson: input.metadata ? JSON.stringify(input.metadata) : null,
-    },
-  });
+  // Best-effort telemetry: swallow errors so analytics can never fail a request.
+  try {
+    return await prisma.adminAnalyticsEvent.create({
+      data: {
+        eventType: input.eventType,
+        path: input.path ?? null,
+        method: input.method ?? null,
+        actorUserId: input.actorUserId ?? null,
+        subjectUserId: input.subjectUserId ?? null,
+        metadataJson: input.metadata ? JSON.stringify(input.metadata) : null,
+      },
+    });
+  } catch (err) {
+    console.warn("recordAdminAnalyticsEvent failed (ignored):", err);
+    return null;
+  }
 }
 
 export async function recordSigningErrorEvent(input: {
