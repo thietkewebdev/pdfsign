@@ -12,11 +12,11 @@ using System.Reflection;
 
 [assembly: System.Reflection.AssemblyCompanyAttribute("PDFSignProSigner")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Release")]
-[assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+cb27a4f47ff8e818be0a3b5e5d444ac3326ae77f")]
+[assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.3.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.3+72c49e40fb20d599f371fd1992cd47c138511ed7")]
 [assembly: System.Reflection.AssemblyProductAttribute("PDFSignProSigner")]
 [assembly: System.Reflection.AssemblyTitleAttribute("PDFSignProSigner")]
-[assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
+[assembly: System.Reflection.AssemblyVersionAttribute("1.0.3.0")]
 [assembly: System.Runtime.Versioning.TargetPlatformAttribute("Windows7.0")]
 [assembly: System.Runtime.Versioning.SupportedOSPlatformAttribute("Windows7.0")]
 

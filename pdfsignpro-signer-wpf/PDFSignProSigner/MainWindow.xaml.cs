@@ -542,20 +542,19 @@ public partial class MainWindow : Window
             }
             else if (!string.IsNullOrEmpty(stderr))
             {
-                var msg = stderr.Trim();
-                if (msg.Contains("CKR_PIN_INCORRECT", StringComparison.OrdinalIgnoreCase) ||
-                    msg.Contains("incorrect", StringComparison.OrdinalIgnoreCase) ||
-                    msg.Contains("sai", StringComparison.OrdinalIgnoreCase))
-                    msg = "Mã PIN không đúng. Sai nhiều lần có thể khóa token.";
-                else if (msg.Contains("No PKCS#11") || msg.Contains("not found") || msg.Contains("DLL"))
-                    msg = "Không tìm thấy token/USB. Cắm token và thử lại.";
+                var (msg, code) = SignerErrorMessages.Resolve(stderr, stdout);
                 VerifyPinResultText.Text = msg;
                 VerifyPinResultText.Foreground = new System.Windows.Media.SolidColorBrush(
                     (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#F87171"));
                 VerifyPinResultText.Visibility = Visibility.Visible;
+                if (code == "PIN_LOCKED")
+                {
+                    LockoutWarningText.Text = SignerErrorMessages.ForCode("PIN_LOCKED");
+                    LockoutWarningText.Visibility = Visibility.Visible;
+                }
                 PinBox.Focus();
                 ClearPinCache();
-                LogService.Signing($"PIN/Core lỗi: {msg}");
+                LogService.Signing($"PIN/Core lỗi (code={code ?? "?"}): {msg}");
             }
         }
         catch (FileNotFoundException)
@@ -732,15 +731,27 @@ public partial class MainWindow : Window
 
             if (!result.Success)
             {
-                ClearPinCache();
+                var (msg, code) = SignerErrorMessages.Resolve(result.Stderr, result.Stdout);
+                // Only force PIN re-entry for PIN-related failures; expired cert / locked
+                // PIN / missing driver are not fixed by retyping the PIN.
+                if (SignerErrorMessages.IsPinRelated(code) || code == null)
+                    ClearPinCache();
                 ShowScreen(Screen.Sign);
-                SignErrorText.Text = result.Stderr ?? result.Stdout ?? $"Lỗi (exit {result.ExitCode})";
+                SignErrorText.Text = msg;
                 SignErrorText.Visibility = Visibility.Visible;
-                SignBtn.IsEnabled = _certs.Count > 0;
+                if (code == "PIN_LOCKED")
+                {
+                    LockoutWarningText.Text = SignerErrorMessages.ForCode("PIN_LOCKED");
+                    LockoutWarningText.Visibility = Visibility.Visible;
+                }
+                // If the error is blocking (needs user action elsewhere), don't invite
+                // an immediate pointless retry.
+                var canRetry = !SignerErrorMessages.IsBlocking(code) && _certs.Count > 0;
+                SignBtn.IsEnabled = canRetry;
                 CertCombo.IsEnabled = _certs.Count > 0;
                 PinBox.IsEnabled = true;
                 LogService.Signing(
-                    $"Ký PDF thất bại: exit={result.ExitCode} stderr={result.Stderr ?? result.Stdout}");
+                    $"Ký PDF thất bại (code={code ?? "?"}): exit={result.ExitCode} stderr={result.Stderr ?? result.Stdout}");
                 return;
             }
 

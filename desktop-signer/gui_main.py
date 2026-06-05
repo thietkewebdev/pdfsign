@@ -764,7 +764,7 @@ class MainWindow(QMainWindow):
         self.load_certs_btn.setEnabled(True)
         self.progress_bar.setVisible(False)
         self.signed_public_url = result.get("signedPublicUrl", "")
-        self.stack.setCurrentIndex(2)
+        self.stack.setCurrentIndex(3)
 
     def _on_sign_err(self, msg: str):
         self.sign_worker = None

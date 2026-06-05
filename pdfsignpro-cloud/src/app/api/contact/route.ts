@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { rateLimit, getClientIp } from "@/lib/rate-limit";
 
 const TOPICS = ["bug", "demo", "payment", "other"] as const;
 
@@ -64,6 +65,14 @@ async function sendTelegramNotification(params: {
 
 export async function POST(req: Request) {
   try {
+    const rl = rateLimit(`contact:${getClientIp(req)}`, 5, 60_000);
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: "Quá nhiều yêu cầu. Vui lòng thử lại sau ít phút." },
+        { status: 429, headers: { "Retry-After": String(rl.retryAfterSeconds) } }
+      );
+    }
+
     const body = await req.json();
 
     const name = typeof body.name === "string" ? body.name.trim() : "";
@@ -107,7 +116,8 @@ export async function POST(req: Request) {
       );
     }
 
-    console.log("[Contact]", { name, contact, topic, messageLength: message.length });
+    // Avoid logging PII (name/contact). Keep a minimal, non-identifying breadcrumb.
+    console.log("[Contact] received", { topic, messageLength: message.length });
 
     const telegramResult = await sendTelegramNotification({ name, contact, topic, message });
 

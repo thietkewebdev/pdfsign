@@ -8,6 +8,7 @@ import { base64urlEncode } from "@/lib/base64url";
 import { getStorageDriver } from "@/storage";
 import { checkQuota } from "@/lib/usage";
 import { SIGNING_JOB_EXPIRES_MINUTES } from "@/lib/signing-job-config";
+import { rateLimit, getClientIp } from "@/lib/rate-limit";
 
 const rectPctSchema = z.object({
   x: z.number().min(0).max(1),
@@ -34,6 +35,14 @@ const CreateJobSchema = z.object({
 
 export async function POST(request: Request) {
   try {
+    const rl = rateLimit(`jobs:${getClientIp(request)}`, 30, 60_000);
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: "Quá nhiều yêu cầu tạo phiên ký. Vui lòng thử lại sau.", code: "RATE_LIMITED" },
+        { status: 429, headers: { "Retry-After": String(rl.retryAfterSeconds) } }
+      );
+    }
+
     const body = await request.json();
     const parsed = CreateJobSchema.safeParse(body);
     if (!parsed.success) {

@@ -4,6 +4,7 @@ import { hash } from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { createEmailVerificationToken } from "@/lib/email-verification";
 import { sendEmailVerification } from "@/lib/email";
+import { rateLimit, getClientIp } from "@/lib/rate-limit";
 
 const RegisterSchema = z.object({
   name: z.string().trim().min(2).max(100),
@@ -13,6 +14,14 @@ const RegisterSchema = z.object({
 
 export async function POST(request: Request) {
   try {
+    const rl = rateLimit(`register:${getClientIp(request)}`, 10, 60_000);
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: "Quá nhiều yêu cầu. Vui lòng thử lại sau ít phút." },
+        { status: 429, headers: { "Retry-After": String(rl.retryAfterSeconds) } }
+      );
+    }
+
     const body = await request.json();
     const parsed = RegisterSchema.safeParse(body);
     if (!parsed.success) {

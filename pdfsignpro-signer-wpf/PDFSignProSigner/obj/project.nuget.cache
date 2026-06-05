@@ -1,11 +1,20 @@
 {
   "version": 2,
-  "dgSpecHash": "pX0LlB3Bix8=",
+  "dgSpecHash": "UH98sAw/tCU=",
   "success": true,
   "projectFilePath": "G:\\Code\\PDFSignProCloud\\pdfsignpro-signer-wpf\\PDFSignProSigner\\PDFSignProSigner.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\chube\\.nuget\\packages\\system.net.http.json\\8.0.1\\system.net.http.json.8.0.1.nupkg.sha512",
-    "C:\\Users\\chube\\.nuget\\packages\\system.text.json\\8.0.5\\system.text.json.8.0.5.nupkg.sha512"
+    "C:\\Users\\chube\\.nuget\\packages\\system.security.cryptography.protecteddata\\8.0.0\\system.security.cryptography.protecteddata.8.0.0.nupkg.sha512",
+    "C:\\Users\\chube\\.nuget\\packages\\system.text.json\\8.0.5\\system.text.json.8.0.5.nupkg.sha512",
+    "C:\\Users\\chube\\.nuget\\packages\\microsoft.netcore.app.ref\\8.0.27\\microsoft.netcore.app.ref.8.0.27.nupkg.sha512",
+    "C:\\Users\\chube\\.nuget\\packages\\microsoft.netcore.app.runtime.win-x64\\8.0.27\\microsoft.netcore.app.runtime.win-x64.8.0.27.nupkg.sha512",
+    "C:\\Users\\chube\\.nuget\\packages\\microsoft.windowsdesktop.app.ref\\8.0.27\\microsoft.windowsdesktop.app.ref.8.0.27.nupkg.sha512",
+    "C:\\Users\\chube\\.nuget\\packages\\microsoft.windowsdesktop.app.runtime.win-x64\\8.0.27\\microsoft.windowsdesktop.app.runtime.win-x64.8.0.27.nupkg.sha512",
+    "C:\\Users\\chube\\.nuget\\packages\\microsoft.aspnetcore.app.ref\\8.0.27\\microsoft.aspnetcore.app.ref.8.0.27.nupkg.sha512",
+    "C:\\Users\\chube\\.nuget\\packages\\microsoft.aspnetcore.app.runtime.win-x64\\8.0.27\\microsoft.aspnetcore.app.runtime.win-x64.8.0.27.nupkg.sha512",
+    "C:\\Users\\chube\\.nuget\\packages\\microsoft.netcore.app.crossgen2.win-x64\\8.0.27\\microsoft.netcore.app.crossgen2.win-x64.8.0.27.nupkg.sha512",
+    "C:\\Users\\chube\\.nuget\\packages\\microsoft.netcore.app.host.win-x64\\8.0.27\\microsoft.netcore.app.host.win-x64.8.0.27.nupkg.sha512"
   ],
   "logs": []
 }

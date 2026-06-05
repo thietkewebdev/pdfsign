@@ -42,7 +42,7 @@ public partial class App : System.Windows.Application
                 Shutdown(0);
                 return;
             }
-            System.Windows.MessageBox.Show("PDFSignPro Signer is already running.", "PDFSignPro Signer", MessageBoxButton.OK, MessageBoxImage.Information);
+            System.Windows.MessageBox.Show("PDFSignPro Signer đang chạy.", "PDFSignPro Signer", MessageBoxButton.OK, MessageBoxImage.Information);
             Shutdown(1);
             return;
         }

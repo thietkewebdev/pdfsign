@@ -24,7 +24,8 @@ from cryptography import x509
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.asymmetric import ec, rsa
 
-from .cert_selector import CertInfo, get_signer_name
+from .cert_selector import CertInfo, get_signer_name, cert_validity_status
+from . import errors
 
 # SVG stamp uses NotoSans from assets/fonts/ (see sig_appearance.py)
 
@@ -83,40 +84,95 @@ def _sanitize_pdf_with_pikepdf(input_path: Path) -> bytes:
         ) from e
 
 
-# Default A4 size in points (avoid touching page dicts)
+# Fallback A4 size in points, used only when the real page size cannot be read.
 _DEFAULT_PAGE_WIDTH = 595.2
 _DEFAULT_PAGE_HEIGHT = 841.8
 
 
-def _get_page_index_and_box(
-    page_spec: Union[int, str],
+def _resolve_page_index(page_spec: Union[int, str]) -> int:
+    """page_spec: 1-based int or 'LAST' -> 0-based index (-1 for last)."""
+    if isinstance(page_spec, str) and str(page_spec).upper() == "LAST":
+        return -1
+    page_idx = int(page_spec) - 1
+    if page_idx < 0:
+        raise ValueError(f"Page must be >= 1 or LAST, got {page_spec}")
+    return page_idx
+
+
+def _page_geometry_from_bytes(
+    pdf_bytes: bytes, page_idx: int
+) -> tuple[float, float, float, float, int]:
+    """
+    Read the real page geometry (origin + size + rotation) so the signature box is
+    placed correctly on non-A4 / Letter / Legal / custom-size and rotated pages.
+    Returns (x0, y0, width, height, rotation). Falls back to A4 on any failure.
+    """
+    try:
+        import pikepdf
+
+        with pikepdf.open(BytesIO(pdf_bytes)) as pdf:
+            pages = pdf.pages
+            n = len(pages)
+            real_idx = (n - 1) if page_idx == -1 else page_idx
+            if real_idx < 0 or real_idx >= n:
+                real_idx = max(0, min(real_idx, n - 1))
+            page = pages[real_idx]
+            mb = [float(v) for v in page.mediabox]
+            x0, y0, x1, y1 = mb[0], mb[1], mb[2], mb[3]
+            width = abs(x1 - x0)
+            height = abs(y1 - y0)
+            rotation = 0
+            try:
+                rotation = int(page.get("/Rotate", 0)) % 360
+            except Exception:
+                rotation = 0
+            if width <= 0 or height <= 0:
+                return 0.0, 0.0, _DEFAULT_PAGE_WIDTH, _DEFAULT_PAGE_HEIGHT, 0
+            return min(x0, x1), min(y0, y1), width, height, rotation
+    except Exception:
+        return 0.0, 0.0, _DEFAULT_PAGE_WIDTH, _DEFAULT_PAGE_HEIGHT, 0
+
+
+def _box_from_pct(
+    geometry: tuple[float, float, float, float, int],
     x_pct: float,
     y_pct: float,
     w_pct: float,
     h_pct: float,
-) -> tuple[int, tuple[float, float, float, float]]:
+) -> tuple[float, float, float, float]:
     """
-    Convert page_spec and rectPct to (page_idx, box).
-    Does NOT touch any PDF objects - uses fixed A4 dimensions for box.
-    page_spec: 1-based int or 'LAST' -> 0-based index (-1 for last).
-    rectPct: x,y,w,h (0..1) bottom-left origin.
-    Returns (page_idx, (x1,y1,x2,y2) in points).
+    Map a rectPct (0..1, bottom-left origin, in the *displayed* page space) to a box
+    in the page's native (unrotated) user-space coordinates, accounting for /Rotate.
     """
-    if isinstance(page_spec, str) and str(page_spec).upper() == "LAST":
-        page_idx = -1
-    else:
-        page_idx = int(page_spec) - 1
-        if page_idx < 0:
-            raise ValueError(f"Page must be >= 1 or LAST, got {page_spec}")
+    x0, y0, width, height, rotation = geometry
 
-    width = _DEFAULT_PAGE_WIDTH
-    height = _DEFAULT_PAGE_HEIGHT
-    x1 = x_pct * width
-    y1 = y_pct * height
-    x2 = x1 + w_pct * width
-    y2 = y1 + h_pct * height
-    box = (x1, y1, x2, y2)
-    return page_idx, box
+    # Displayed dimensions swap for quarter rotations.
+    if rotation in (90, 270):
+        disp_w, disp_h = height, width
+    else:
+        disp_w, disp_h = width, height
+
+    # Corners in displayed space (bottom-left origin).
+    dx1 = x_pct * disp_w
+    dy1 = y_pct * disp_h
+    dx2 = (x_pct + w_pct) * disp_w
+    dy2 = (y_pct + h_pct) * disp_h
+
+    def to_user(px: float, py: float) -> tuple[float, float]:
+        if rotation == 90:
+            return (py, height - px)
+        if rotation == 180:
+            return (width - px, height - py)
+        if rotation == 270:
+            return (width - py, px)
+        return (px, py)
+
+    ux1, uy1 = to_user(dx1, dy1)
+    ux2, uy2 = to_user(dx2, dy2)
+    bx1, bx2 = sorted((ux1, ux2))
+    by1, by2 = sorted((uy1, uy2))
+    # Offset by mediabox origin (non-zero origin PDFs).
+    return (x0 + bx1, y0 + by1, x0 + bx2, y0 + by2)
 
 
 def _normalize_key_id(cert_id: Optional[bytes]) -> Optional[bytes]:
@@ -455,6 +511,13 @@ async def sign_pdf(
 
     x_pct, y_pct, w_pct, h_pct = rect_pct
 
+    # Block signing with an expired / not-yet-valid certificate (unless explicitly
+    # overridden) so the user gets a clear reason instead of an invalid signature.
+    if os.environ.get("PDFSIGN_ALLOW_EXPIRED", "").strip() not in ("1", "true", "yes"):
+        validity_code = cert_validity_status(cert_info)
+        if validity_code is not None:
+            raise errors.SignerError(validity_code)
+
     signer_name = get_signer_name(cert_info)
     try:
         import zoneinfo
@@ -463,11 +526,17 @@ async def sign_pdf(
     except ImportError:
         ts_str = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
 
-    with open_pkcs11_session(
-        lib_path,
-        slot_no=slot_no,
-        user_pin=pin,
-    ) as session:
+    try:
+        session_cm = open_pkcs11_session(
+            lib_path,
+            slot_no=slot_no,
+            user_pin=pin,
+        )
+    except Exception as e:
+        # PIN / token errors can be raised right here when the session logs in.
+        raise errors.to_signer_error(e)
+
+    with session_cm as session:
         pkcs11_signer = _build_pkcs11_signer(session, cert_info, cert_index)
         try:
             await pkcs11_signer.ensure_objects_loaded()
@@ -516,7 +585,9 @@ async def sign_pdf(
         pdf_stream = BytesIO(pdf_bytes)
         w = IncrementalPdfFileWriter(pdf_stream, strict=False)
 
-        page_idx, box = _get_page_index_and_box(page_spec, x_pct, y_pct, w_pct, h_pct)
+        page_idx = _resolve_page_index(page_spec)
+        geometry = _page_geometry_from_bytes(pdf_bytes, page_idx)
+        box = _box_from_pct(geometry, x_pct, y_pct, w_pct, h_pct)
 
         sig_field_name = _next_sig_field_name(w)
 
@@ -554,12 +625,22 @@ async def sign_pdf(
             stamp_style=stamp_style,
         )
 
-        with open(output_path, "wb") as outf:
-            await pdf_signer.async_sign_pdf(
-                w,
-                output=outf,
-                appearance_text_params={"signer": signer_name, "ts": ts_str},
-            )
+        try:
+            with open(output_path, "wb") as outf:
+                await pdf_signer.async_sign_pdf(
+                    w,
+                    output=outf,
+                    appearance_text_params={"signer": signer_name, "ts": ts_str},
+                )
+        except errors.SignerError:
+            raise
+        except Exception as e:
+            # Token PIN / removal errors frequently surface only at signing time
+            # (second login). Classify so the host shows the right message.
+            code = errors.classify_exception(e)
+            if code != errors.ERR_GENERAL:
+                raise errors.SignerError(code, cause=e)
+            raise
 
 
 def sign_pdf_sync(

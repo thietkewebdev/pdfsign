@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { verifyClaimCode } from "@/lib/claim-code";
 import { recordSigningErrorEvent } from "@/lib/admin-events";
+import { rateLimit, getClientIp } from "@/lib/rate-limit";
 
 const ClaimSchema = z.object({
   code: z.string().min(1).max(32),
@@ -18,6 +19,17 @@ export async function POST(
 
   try {
     const { jobId } = await params;
+
+    // Throttle claim attempts per IP to make claim-code guessing impractical.
+    const ip = getClientIp(request);
+    const rl = rateLimit(`claim:${ip}`, 20, 60_000);
+    if (!rl.allowed) {
+      void track("RATE_LIMITED");
+      return NextResponse.json(
+        { error: "Quá nhiều yêu cầu. Vui lòng thử lại sau.", errorCode: "RATE_LIMITED" },
+        { status: 429, headers: { "Retry-After": String(rl.retryAfterSeconds) } }
+      );
+    }
 
     const body = await request.json();
     const parsed = ClaimSchema.safeParse(body);

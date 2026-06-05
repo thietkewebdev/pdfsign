@@ -116,7 +116,7 @@ model SigningJob {
   createdAt           DateTime  @default(now())
   completedAt         DateTime?
   claimedAt           DateTime? // when claim code was exchanged for token
-  expiresAt           DateTime  // job expires after 30m
+  expiresAt           DateTime  // job expires after SIGNING_JOB_EXPIRES_MINUTES (90m)
 
   contractSigner  ContractSigner?
 

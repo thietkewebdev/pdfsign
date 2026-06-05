@@ -55,7 +55,7 @@ export default function CreateContractPage() {
 }
 
 function CreateContractContent() {
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const router = useRouter();
   const [step, setStep] = useState<1 | 2>(1);
   const [documents, setDocuments] = useState<DocItem[]>([]);
@@ -166,10 +166,17 @@ function CreateContractContent() {
     setSigners(next.map((s, i) => ({ ...s, order: i + 1 })));
   };
 
+  const normalizedEmails = signers
+    .map((s) => s.email.trim().toLowerCase())
+    .filter((e) => e.length > 0);
+  const hasDuplicateEmails =
+    new Set(normalizedEmails).size !== normalizedEmails.length;
+
   const isValid =
     selectedDoc &&
     title.trim().length > 0 &&
     signers.length >= 1 &&
+    !hasDuplicateEmails &&
     signers.every(
       (s) =>
         s.name.trim().length > 0 &&
@@ -182,7 +189,7 @@ function CreateContractContent() {
     try {
       const signersPayload = signers.map((s) => {
         const signerIndex = s.order - 1;
-        const signatureHeight = 0.08;
+        const signatureHeight = 0.1;
         const signatureWidth = 0.25;
         const gap = 0.02;
         const startY = 0.05 + signerIndex * (signatureHeight + gap);
@@ -504,6 +511,11 @@ function CreateContractContent() {
             </div>
           </div>
 
+          {hasDuplicateEmails && (
+            <div className="rounded-lg border border-amber-300 bg-amber-50 p-2.5 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
+              Có email bị trùng giữa các bên ký. Mỗi người ký cần một email khác nhau.
+            </div>
+          )}
           <div className="flex gap-3 pt-4">
             <Button
               variant="outline"

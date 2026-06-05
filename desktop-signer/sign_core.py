@@ -21,6 +21,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from signer.pkcs11_discovery import get_pkcs11_dll
 from signer.cert_selector import list_certs_from_token, list_certs_try_pkcs11_dlls, get_signer_name
 from signer.pades_signer import sign_pdf_sync
+from signer import errors
 
 
 def parse_rect_pct(s: str) -> tuple[float, float, float, float]:
@@ -67,14 +68,20 @@ def sign_pdf(
     output_path: str,
     page_spec,
     rect_pct: tuple[float, float, float, float],
-    dll_path: str,
+    dll_path: str | None,
     cert_index: int,
     pin: str,
     template_id: str = "valid",
     seal_image_path: str | None = None,
 ) -> None:
     """Sign PDF. Output to stdout on success."""
-    certs, slot_no = list_certs_from_token(dll_path, pin=pin)
+    if dll_path:
+        certs, slot_no = list_certs_from_token(dll_path, pin=pin)
+    else:
+        # Auto-discover the working PKCS#11 module (sign mode no longer needs --dll).
+        certs, slot_no, dll_path = list_certs_try_pkcs11_dlls(
+            pin, os.environ.get("PKCS11_DLL")
+        )
     if cert_index < 0 or cert_index >= len(certs):
         raise ValueError(f"Invalid cert index {cert_index}")
     cert_info = certs[cert_index]
@@ -123,10 +130,11 @@ def main() -> int:
                 )
                 _print_certs_json(dll, certs)
         else:
-            if not all([args.input, args.output, args.rectPct, args.dll, args.cert_index is not None, args.pin]):
-                print("Sign mode requires --in, --out, --rectPct, --dll, --cert-index, --pin", file=sys.stderr)
+            # --dll is optional: it can be auto-discovered when omitted.
+            if not all([args.input, args.output, args.rectPct, args.cert_index is not None, args.pin]):
+                print("Sign mode requires --in, --out, --rectPct, --cert-index, --pin", file=sys.stderr)
                 return 1
-            dll = get_pkcs11_dll(args.dll) if args.dll else get_pkcs11_dll(None)
+            dll = str(get_pkcs11_dll(args.dll)) if args.dll else None
             page_spec = parse_page(args.page)
             rect = parse_rect_pct(args.rectPct)
             template_id = (args.template or "valid").strip().lower()
@@ -135,14 +143,25 @@ def main() -> int:
                 args.output,
                 page_spec,
                 rect,
-                str(dll),
+                dll,
                 args.cert_index,
                 args.pin,
                 template_id=template_id,
                 seal_image_path=args.seal_image,
             )
+    except errors.SignerError as e:
+        # Emit a stable code line so the host can map to a localized message,
+        # plus the friendly message itself.
+        print(f"ERRCODE:{e.code}", file=sys.stderr)
+        print(e.message, file=sys.stderr)
+        return 1
     except Exception as e:
-        print(str(e), file=sys.stderr)
+        code = errors.classify_exception(e)
+        if code != errors.ERR_GENERAL:
+            print(f"ERRCODE:{code}", file=sys.stderr)
+            print(errors.message_for(code), file=sys.stderr)
+        else:
+            print(str(e), file=sys.stderr)
         return 1
 
     return 0

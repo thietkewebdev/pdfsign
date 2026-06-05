@@ -18,6 +18,22 @@
           "buildTransitive/net6.0/_._": {}
         }
       },
+      "System.Security.Cryptography.ProtectedData/8.0.0": {
+        "type": "package",
+        "compile": {
+          "lib/net8.0/System.Security.Cryptography.ProtectedData.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net8.0/System.Security.Cryptography.ProtectedData.dll": {
+            "related": ".xml"
+          }
+        },
+        "build": {
+          "buildTransitive/net6.0/_._": {}
+        }
+      },
       "System.Text.Json/8.0.5": {
         "type": "package",
         "compile": {
@@ -45,6 +61,22 @@
         },
         "runtime": {
           "lib/net8.0/System.Net.Http.Json.dll": {
+            "related": ".xml"
+          }
+        },
+        "build": {
+          "buildTransitive/net6.0/_._": {}
+        }
+      },
+      "System.Security.Cryptography.ProtectedData/8.0.0": {
+        "type": "package",
+        "compile": {
+          "lib/net8.0/System.Security.Cryptography.ProtectedData.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net8.0/System.Security.Cryptography.ProtectedData.dll": {
             "related": ".xml"
           }
         },
@@ -98,6 +130,42 @@
         "lib/netstandard2.0/System.Net.Http.Json.xml",
         "system.net.http.json.8.0.1.nupkg.sha512",
         "system.net.http.json.nuspec",
+        "useSharedDesignerContext.txt"
+      ]
+    },
+    "System.Security.Cryptography.ProtectedData/8.0.0": {
+      "sha512": "+TUFINV2q2ifyXauQXRwy4CiBhqvDEDZeVJU7qfxya4aRYOKzVBpN+4acx25VcPB9ywUN6C0n8drWl110PhZEg==",
+      "type": "package",
+      "path": "system.security.cryptography.protecteddata/8.0.0",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "Icon.png",
+        "LICENSE.TXT",
+        "PACKAGE.md",
+        "THIRD-PARTY-NOTICES.TXT",
+        "buildTransitive/net461/System.Security.Cryptography.ProtectedData.targets",
+        "buildTransitive/net462/_._",
+        "buildTransitive/net6.0/_._",
+        "buildTransitive/netcoreapp2.0/System.Security.Cryptography.ProtectedData.targets",
+        "lib/MonoAndroid10/_._",
+        "lib/MonoTouch10/_._",
+        "lib/net462/System.Security.Cryptography.ProtectedData.dll",
+        "lib/net462/System.Security.Cryptography.ProtectedData.xml",
+        "lib/net6.0/System.Security.Cryptography.ProtectedData.dll",
+        "lib/net6.0/System.Security.Cryptography.ProtectedData.xml",
+        "lib/net7.0/System.Security.Cryptography.ProtectedData.dll",
+        "lib/net7.0/System.Security.Cryptography.ProtectedData.xml",
+        "lib/net8.0/System.Security.Cryptography.ProtectedData.dll",
+        "lib/net8.0/System.Security.Cryptography.ProtectedData.xml",
+        "lib/netstandard2.0/System.Security.Cryptography.ProtectedData.dll",
+        "lib/netstandard2.0/System.Security.Cryptography.ProtectedData.xml",
+        "lib/xamarinios10/_._",
+        "lib/xamarinmac20/_._",
+        "lib/xamarintvos10/_._",
+        "lib/xamarinwatchos10/_._",
+        "system.security.cryptography.protecteddata.8.0.0.nupkg.sha512",
+        "system.security.cryptography.protecteddata.nuspec",
         "useSharedDesignerContext.txt"
       ]
     },
@@ -178,15 +246,15 @@
   "projectFileDependencyGroups": {
     "net8.0-windows7.0": [
       "System.Net.Http.Json >= 8.0.1",
+      "System.Security.Cryptography.ProtectedData >= 8.0.0",
       "System.Text.Json >= 8.0.5"
     ]
   },
   "packageFolders": {
-    "C:\\Users\\chube\\.nuget\\packages\\": {},
-    "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages": {}
+    "C:\\Users\\chube\\.nuget\\packages\\": {}
   },
   "project": {
-    "version": "1.0.0",
+    "version": "1.0.3",
     "restore": {
       "projectUniqueName": "G:\\Code\\PDFSignProCloud\\pdfsignpro-signer-wpf\\PDFSignProSigner\\PDFSignProSigner.csproj",
       "projectName": "PDFSignProSigner",
@@ -194,12 +262,8 @@
       "packagesPath": "C:\\Users\\chube\\.nuget\\packages\\",
       "outputPath": "G:\\Code\\PDFSignProCloud\\pdfsignpro-signer-wpf\\PDFSignProSigner\\obj\\",
       "projectStyle": "PackageReference",
-      "fallbackFolders": [
-        "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
-      ],
       "configFilePaths": [
         "C:\\Users\\chube\\AppData\\Roaming\\NuGet\\NuGet.Config",
-        "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
         "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
       ],
       "originalTargetFrameworks": [
@@ -235,6 +299,10 @@
             "target": "Package",
             "version": "[8.0.1, )"
           },
+          "System.Security.Cryptography.ProtectedData": {
+            "target": "Package",
+            "version": "[8.0.0, )"
+          },
           "System.Text.Json": {
             "target": "Package",
             "version": "[8.0.5, )"
@@ -251,15 +319,49 @@
         ],
         "assetTargetFallback": true,
         "warn": true,
+        "downloadDependencies": [
+          {
+            "name": "Microsoft.AspNetCore.App.Ref",
+            "version": "[8.0.27, 8.0.27]"
+          },
+          {
+            "name": "Microsoft.AspNetCore.App.Runtime.win-x64",
+            "version": "[8.0.27, 8.0.27]"
+          },
+          {
+            "name": "Microsoft.NETCore.App.Crossgen2.win-x64",
+            "version": "[8.0.27, 8.0.27]"
+          },
+          {
+            "name": "Microsoft.NETCore.App.Host.win-x64",
+            "version": "[8.0.27, 8.0.27]"
+          },
+          {
+            "name": "Microsoft.NETCore.App.Ref",
+            "version": "[8.0.27, 8.0.27]"
+          },
+          {
+            "name": "Microsoft.NETCore.App.Runtime.win-x64",
+            "version": "[8.0.27, 8.0.27]"
+          },
+          {
+            "name": "Microsoft.WindowsDesktop.App.Ref",
+            "version": "[8.0.27, 8.0.27]"
+          },
+          {
+            "name": "Microsoft.WindowsDesktop.App.Runtime.win-x64",
+            "version": "[8.0.27, 8.0.27]"
+          }
+        ],
         "frameworkReferences": {
           "Microsoft.NETCore.App": {
             "privateAssets": "all"
           },
-          "Microsoft.WindowsDesktop.App.WPF": {
+          "Microsoft.WindowsDesktop.App": {
             "privateAssets": "none"
           }
         },
-        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.200-preview.0.26103.119/PortableRuntimeIdentifierGraph.json"
+        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.204/PortableRuntimeIdentifierGraph.json"
       }
     },
     "runtimes": {

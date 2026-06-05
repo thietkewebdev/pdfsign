@@ -13,6 +13,8 @@ from cryptography.hazmat.primitives import serialization
 import pkcs11
 from pkcs11 import ObjectClass, Attribute
 
+from . import errors
+
 
 @dataclass
 class CertInfo:
@@ -99,6 +101,26 @@ def get_signer_name(cert_info: CertInfo) -> str:
     return cert_info.subject_o or cert_info.subject_cn or "Unknown"
 
 
+def cert_validity_status(cert_info: CertInfo) -> Optional[str]:
+    """
+    Return an errors.* code if the certificate is not currently usable for signing
+    (expired / not yet valid), else None. Parses raw DER for accurate UTC bounds.
+    """
+    from datetime import datetime, timezone
+
+    try:
+        cert = x509.load_der_x509_certificate(cert_info.raw_der, default_backend())
+        now = datetime.now(timezone.utc)
+        if now > cert.not_valid_after_utc:
+            return errors.ERR_CERT_EXPIRED
+        if now < cert.not_valid_before_utc:
+            return errors.ERR_CERT_NOT_YET_VALID
+    except Exception:
+        # If we cannot parse, don't block signing on this check.
+        return None
+    return None
+
+
 def _slots_with_token_indices(lib) -> list[tuple[int, object]]:
     """
     Slots where a token is reachable via C_GetTokenInfo (matches pyHanko open_pkcs11_session).
@@ -129,7 +151,7 @@ def list_certs_from_token(
     lib = pkcs11.lib(lib_path)
     indexed = _slots_with_token_indices(lib)
     if not indexed:
-        raise RuntimeError("No token found. Please insert USB token.")
+        raise errors.SignerError(errors.ERR_TOKEN_NOT_FOUND)
 
     pick = (
         slot_no
@@ -177,20 +199,23 @@ def list_certs_from_token(
                         certs.append(info)
                     except Exception:
                         continue
-    except pkcs11.exceptions.PinIncorrect:
-        raise RuntimeError("Wrong PIN. Please try again.")
-    except pkcs11.exceptions.UserNotLoggedIn:
-        raise RuntimeError("Token requires PIN. Please run again and enter PIN when prompted.")
+    except pkcs11.exceptions.PinLocked as e:
+        raise errors.SignerError(errors.ERR_PIN_LOCKED, cause=e)
+    except pkcs11.exceptions.PinExpired as e:
+        raise errors.SignerError(errors.ERR_PIN_EXPIRED, cause=e)
+    except pkcs11.exceptions.PinIncorrect as e:
+        raise errors.SignerError(errors.ERR_PIN_INCORRECT, cause=e)
+    except (pkcs11.exceptions.PinInvalid, pkcs11.exceptions.PinLenRange) as e:
+        raise errors.SignerError(errors.ERR_PIN_INVALID, cause=e)
+    except pkcs11.exceptions.UserNotLoggedIn as e:
+        raise errors.SignerError(errors.ERR_PIN_INCORRECT, cause=e)
+    except (pkcs11.exceptions.TokenNotPresent, pkcs11.exceptions.DeviceRemoved) as e:
+        raise errors.SignerError(errors.ERR_TOKEN_REMOVED, cause=e)
 
     if not certs:
         if os.environ.get("PDFSIGN_DEBUG"):
             _debug_list_objects(token, pin)
-        raise RuntimeError(
-            "No certificates found on token. "
-            "Ensure the token has a signing certificate installed. "
-            "Some tokens require certificate import via vendor software first. "
-            "Run with PDFSIGN_DEBUG=1 to list token objects."
-        )
+        raise errors.SignerError(errors.ERR_NO_CERTS)
 
     return certs, used_slot
 
@@ -210,11 +235,14 @@ def list_certs_try_pkcs11_dlls(
             certs, slot = list_certs_from_token(str(dll), pin=pin)
             return certs, slot, str(dll)
         except RuntimeError as e:
-            em = str(e)
-            if "No token found" in em or "Please insert" in em:
+            # Only keep trying other DLLs when this one simply saw no token.
+            # Real errors (wrong PIN, locked PIN, no certs) must surface immediately
+            # so the user gets the right message instead of a generic "no token".
+            code = e.code if isinstance(e, errors.SignerError) else errors.classify_exception(e)
+            if code == errors.ERR_TOKEN_NOT_FOUND:
                 last = e
                 continue
             raise
     if last is not None:
         raise last
-    raise RuntimeError("No token found. Please insert USB token.")
+    raise errors.SignerError(errors.ERR_TOKEN_NOT_FOUND)

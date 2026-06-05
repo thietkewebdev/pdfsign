@@ -32,6 +32,30 @@ DLL_PATTERNS = (
     "easyca",
     "bkav",
     "etoken",
+    # Hardware token middleware modules common in Vietnam (validated via
+    # C_GetFunctionList, so non-PKCS#11 DLLs matching by name are still filtered out).
+    "ngp11",        # Feitian (ePass) NGP middleware
+    "castle",       # Feitian Castle
+    "epass",        # Feitian ePass
+    "eps2003",      # Feitian ePass2003
+    "shuttle",      # Feitian SHUTTLE
+    "ftpkcs11",     # Feitian
+    "ftsafe",       # FTSafe / Feitian
+    "wdpkcs",       # Watchdata
+    "watchdata",
+    "aetpkss",      # Giesecke+Devrient StarSign
+    "opensc",       # OpenSC
+    "idprime",      # Thales/Gemalto IDPrime
+    "starcos",      # G&D STARCOS
+    "cardos",       # Atos CardOS
+    "safesign",     # A.E.T. SafeSign
+    "gclib",        # Gemalto
+    "nacencomm",    # Nacencomm (CA2)
+    "savis",        # SAVIS / TrustCA
+    "softdreams",   # EasyCA / SoftDreams
+    "winca",        # WinCA
+    "newca",        # NEWTEL / NewCA
+    "ksign",        # K-Sign
 )
 
 # Directories to scan (Windows) - include subdirs for vendor-specific paths
@@ -95,6 +119,17 @@ _VENDOR_DIR_MARKERS = (
     "bkav",
     "easyca",
     "easysign",
+    "feitian",
+    "watchdata",
+    "gemalto",
+    "thales",
+    "nacencomm",
+    "savis",
+    "softdreams",
+    "winca",
+    "newca",
+    "ksign",
+    "opensc",
 )
 
 

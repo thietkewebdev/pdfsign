@@ -36,6 +36,7 @@ import { useSignaturePlacement } from "@/hooks/use-signature-placement";
 import { JobStatusResponseSchema } from "@/lib/job-status";
 import { getPdfViewerUrl } from "@/lib/pdf-view-url";
 import { trackGaEvent } from "@/lib/analytics";
+import { launchSignerWithFallback } from "@/lib/signer-launch";
 
 interface Signer {
   id: string;
@@ -137,6 +138,7 @@ export default function ContractPage() {
     deepLink: string;
     status: "CREATED" | "COMPLETED" | "EXPIRED" | "CANCELED";
   } | null>(null);
+  const [signerNotOpened, setSignerNotOpened] = useState(false);
   const pollStartRef = useRef<number | null>(null);
 
   const {
@@ -205,7 +207,13 @@ export default function ContractPage() {
     if (!jobState || jobState.status !== "CREATED") return;
 
     const poll = async () => {
-      const res = await fetch(`/api/jobs/${jobState.jobId}/status`);
+      let res: Response;
+      try {
+        res = await fetch(`/api/jobs/${jobState.jobId}/status`);
+      } catch {
+        // Transient network error during polling — keep retrying silently.
+        return;
+      }
       if (!res.ok) return;
       const raw = await res.json();
       const parsed = JobStatusResponseSchema.safeParse(raw);
@@ -310,6 +318,7 @@ export default function ContractPage() {
       placement_count: placements.length,
     });
     setSigning(true);
+    setSignerNotOpened(false);
 
     try {
       const placement = placements[safePlacementEditorIdx];
@@ -356,7 +365,13 @@ export default function ContractPage() {
       trackGaEvent("signer_launch_attempted", {
         surface: "contract_page",
       });
-      window.location.href = deepLink;
+      launchSignerWithFallback({
+        deepLink,
+        onFallback: () => {
+          setSignerNotOpened(true);
+          trackGaEvent("signer_launch_fallback", { surface: "contract_page" });
+        },
+      });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Có lỗi xảy ra");
     } finally {
@@ -447,7 +462,10 @@ export default function ContractPage() {
 
   const activePlacement = placements[placementEditorIdx];
   const activePage = activePlacement?.page ?? currentPage;
-  const showSigningUI = contract.canSign && token && !jobState;
+  // Logged-in signers reach this page without a ?token= query; the API still returns
+  // currentSignerToken for them. Use either so the signing UI shows in both cases.
+  const effectiveSignToken = token ?? contract.currentSignerToken ?? null;
+  const showSigningUI = contract.canSign && !!effectiveSignToken && !jobState;
   const usePdfScroll = !!(pdfUrl && showSigningUI);
 
   return (
@@ -503,6 +521,39 @@ export default function ContractPage() {
                   <p className="text-xs text-muted-foreground">
                     Ứng dụng PDFSignPro Signer đã được mở. Hoàn tất ký số trên ứng dụng.
                   </p>
+                  {signerNotOpened && (
+                    <div className="mt-3 rounded-md border border-amber-300 bg-amber-50 p-2.5 text-xs dark:border-amber-800 dark:bg-amber-950/30">
+                      <p className="font-medium text-amber-800 dark:text-amber-300">
+                        Chưa mở được ứng dụng ký số?
+                      </p>
+                      <p className="mt-1 text-amber-700 dark:text-amber-400">
+                        Hãy cài đặt PDFSignPro Signer rồi bấm Ký lại.
+                      </p>
+                      <div className="mt-2 flex gap-2">
+                        <a
+                          href="/api/signer/download"
+                          className="inline-flex items-center gap-1 rounded bg-amber-600 px-2 py-1 font-medium text-white hover:bg-amber-700"
+                        >
+                          <Download className="size-3" />
+                          Tải Signer
+                        </a>
+                        <button
+                          onClick={() => {
+                            if (jobState?.deepLink) {
+                              setSignerNotOpened(false);
+                              launchSignerWithFallback({
+                                deepLink: jobState.deepLink,
+                                onFallback: () => setSignerNotOpened(true),
+                              });
+                            }
+                          }}
+                          className="inline-flex items-center gap-1 rounded border border-amber-400 px-2 py-1 font-medium text-amber-800 hover:bg-amber-100 dark:text-amber-300 dark:hover:bg-amber-900/30"
+                        >
+                          Mở lại Signer
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             )}

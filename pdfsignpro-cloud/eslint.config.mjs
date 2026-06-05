@@ -12,6 +12,11 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Vendored / generated assets (not our source).
+    "public/pdfjs/**",
+    "src/generated/**",
+    // Node build scripts (CommonJS).
+    "scripts/**",
   ]),
 ]);
 

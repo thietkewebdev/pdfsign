@@ -3,6 +3,7 @@
 import { useParams } from "next/navigation";
 import { useState, useCallback, useEffect, useRef } from "react";
 import Link from "next/link";
+import { toast } from "sonner";
 import {
   Download,
   HelpCircle,
@@ -37,6 +38,10 @@ import { SignaturePlacementFields } from "@/components/signature/SignaturePlacem
 import { LocalSignerCertPanel, SignerEnvironmentChecklist } from "@/components/signing";
 import { trackGaEvent } from "@/lib/analytics";
 import { isWindowsClient, launchSignerWithFallback } from "@/lib/signer-launch";
+import { JobStatusResponseSchema } from "@/lib/job-status";
+
+const POLL_INTERVAL_MS = 2000;
+const POLL_TIMEOUT_MS = 5 * 60 * 1000;
 
 interface DocumentData {
   document: { id: string; publicId: string; title: string };
@@ -64,6 +69,8 @@ export default function SignPage() {
   const [signerDownloadModalOpen, setSignerDownloadModalOpen] = useState(false);
   const [selectedTemplateId, setSelectedTemplateId] = useState("valid");
   const [sealImageBase64, setSealImageBase64] = useState<string | null>(null);
+  const [signedDownloadUrl, setSignedDownloadUrl] = useState<string | null>(null);
+  const pollStartRef = useRef<number | null>(null);
 
   const {
     placements,
@@ -157,20 +164,37 @@ export default function SignPage() {
     if (selectedTemplateId === "seal" && sealImageBase64) {
       jobBody.sealImage = sealImageBase64;
     }
-    const res = await fetch("/api/jobs", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(jobBody),
-    });
+    let res: Response;
+    try {
+      res = await fetch("/api/jobs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(jobBody),
+      });
+    } catch {
+      toast.error("Lỗi mạng. Vui lòng kiểm tra kết nối và thử lại.");
+      return;
+    }
 
     if (!res.ok) {
-      const err = await res.json();
-      console.error(err);
+      const err = await res.json().catch(() => ({}));
+      if (res.status === 402 && err.code === "QUOTA_EXCEEDED") {
+        toast.error(err.error ?? "Đã đạt giới hạn 50 file/tháng", {
+          action: {
+            label: "Xem gói",
+            onClick: () => window.open("/dashboard?tab=usage", "_self"),
+          },
+        });
+        return;
+      }
+      toast.error(err.error ?? "Tạo phiên ký thất bại. Vui lòng thử lại.");
       return;
     }
 
     const data = await res.json();
+    setSignedDownloadUrl(null);
     setJobResult({ jobId: data.jobId, deepLink: data.deepLink });
+    pollStartRef.current = Date.now();
     trackGaEvent("sign_job_created", {
       surface: "sign_page",
       template_id: selectedTemplateId,
@@ -190,6 +214,59 @@ export default function SignPage() {
       },
     });
   };
+
+  // Poll job status after signing starts so the user sees completion on this page.
+  useEffect(() => {
+    if (!jobResult) return;
+    if (signedDownloadUrl) return;
+
+    const poll = async () => {
+      let res: Response;
+      try {
+        res = await fetch(`/api/jobs/${jobResult.jobId}/status`);
+      } catch {
+        return;
+      }
+      if (!res.ok) return;
+      const raw = await res.json();
+      const parsed = JobStatusResponseSchema.safeParse(raw);
+      if (!parsed.success) return;
+
+      const { status } = parsed.data;
+      if (status === "COMPLETED") {
+        trackGaEvent("sign_completed", { surface: "sign_page" });
+        const downloadUrl = parsed.data.signedDownloadUrl ?? null;
+        setSignedDownloadUrl(downloadUrl);
+        setJobResult(null);
+        pollStartRef.current = null;
+        toast.success("Đã ký thành công!", {
+          action: downloadUrl
+            ? { label: "Tải PDF đã ký", onClick: () => window.open(downloadUrl, "_blank") }
+            : undefined,
+        });
+        return;
+      }
+      if (status === "EXPIRED") {
+        trackGaEvent("sign_failed", { surface: "sign_page", reason: "job_expired" });
+        setJobResult(null);
+        pollStartRef.current = null;
+        toast.error("Phiên ký đã hết hạn. Vui lòng thử lại.");
+        return;
+      }
+
+      const elapsed = Date.now() - (pollStartRef.current ?? Date.now());
+      if (elapsed >= POLL_TIMEOUT_MS) {
+        trackGaEvent("sign_failed", { surface: "sign_page", reason: "poll_timeout" });
+        setJobResult(null);
+        pollStartRef.current = null;
+        toast.error("Hết thời gian chờ ký.");
+      }
+    };
+
+    const intervalId = setInterval(poll, POLL_INTERVAL_MS);
+    poll();
+    return () => clearInterval(intervalId);
+  }, [jobResult, signedDownloadUrl]);
 
   const copyDeepLink = () => {
     if (!jobResult) return;
@@ -261,9 +338,16 @@ export default function SignPage() {
             <Sun className="size-4 dark:hidden" />
             <Moon className="size-4 hidden dark:block" />
           </Button>
-          <Button variant="outline" size="sm" disabled>
+          <Button
+            variant={signedDownloadUrl ? "default" : "outline"}
+            size="sm"
+            disabled={!signedDownloadUrl}
+            onClick={() => {
+              if (signedDownloadUrl) window.open(signedDownloadUrl, "_blank");
+            }}
+          >
             <Download className="size-4" />
-            Tải xuống
+            {signedDownloadUrl ? "Tải PDF đã ký" : "Tải xuống"}
           </Button>
           <Button variant="ghost" size="sm">
             <HelpCircle className="size-4" />
