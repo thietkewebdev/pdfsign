@@ -48,6 +48,18 @@ export async function POST(request: Request) {
     );
     const title = titleResult.success ? titleResult.data : "Untitled";
 
+    // Guard against stale sessions: a JWT may carry a userId that no longer
+    // exists (e.g. after a DB reset or the user was deleted). Persisting it would
+    // violate the Document_userId foreign key, so fall back to an anonymous doc.
+    let ownerId: string | null = session?.user?.id ?? null;
+    if (ownerId) {
+      const owner = await prisma.user.findUnique({
+        where: { id: ownerId },
+        select: { id: true },
+      });
+      if (!owner) ownerId = null;
+    }
+
     const buffer = Buffer.from(await file.arrayBuffer());
     const publicId = generatePublicId();
     const storageKey = `documents/${publicId}/v1.pdf`;
@@ -60,7 +72,7 @@ export async function POST(request: Request) {
         publicId,
         title: title || file.name || "Untitled",
         status: "ACTIVE",
-        userId: session?.user?.id ?? null,
+        userId: ownerId,
         versions: {
           create: {
             version: 1,
