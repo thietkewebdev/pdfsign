@@ -21,6 +21,7 @@ import {
   Info,
   CircleHelp,
   ExternalLink,
+  Phone,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -1092,6 +1093,21 @@ export default function SigningViewerPage() {
           </button>
         </div>
         <div className="flex flex-1 flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-end sm:gap-6">
+          {!isSigned && (
+            <a
+              href="https://zalo.me/0984056777"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700 transition-colors hover:bg-blue-100 sm:flex-col sm:gap-0.5 sm:px-4 sm:text-right"
+              title="Ký lỗi, không ký được? Liên hệ hỗ trợ qua Zalo hoặc gọi điện"
+            >
+              <span className="flex items-center gap-1.5 font-semibold">
+                <Phone className="size-4 shrink-0" strokeWidth={2} />
+                Ký lỗi? Hỗ trợ Zalo
+              </span>
+              <span className="font-black tracking-wide">0984.056.777</span>
+            </a>
+          )}
           <div className="text-center sm:hidden">
             <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
               {isSigned ? "Đã hoàn tất" : "Đang thực hiện ký"}
