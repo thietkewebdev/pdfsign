@@ -24,6 +24,36 @@ public class CoreService
 
     public bool CoreExists => File.Exists(_coreExePath);
 
+    /// <summary>Discover PKCS#11 DLLs without PIN (for web readiness checklist).</summary>
+    public async Task<(bool Found, int Count, List<string> Dlls, string Stderr)> ProbePkcs11Async(CancellationToken ct = default)
+    {
+        var (exitCode, stdout, stderr) = await RunCoreAsync(new[] { "--probe-pkcs11" }, ct);
+        if (exitCode != 0)
+            return (false, 0, new List<string>(), stderr);
+
+        try
+        {
+            using var doc = JsonDocument.Parse(stdout);
+            var root = doc.RootElement;
+            var found = root.TryGetProperty("found", out var f) && f.GetBoolean();
+            var count = root.TryGetProperty("dllCount", out var c) ? c.GetInt32() : 0;
+            var dlls = new List<string>();
+            if (root.TryGetProperty("dlls", out var arr) && arr.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var item in arr.EnumerateArray())
+                {
+                    var s = item.GetString();
+                    if (!string.IsNullOrWhiteSpace(s)) dlls.Add(s);
+                }
+            }
+            return (found || count > 0, count, dlls, stderr);
+        }
+        catch
+        {
+            return (false, 0, new List<string>(), stderr);
+        }
+    }
+
     /// <summary>Run --list-certs and parse JSON. Returns (dllPath, certs). dllPath from core when not provided.</summary>
     public async Task<(string DllPath, List<CertInfo> Certs, string Stdout, string Stderr)> ListCertsAsync(string? dllPath, string pin, CancellationToken ct = default)
     {

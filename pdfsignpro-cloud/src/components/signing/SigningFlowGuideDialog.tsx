@@ -71,8 +71,9 @@ export function SigningFlowGuideDialog({ open, onOpenChange }: Props) {
           ))}
         </ol>
         <div className="rounded-lg border border-amber-200/80 bg-amber-50/90 p-3 text-sm text-amber-950 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-100">
-          <strong className="font-semibold">Chưa cài Signer?</strong> Tải bản cài
-          Windows (PDFSignProSignerSetup) — cần thiết để đăng ký liên kết{" "}
+          <strong className="font-semibold">Chưa cài Signer?</strong> Tải{" "}
+          <strong>PDFSignProSignerSetup.exe</strong> (cài per-user, không cần
+          admin) để đăng ký liên kết{" "}
           <code className="rounded bg-black/5 px-1 text-xs dark:bg-white/10">
             pdfsignpro://
           </code>{" "}

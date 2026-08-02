@@ -14,8 +14,12 @@ public sealed class LocalBridgeService : IDisposable
     private readonly HttpListener _listener = new();
     private CancellationTokenSource? _cts;
     private Task? _loopTask;
+    private readonly object _probeLock = new();
+    private DateTime _probeCachedAtUtc = DateTime.MinValue;
+    private object? _probeCachedPayload;
 
     private const string Prefix = "http://127.0.0.1:17886/";
+    private static readonly TimeSpan ProbeCacheTtl = TimeSpan.FromSeconds(20);
 
     public LocalBridgeService(CoreService core)
     {
@@ -79,10 +83,21 @@ public sealed class LocalBridgeService : IDisposable
             var path = (req.Url?.AbsolutePath ?? "/").TrimEnd('/').ToLowerInvariant();
             if (string.IsNullOrEmpty(path)) path = "/";
 
-            if (req.HttpMethod.Equals("GET", StringComparison.OrdinalIgnoreCase) && path == "/health")
+            if (req.HttpMethod.Equals("GET", StringComparison.OrdinalIgnoreCase)
+                && (path == "/health" || path == "/ready"))
             {
                 var version = Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "dev";
-                await WriteJsonAsync(res, 200, new { ok = true, app = "PDFSignProSigner", version });
+                var pkcs11 = await GetPkcs11ProbeAsync(ct);
+                await WriteJsonAsync(res, 200, new
+                {
+                    ok = true,
+                    app = "PDFSignProSigner",
+                    version,
+                    installMode = "per-user",
+                    bridge = true,
+                    coreExists = _core.CoreExists,
+                    pkcs11,
+                });
                 return;
             }
 
@@ -127,6 +142,37 @@ public sealed class LocalBridgeService : IDisposable
             LogService.Error("Local bridge request error", ex);
             if (!res.OutputStream.CanWrite) return;
             await WriteErrorAsync(res, 500, "INTERNAL_ERROR", ex.Message);
+        }
+    }
+
+    private async Task<object> GetPkcs11ProbeAsync(CancellationToken ct)
+    {
+        lock (_probeLock)
+        {
+            if (_probeCachedPayload != null && DateTime.UtcNow - _probeCachedAtUtc < ProbeCacheTtl)
+                return _probeCachedPayload;
+        }
+
+        try
+        {
+            var (found, count, dlls, _) = await _core.ProbePkcs11Async(ct);
+            var payload = new
+            {
+                found,
+                dllCount = count,
+                dlls = dlls.Select(Path.GetFileName).Where(n => !string.IsNullOrEmpty(n)).Take(8).ToList(),
+            };
+            lock (_probeLock)
+            {
+                _probeCachedPayload = payload;
+                _probeCachedAtUtc = DateTime.UtcNow;
+            }
+            return payload;
+        }
+        catch (Exception ex)
+        {
+            LogService.Error("PKCS#11 probe failed", ex);
+            return new { found = false, dllCount = 0, dlls = Array.Empty<string>(), error = "PROBE_FAILED" };
         }
     }
 

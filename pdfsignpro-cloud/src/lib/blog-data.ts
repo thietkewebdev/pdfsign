@@ -282,24 +282,29 @@ Hầu hết CA lớn tại Việt Nam (Viettel, VNPT, FPT, EasyCA, FastCA) đề
     content: `## Yêu cầu hệ thống
 
 - **Hệ điều hành**: Windows 10 hoặc Windows 11 (64-bit)
-- **Runtime**: .NET 8 Desktop Runtime (tự động cài nếu thiếu)
-- **USB Token**: Đã cắm và cài driver PKCS#11
+- **Runtime**: Không cần cài riêng — Setup đã kèm .NET (self-contained)
+- **Quyền**: Không cần Administrator (cài per-user vào LocalAppData)
+- **USB Token**: Đã cắm và cài driver PKCS#11 từ nhà cung cấp CA
 
 ## Bước 1: Tải PDFSignPro Signer
 
 1. Truy cập [pdfsign.vn/signer](/signer)
-2. Nhấn nút **"Tải PDFSignPro Signer"**
-3. File setup sẽ được tải về (khoảng 35MB)
+2. Nhấn nút **"Tải PDFSignProSignerSetup.exe"**
+3. File setup sẽ được tải về (khoảng 80–90MB)
+
+> Chỉ dùng file **Setup**. Không chạy bản portable — sẽ không đăng ký được \`pdfsignpro://\`.
 
 ## Bước 2: Cài đặt
 
 1. Chạy file **PDFSignProSignerSetup.exe**
 2. Nếu Windows SmartScreen cảnh báo, nhấn **"More info"** → **"Run anyway"**
-3. Chọn thư mục cài đặt (mặc định: Program Files)
-4. Nhấn **"Install"** và đợi hoàn tất
-5. Nhấn **"Finish"**
+3. Để thư mục mặc định (\`%LOCALAPPDATA%\\PDFSignProSigner\`) — không cần admin
+4. (Tuỳ chọn) bật **Start Signer with Windows** để luôn sẵn sàng ký
+5. Nhấn **"Install"** → **"Finish"**
 
-Phần mềm sẽ tự đăng ký protocol **pdfsignpro://** để nhận lệnh ký từ trình duyệt.
+Phần mềm sẽ tự đăng ký protocol **pdfsignpro://** (HKCU) để nhận lệnh ký từ trình duyệt.
+
+Nếu máy còn bản cũ cài Program Files: gỡ trong **Settings → Apps** rồi cài Setup mới.
 
 ## Bước 3: Kiểm tra
 

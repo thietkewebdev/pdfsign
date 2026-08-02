@@ -31,6 +31,10 @@ public partial class App : System.Windows.Application
     private void App_OnStartup(object sender, StartupEventArgs e)
     {
         var deeplink = DeepLinkService.ExtractFromArgs(e.Args);
+        var startMinimized = e.Args.Any(a =>
+            a.Equals("--tray", StringComparison.OrdinalIgnoreCase)
+            || a.Equals("--minimized", StringComparison.OrdinalIgnoreCase)
+            || a.Equals("/minimized", StringComparison.OrdinalIgnoreCase));
 
         _singleInstance = new SingleInstanceService();
         if (!_singleInstance.TryAcquire())
@@ -60,6 +64,13 @@ public partial class App : System.Windows.Application
         });
 
         _mainWindow.Show();
+        if (startMinimized && string.IsNullOrEmpty(deeplink))
+        {
+            // Autostart: keep local bridge alive in tray without blocking the desktop.
+            _trayIcon.HideWindowToTray(
+                "PDFSignPro Signer đang chạy nền — sẵn sàng ký từ trình duyệt.");
+        }
+
         if (!string.IsNullOrEmpty(deeplink))
         {
             Dispatcher.BeginInvoke(() => _mainWindow.ProcessDeepLink(deeplink), DispatcherPriority.Loaded);

@@ -18,7 +18,7 @@ if hasattr(sys.stderr, "reconfigure"):
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from signer.pkcs11_discovery import get_pkcs11_dll
+from signer.pkcs11_discovery import get_pkcs11_dll, ordered_pkcs11_dll_candidates
 from signer.cert_selector import list_certs_from_token, list_certs_try_pkcs11_dlls, get_signer_name
 from signer.pades_signer import sign_pdf_sync
 from signer import errors
@@ -101,9 +101,33 @@ def sign_pdf(
     print("OK")
 
 
+def probe_pkcs11() -> None:
+    """List discovered PKCS#11 modules without opening the token (no PIN)."""
+    try:
+        dlls = [str(p) for p in ordered_pkcs11_dll_candidates()]
+    except FileNotFoundError:
+        dlls = []
+    print(
+        json.dumps(
+            {
+                "ok": True,
+                "dllCount": len(dlls),
+                "found": len(dlls) > 0,
+                "dlls": dlls[:12],
+            },
+            ensure_ascii=False,
+        )
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="PDF signer CLI")
     parser.add_argument("--list-certs", action="store_true", help="List certificates")
+    parser.add_argument(
+        "--probe-pkcs11",
+        action="store_true",
+        help="Discover PKCS#11 DLLs without PIN (readiness check)",
+    )
     parser.add_argument("--dll", help="Path to PKCS#11 DLL")
     parser.add_argument("--pin", help="PIN for token")
     parser.add_argument("--in", dest="input", help="Input PDF path")
@@ -117,6 +141,9 @@ def main() -> int:
     args = parser.parse_args()
 
     try:
+        if args.probe_pkcs11:
+            probe_pkcs11()
+            return 0
         if args.list_certs:
             if not args.pin:
                 print("--list-certs requires --pin", file=sys.stderr)

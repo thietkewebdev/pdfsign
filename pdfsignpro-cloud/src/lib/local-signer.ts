@@ -10,17 +10,28 @@ export interface LocalSignerCert {
   displayName: string;
 }
 
+export interface LocalSignerPkcs11Status {
+  found: boolean;
+  dllCount: number;
+  dlls?: string[];
+  error?: string;
+}
+
+export interface LocalSignerHealthResponse {
+  ok: boolean;
+  app?: string;
+  version?: string;
+  installMode?: string;
+  bridge?: boolean;
+  coreExists?: boolean;
+  pkcs11?: LocalSignerPkcs11Status;
+}
+
 interface LocalSignerCertResponse {
   ok: boolean;
   certs?: LocalSignerCert[];
   count?: number;
   error?: string;
-}
-
-interface LocalSignerHealthResponse {
-  ok: boolean;
-  app?: string;
-  version?: string;
 }
 
 const LOCAL_SIGNER_BASE = "http://127.0.0.1:17886";
@@ -40,7 +51,10 @@ async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T
 
 export async function probeLocalSigner(): Promise<LocalSignerHealthResponse | null> {
   try {
-    const res = await withTimeout(fetch(`${LOCAL_SIGNER_BASE}/health`, { method: "GET" }), REQ_TIMEOUT_MS);
+    const res = await withTimeout(
+      fetch(`${LOCAL_SIGNER_BASE}/health`, { method: "GET" }),
+      REQ_TIMEOUT_MS
+    );
     if (!res.ok) return null;
     const json = (await res.json()) as LocalSignerHealthResponse;
     return json?.ok ? json : null;

@@ -199,20 +199,21 @@ Response:
 
 ## Signer download
 
-`/api/signer/download` redirects to a presigned R2 URL for `PDFSignProSigner.exe`.
+`/api/signer/download` redirects to a presigned R2 URL for **`PDFSignProSignerSetup.exe`** (Inno per-user installer).
 
-**Upload the exe to R2:**
+**Build & upload to R2:**
 
-1. Build: `cd desktop-signer && .\build.ps1` → outputs `dist/PDFSignProSigner.exe`
-2. Upload to R2 at key `signer/PDFSignProSigner.exe` (or set `SIGNER_R2_KEY` to your key)
-3. Use Cloudflare Dashboard, AWS CLI, or any S3-compatible tool:
+1. Build: `cd pdfsignpro-signer-wpf && .\build-installer.ps1` → `dist-installer/PDFSignProSignerSetup.exe`
+2. Upload to R2 at key `signer/PDFSignProSignerSetup.exe` (or set `SIGNER_R2_KEY`)
+3. Example:
 
    ```bash
-   aws s3 cp desktop-signer/dist/PDFSignProSigner.exe s3://YOUR_BUCKET/signer/PDFSignProSigner.exe \
+   aws s3 cp pdfsignpro-signer-wpf/dist-installer/PDFSignProSignerSetup.exe \
+     s3://YOUR_BUCKET/signer/PDFSignProSignerSetup.exe \
      --endpoint-url https://YOUR_ACCOUNT.r2.cloudflarestorage.com
    ```
 
-If the file is missing, the API returns 404 with a hint.
+Setup cài **per-user** (không cần admin), đăng ký `pdfsignpro://` qua HKCU. Nếu file thiếu, API trả 404 kèm hint.
 
 ## How signing works
 

@@ -41,7 +41,7 @@ const CHROME_SMARTSCREEN_STEPS = [
   {
     icon: CheckCircle2,
     title: "Cài đặt",
-    desc: "Chạy file .exe và làm theo hướng dẫn cài đặt.",
+    desc: "Chạy PDFSignPro_Setup.exe và làm theo hướng dẫn. Ưu tiên cài cho tài khoản Windows hiện tại nếu trình cài hỏi.",
   },
 ] as const;
 

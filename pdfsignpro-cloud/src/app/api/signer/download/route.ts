@@ -9,7 +9,7 @@ export async function GET() {
     return NextResponse.json(
       {
         error: "Signer download not configured",
-        hint: "Set SIGNER_R2_KEY in environment (e.g. signer/PDFSignProSigner.exe)",
+        hint: "Set SIGNER_R2_KEY in environment (e.g. signer/PDFSignProSignerSetup.exe)",
       },
       { status: 500 }
     );
@@ -22,7 +22,7 @@ export async function GET() {
       return NextResponse.json(
         {
           error: "Signer file not found",
-          hint: `Upload PDFSignProSigner.exe to R2 at key "${key}" (SIGNER_R2_KEY)`,
+          hint: `Upload PDFSignProSignerSetup.exe to R2 at key "${key}" (SIGNER_R2_KEY)`,
         },
         { status: 404 }
       );
