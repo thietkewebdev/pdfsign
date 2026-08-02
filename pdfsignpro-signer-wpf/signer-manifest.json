@@ -1,4 +1,8 @@
 {
-  "version": "1.0.3",
-  "downloadUrl": "https://pdfsign.vn/api/signer/download"
+  "version": "1.0.4",
+  "downloadUrl": "https://pdfsign.vn/api/signer/download",
+  "sha256": "",
+  "sizeBytes": 0,
+  "releaseNotes": "Cài per-user (không cần admin), checklist sẵn sàng ký, cập nhật trong ứng dụng. Chạy build-installer.ps1 để điền sha256 thật trước khi ship.",
+  "channel": "stable"
 }

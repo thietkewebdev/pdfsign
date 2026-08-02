@@ -105,18 +105,24 @@ export default function SignerPage() {
           </Button>
         </div>
 
-        <Card className="border-emerald-200/80 bg-emerald-50/40">
+            <Card className="border-emerald-200/80 bg-emerald-50/40">
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-base">
               <Monitor className="size-5 text-emerald-700" />
               Vì sao phải cài Setup?
             </CardTitle>
           </CardHeader>
-          <CardContent className="text-sm text-muted-foreground">
-            Setup đăng ký giao thức{" "}
-            <code className="rounded bg-muted px-1 text-xs">pdfsignpro://</code>{" "}
-            để trình duyệt mở Signer khi bạn bấm Ký. Chạy file portable không qua
-            Setup sẽ không đăng ký được liên kết này.
+          <CardContent className="space-y-2 text-sm text-muted-foreground">
+            <p>
+              Setup đăng ký giao thức{" "}
+              <code className="rounded bg-muted px-1 text-xs">pdfsignpro://</code>{" "}
+              để trình duyệt mở Signer khi bạn bấm Ký. Chạy file portable không
+              qua Setup sẽ không đăng ký được liên kết này.
+            </p>
+            <p>
+              Bản 1.0.4+ tự kiểm tra cập nhật trong app (tải Setup, cài silent,
+              không cần mở trình duyệt).
+            </p>
           </CardContent>
         </Card>
 
