@@ -14,8 +14,8 @@ import {
   Upload,
   Usb,
 } from "lucide-react";
+import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
-import { PdfViewer } from "@/components/pdf/PdfViewer";
 import { useSignaturePlacement } from "@/hooks/use-signature-placement";
 import { trackGaEvent } from "@/lib/analytics";
 import {
@@ -24,6 +24,19 @@ import {
 } from "@/lib/visual-sign";
 import { AddSignatureModal } from "./AddSignatureModal";
 import { cn } from "@/lib/utils";
+
+// pdfjs-dist cannot be evaluated during SSR (Object.defineProperty on non-object)
+const PdfViewer = dynamic(
+  () => import("@/components/pdf/PdfViewer").then((m) => m.PdfViewer),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex h-full items-center justify-center text-sm text-slate-500">
+        Đang tải trình xem PDF…
+      </div>
+    ),
+  }
+);
 
 const MOTION = { duration: 0.45, ease: [0.22, 1, 0.36, 1] as const };
 

@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
 import {
   ChevronsLeft,
   ChevronLeft,
@@ -11,11 +10,9 @@ import {
 import { SignatureBox, type SignatureBoxChrome } from "./SignatureBox";
 import { PdfScrollPage } from "./PdfScrollPage";
 import type { SignaturePlacement } from "@/lib/types";
+import { loadPdfjs, type PdfjsLib } from "@/lib/pdfjs-client";
 
-// Worker for pdf.js (self-hosted from public/pdfjs/)
-if (typeof window !== "undefined") {
-  pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdfjs/pdf.worker.min.mjs";
-}
+type PDFDocumentProxy = import("pdfjs-dist").PDFDocumentProxy;
 
 interface PdfViewerProps {
   file?: File | null;
@@ -86,44 +83,61 @@ export function PdfViewer({
   currentPageRef.current = currentPage;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const renderTaskRef = useRef<{ cancel: () => void } | null>(null);
-  const [pdfDoc, setPdfDoc] = useState<pdfjsLib.PDFDocumentProxy | null>(null);
+  const pdfjsRef = useRef<PdfjsLib | null>(null);
+  const [pdfDoc, setPdfDoc] = useState<PDFDocumentProxy | null>(null);
   const [pageDimensions, setPageDimensions] = useState<{
     width: number;
     height: number;
   } | null>(null);
 
   useEffect(() => {
-    if (file) {
-      const loadPdf = async () => {
+    let cancelled = false;
+    let destroyTask: (() => void) | undefined;
+
+    const run = async () => {
+      const pdfjs = await loadPdfjs();
+      if (cancelled) return;
+      pdfjsRef.current = pdfjs;
+
+      if (file) {
         const arrayBuffer = await file.arrayBuffer();
-        const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+        if (cancelled) return;
+        const loadingTask = pdfjs.getDocument({ data: arrayBuffer });
+        destroyTask = () => {
+          void loadingTask.destroy();
+        };
         const pdf = await loadingTask.promise;
+        if (cancelled) return;
         setPdfDoc(pdf);
         onTotalPagesChange(pdf.numPages);
-      };
-      loadPdf();
-      return () => setPdfDoc(null);
-    } else if (pdfUrl) {
-      // Use URL + Range requests (server must send Accept-Ranges) so pdf.js can load
-      // incrementally instead of fetch()+arrayBuffer() (waits for entire file).
-      const loadingTask = pdfjsLib.getDocument({
-        url: pdfUrl,
-        rangeChunkSize: 65536,
-        withCredentials: false,
-      });
-      loadingTask.promise
-        .then((pdf) => {
+      } else if (pdfUrl) {
+        // Use URL + Range requests (server must send Accept-Ranges) so pdf.js can load
+        // incrementally instead of fetch()+arrayBuffer() (waits for entire file).
+        const loadingTask = pdfjs.getDocument({
+          url: pdfUrl,
+          rangeChunkSize: 65536,
+          withCredentials: false,
+        });
+        destroyTask = () => {
+          void loadingTask.destroy();
+        };
+        try {
+          const pdf = await loadingTask.promise;
+          if (cancelled) return;
           setPdfDoc(pdf);
           onTotalPagesChange(pdf.numPages);
-        })
-        .catch(() => {
+        } catch {
           /* destroyed on unmount */
-        });
-      return () => {
-        void loadingTask.destroy();
-        setPdfDoc(null);
-      };
-    }
+        }
+      }
+    };
+
+    void run();
+    return () => {
+      cancelled = true;
+      destroyTask?.();
+      setPdfDoc(null);
+    };
   }, [file, pdfUrl, onTotalPagesChange]);
 
   const useContinuous =
@@ -196,7 +210,7 @@ export function PdfViewer({
         canvas,
         viewport,
         intent: "display" as const,
-        annotationMode: pdfjsLib.AnnotationMode?.ENABLE ?? 2,
+        annotationMode: pdfjsRef.current?.AnnotationMode?.ENABLE ?? 2,
       };
       const renderTask = page.render(renderContext);
       renderTaskRef.current = renderTask;

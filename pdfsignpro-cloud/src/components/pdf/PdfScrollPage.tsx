@@ -1,11 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import type { PDFDocumentProxy } from "pdfjs-dist";
 import { SignatureBox, type SignatureBoxChrome } from "./SignatureBox";
 import type { SignaturePlacement } from "@/lib/types";
 
-type PdfDoc = PDFDocumentProxy;
+type PdfDoc = import("pdfjs-dist").PDFDocumentProxy;
 
 interface PdfScrollPageProps {
   pageNum: number;
