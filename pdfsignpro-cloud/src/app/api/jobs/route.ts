@@ -151,7 +151,10 @@ export async function POST(request: Request) {
         jobToken,
         claimCodeHash,
         status: "CREATED",
-        placementJson: JSON.stringify(placement),
+        placementJson: JSON.stringify({
+          ...placement,
+          ...(templateId ? { templateId } : {}),
+        }),
         sealImageKey,
         expiresAt,
         creatorIpHash,

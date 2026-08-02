@@ -82,6 +82,14 @@ interface DocumentData {
   presignedUrl: string;
   viewUrl?: string;
   signInfo?: SignInfo | null;
+  signedPlacement?: {
+    page: number | "LAST";
+    xPct: number;
+    yPct: number;
+    wPct: number;
+    hPct: number;
+    templateId?: string;
+  } | null;
 }
 
 /** Format ISO to HH:mm dd/MM/yyyy (VN timezone) */
@@ -186,6 +194,7 @@ export default function SigningViewerPage() {
     addSignatureBox,
     updatePlacement,
     updatePlacementFromPixels,
+    setPlacements,
   } = useSignaturePlacement(totalPages);
 
   const [placementEditorIdx, setPlacementEditorIdx] = useState(0);
@@ -224,6 +233,27 @@ export default function SigningViewerPage() {
       })
       .finally(() => setLoading(false));
   }, [publicId, versionParam, fetchDocument]);
+
+  // After USB signing, keep a locked overlay at the signed box so the web
+  // preview still shows where the stamp is even if pdf.js paints it faintly.
+  useEffect(() => {
+    if (!data?.signedPlacement || totalPages < 1) return;
+    const sp = data.signedPlacement;
+    const page =
+      sp.page === "LAST"
+        ? totalPages
+        : Math.max(1, Math.min(totalPages, Number(sp.page) || totalPages));
+    setPlacements([
+      {
+        page,
+        xPct: sp.xPct,
+        yPct: sp.yPct,
+        wPct: sp.wPct,
+        hPct: sp.hPct,
+      },
+    ]);
+    if (sp.templateId) setSelectedTemplateId(sp.templateId);
+  }, [data?.signedPlacement, totalPages, setPlacements]);
 
   const docVersionForScrollKey = data
     ? `${publicId}-v${data.currentVersion.version}`
@@ -842,6 +872,7 @@ export default function SigningViewerPage() {
       onPlacementUpdate={handlePlacementUpdate}
       activePageForPlacement={activePage}
       readOnly={isSigned}
+      showLockedPlacements={isSigned && !!data.signedPlacement}
       selectedTemplateId={selectedTemplateId}
       sealImageBase64={sealImageBase64}
       continuousScroll

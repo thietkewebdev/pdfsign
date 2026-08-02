@@ -13,6 +13,7 @@ interface PdfScrollPageProps {
   scale: number;
   scrollRootRef: React.RefObject<HTMLDivElement | null>;
   readOnly: boolean;
+  showLockedPlacements?: boolean;
   placements: SignaturePlacement[];
   onPlacementUpdate: (
     index: number,
@@ -25,6 +26,7 @@ interface PdfScrollPageProps {
   ) => void;
   selectedTemplateId: string;
   sealImageBase64?: string | null;
+  overlayImageUrl?: string | null;
   signatureChrome?: SignatureBoxChrome;
 }
 
@@ -34,10 +36,12 @@ export function PdfScrollPage({
   scale,
   scrollRootRef,
   readOnly,
+  showLockedPlacements = false,
   placements,
   onPlacementUpdate,
   selectedTemplateId,
   sealImageBase64,
+  overlayImageUrl = null,
   signatureChrome = "default",
 }: PdfScrollPageProps) {
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -84,6 +88,9 @@ export function PdfScrollPage({
         canvasContext: ctx,
         canvas,
         viewport,
+        intent: "display",
+        // AnnotationMode.ENABLE — paint signature widget appearances
+        annotationMode: 2,
       });
       renderTaskRef.current = renderTask;
       try {
@@ -157,7 +164,10 @@ export function PdfScrollPage({
       )}
       <div className={`relative inline-block ${!shouldDraw ? "hidden" : ""}`}>
         <canvas ref={canvasRef} className="block rounded-md" />
-        {shouldDraw && !readOnly && pageWidth > 0 && pageHeight > 0 && (
+        {shouldDraw &&
+          (!readOnly || showLockedPlacements) &&
+          pageWidth > 0 &&
+          pageHeight > 0 && (
           <div
             className="absolute left-0 top-0"
             style={{ width: pageWidth, height: pageHeight }}
@@ -171,9 +181,12 @@ export function PdfScrollPage({
                 scale={1}
                 templateId={selectedTemplateId}
                 sealImageBase64={sealImageBase64}
+                overlayImageUrl={overlayImageUrl}
                 onDragStop={handleDragStop(globalIndex)}
                 onResizeStop={handleResizeStop(globalIndex)}
                 chrome={signatureChrome}
+                isActive={!readOnly}
+                signedMarker={readOnly && showLockedPlacements}
               />
             ))}
           </div>

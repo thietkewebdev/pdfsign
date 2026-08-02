@@ -37,12 +37,19 @@ interface PdfViewerProps {
     h: number
   ) => void;
   activePageForPlacement: number;
-  /** When true, hide signature overlays and disable placement editing (read-only for signed PDFs) */
+  /** When true, disable placement editing (read-only for signed PDFs) */
   readOnly?: boolean;
+  /**
+   * When readOnly, still paint locked placement overlays.
+   * Helps when pdf.js does not paint digital-signature appearances clearly.
+   */
+  showLockedPlacements?: boolean;
   /** Selected template id for signature preview */
   selectedTemplateId?: string;
   /** Base64 seal image for the "seal" template */
   sealImageBase64?: string | null;
+  /** Pure signature image overlay (visual e-sign) */
+  overlayImageUrl?: string | null;
   /**
    * Stack pages vertically; each page renders when scrolled near viewport (pdfUrl only).
    */
@@ -64,8 +71,10 @@ export function PdfViewer({
   onPlacementUpdate,
   activePageForPlacement,
   readOnly = false,
+  showLockedPlacements = false,
   selectedTemplateId = "valid",
   sealImageBase64,
+  overlayImageUrl = null,
   continuousScroll = false,
   signatureChrome = "default",
 }: PdfViewerProps) {
@@ -181,10 +190,13 @@ export function PdfViewer({
       canvas.width = viewport.width;
       setPageDimensions({ width: viewport.width, height: viewport.height });
 
+      // Explicitly enable annotation/widget appearance painting (signature stamps).
       const renderContext = {
         canvasContext: ctx,
         canvas,
         viewport,
+        intent: "display" as const,
+        annotationMode: pdfjsLib.AnnotationMode?.ENABLE ?? 2,
       };
       const renderTask = page.render(renderContext);
       renderTaskRef.current = renderTask;
@@ -324,10 +336,12 @@ export function PdfViewer({
                   scale={scale}
                   scrollRootRef={scrollContainerRef}
                   readOnly={readOnly}
+                  showLockedPlacements={showLockedPlacements}
                   placements={placements}
                   onPlacementUpdate={onPlacementUpdate}
                   selectedTemplateId={selectedTemplateId}
                   sealImageBase64={sealImageBase64}
+                  overlayImageUrl={overlayImageUrl}
                   signatureChrome={signatureChrome}
                 />
               ))}
@@ -339,7 +353,9 @@ export function PdfViewer({
                 ref={containerRef}
               >
                 <canvas ref={canvasRef} className="block rounded-md" />
-                {!readOnly && pageWidth > 0 && pageHeight > 0 && (
+                {(!readOnly || showLockedPlacements) &&
+                  pageWidth > 0 &&
+                  pageHeight > 0 && (
                   <div
                     className="absolute left-0 top-0 size-full"
                     style={{ width: pageWidth, height: pageHeight }}
@@ -353,9 +369,12 @@ export function PdfViewer({
                         scale={1}
                         templateId={selectedTemplateId}
                         sealImageBase64={sealImageBase64}
+                        overlayImageUrl={overlayImageUrl}
                         onDragStop={handleDragStop(globalIndex)}
                         onResizeStop={handleResizeStop(globalIndex)}
                         chrome={signatureChrome}
+                        isActive={!readOnly}
+                        signedMarker={readOnly && showLockedPlacements}
                       />
                     ))}
                   </div>

@@ -84,6 +84,45 @@ export async function GET(
       }
     }
 
+    // UI placement (top-left %) for locked overlay after sign — convert from PDF bottom-left
+    let signedPlacement: {
+      page: number | "LAST";
+      xPct: number;
+      yPct: number;
+      wPct: number;
+      hPct: number;
+      templateId?: string;
+    } | null = null;
+    if (signJob?.placementJson) {
+      try {
+        const raw = JSON.parse(signJob.placementJson) as {
+          page?: number | "LAST";
+          rectPct?: { x?: number; y?: number; w?: number; h?: number };
+          templateId?: string;
+        };
+        const r = raw.rectPct;
+        if (
+          r &&
+          typeof r.x === "number" &&
+          typeof r.y === "number" &&
+          typeof r.w === "number" &&
+          typeof r.h === "number"
+        ) {
+          signedPlacement = {
+            page: raw.page ?? "LAST",
+            xPct: r.x,
+            yPct: 1 - r.y - r.h,
+            wPct: r.w,
+            hPct: r.h,
+            templateId:
+              typeof raw.templateId === "string" ? raw.templateId : undefined,
+          };
+        }
+      } catch {
+        // ignore
+      }
+    }
+
     return NextResponse.json({
       document: {
         id: document.id,
@@ -100,6 +139,7 @@ export async function GET(
       presignedUrl,
       viewUrl,
       signInfo,
+      signedPlacement,
     });
   } catch (err) {
     console.error("GET /api/documents/[publicId] error:", err);

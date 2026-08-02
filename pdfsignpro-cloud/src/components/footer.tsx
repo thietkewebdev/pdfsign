@@ -29,6 +29,11 @@ export function Footer() {
           <h5 className="text-sm font-bold uppercase tracking-widest text-stitch-on-surface">Sản phẩm</h5>
           <ul className="space-y-2 text-xs text-stitch-muted">
             <li>
+              <Link href="/sign-pdf" className="hover:text-stitch-primary hover:underline">
+                Ký PDF online (miễn phí)
+              </Link>
+            </li>
+            <li>
               <Link href="/#why-pdfsign" className="hover:text-stitch-primary hover:underline">
                 Tính năng chính
               </Link>

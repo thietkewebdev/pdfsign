@@ -148,6 +148,8 @@ export default function SignPage() {
     const placement = placements[safePlacementEditorIdx];
     if (!placement) return;
 
+    // Convert UI coords (top-left origin) to PDF rectPct (bottom-left origin)
+    const pdfY = 1 - placement.yPct - placement.hPct;
     const jobBody: Record<string, unknown> = {
       documentId: docData.document.id,
       templateId: selectedTemplateId,
@@ -155,7 +157,7 @@ export default function SignPage() {
         page: placement.page,
         rectPct: {
           x: placement.xPct,
-          y: placement.yPct,
+          y: Math.max(0, Math.min(1, pdfY)),
           w: placement.wPct,
           h: placement.hPct,
         },

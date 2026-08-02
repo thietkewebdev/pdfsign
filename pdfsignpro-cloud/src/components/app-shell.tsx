@@ -40,9 +40,13 @@ import { cn } from "@/lib/utils";
 
 const NAV_LINKS = [
   { href: "/", label: "Trang chủ", match: (p: string) => p === "/" },
+  {
+    href: "/sign-pdf",
+    label: "Ký PDF online",
+    match: (p: string) => p.startsWith("/sign-pdf"),
+  },
   { href: "/#why-pdfsign", label: "Tính năng", match: () => false },
   { href: "/#pricing", label: "Bảng giá", match: () => false },
-  { href: "/privacy", label: "Bảo mật", match: (p: string) => p.startsWith("/privacy") },
   { href: "/blog", label: "Hướng dẫn", match: (p: string) => p.startsWith("/blog") },
 ] as const;
 

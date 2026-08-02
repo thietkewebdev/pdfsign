@@ -315,6 +315,15 @@ export function HomePage() {
               >
                 Hướng dẫn cài đặt
               </Link>
+              <span className="hidden text-stitch-outline sm:inline" aria-hidden>
+                ·
+              </span>
+              <Link
+                href="/sign-pdf"
+                className="text-sm font-semibold text-stitch-primary underline-offset-4 hover:underline"
+              >
+                Chỉ cần ký nhanh (không USB)? →
+              </Link>
             </div>
           </div>
 
@@ -446,6 +455,25 @@ export function HomePage() {
       </section>
 
       {/* Why — bento */}
+      <section className="border-y border-stitch-outline/30 bg-white/70 px-6 py-10">
+        <div className="mx-auto flex max-w-5xl flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-widest text-stitch-primary">
+              Ký PDF online
+            </p>
+            <p className="mt-1 text-base font-semibold text-stitch-on-surface sm:text-lg">
+              Không có USB Token? Vẽ / gõ / tải chữ ký ngay trên trình duyệt.
+            </p>
+          </div>
+          <Button asChild className="shrink-0">
+            <Link href="/sign-pdf">
+              Mở công cụ Sign PDF
+              <ArrowRight className="size-4" />
+            </Link>
+          </Button>
+        </div>
+      </section>
+
       <section id="why-pdfsign" className="bg-stitch-bg px-6 py-24">
         <div className="mx-auto max-w-7xl">
           <div className="mb-16">

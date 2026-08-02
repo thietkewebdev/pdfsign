@@ -46,9 +46,16 @@ interface SignatureBoxProps {
   scale: number;
   templateId?: string;
   sealImageBase64?: string | null;
+  /** Pure image overlay (draw/type/upload visual e-sign). */
+  overlayImageUrl?: string | null;
   onDragStop: (x: number, y: number) => void;
   onResizeStop: (x: number, y: number, w: number, h: number) => void;
   isActive?: boolean;
+  /**
+   * Locked marker after USB signing — outline only, so it does not
+   * double-draw on top of the real PDF stamp appearance.
+   */
+  signedMarker?: boolean;
   /** Trang ký /d/: khung giống Stitch (viền xanh, banner, bóng). */
   chrome?: SignatureBoxChrome;
 }
@@ -210,9 +217,11 @@ export function SignatureBox({
   scale,
   templateId = "valid",
   sealImageBase64,
+  overlayImageUrl,
   onDragStop,
   onResizeStop,
   isActive = true,
+  signedMarker = false,
   chrome = "default",
 }: SignatureBoxProps) {
   const x = placement.xPct * pageWidth;
@@ -221,7 +230,21 @@ export function SignatureBox({
   const h = placement.hPct * pageHeight;
 
   const isStitch = chrome === "stitch";
-  const useKySoPlaceholder = templateId === "valid";
+  const useKySoPlaceholder = templateId === "valid" && !overlayImageUrl;
+
+  if (signedMarker) {
+    return (
+      <div
+        className="pointer-events-none absolute flex items-start justify-end rounded border-2 border-emerald-500/70 bg-emerald-400/5"
+        style={{ left: x, top: y, width: w, height: h, zIndex: 2 }}
+        aria-label="Vùng đã ký số"
+      >
+        <span className="m-1 rounded bg-emerald-600 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white shadow-sm">
+          Đã ký số
+        </span>
+      </div>
+    );
+  }
 
   const stitchBody =
     useKySoPlaceholder ? (
@@ -253,19 +276,31 @@ export function SignatureBox({
       resizeGrid={[8, 8]}
       dragGrid={[8, 8]}
       className={cn(
-        isStitch
-          ? useKySoPlaceholder
-            ? "overflow-hidden rounded border border-[#ef3b62] bg-[#fcfcfd]"
-            : "overflow-hidden rounded-xl border-2 border-primary bg-white shadow-2xl ring-[6px] ring-primary/10 transition-transform hover:scale-[1.01]"
-          : useKySoPlaceholder
-            ? "overflow-hidden rounded border border-[#ef3b62] bg-[#fcfcfd]"
-            : "overflow-hidden rounded border-2 border-dashed border-primary/60 bg-primary/5",
+        overlayImageUrl
+          ? "overflow-hidden rounded border border-dashed border-primary/50 bg-white/40"
+          : isStitch
+            ? useKySoPlaceholder
+              ? "overflow-hidden rounded border border-[#ef3b62] bg-[#fcfcfd]"
+              : "overflow-hidden rounded-xl border-2 border-primary bg-white shadow-2xl ring-[6px] ring-primary/10 transition-transform hover:scale-[1.01]"
+            : useKySoPlaceholder
+              ? "overflow-hidden rounded border border-[#ef3b62] bg-[#fcfcfd]"
+              : "overflow-hidden rounded border-2 border-dashed border-primary/60 bg-primary/5",
         "flex flex-col",
         isActive && "cursor-move"
       )}
       style={{ zIndex: isActive ? 10 : 1 }}
     >
-      {isStitch ? (
+      {overlayImageUrl ? (
+        <div className="pointer-events-none flex h-full w-full items-center justify-center overflow-hidden p-1">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={overlayImageUrl}
+            alt="Chữ ký"
+            className="max-h-full max-w-full object-contain"
+            draggable={false}
+          />
+        </div>
+      ) : isStitch ? (
         useKySoPlaceholder ? (
           <div className="flex h-full w-full min-h-0 min-w-0 items-center justify-center overflow-hidden p-1 pointer-events-none">
             <div className="flex h-full w-full items-center justify-center rounded-[2px] border border-dashed border-[#ef3b62]">
