@@ -233,7 +233,7 @@ public static class SignerUpdateChecker
                 UseShellExecute = true,
             };
 
-            if (!Process.Start(psi))
+            if (Process.Start(psi) is null)
                 throw new InvalidOperationException("Không khởi chạy được Setup.");
 
             LogService.Info($"Update setup launched: {setupPath} → v{manifest.Version}");
@@ -308,7 +308,7 @@ public static class SignerUpdateChecker
     private sealed class UpdateProgressWindow : Window
     {
         private readonly TextBlock _status;
-        private readonly ProgressBar _bar;
+        private readonly System.Windows.Controls.ProgressBar _bar;
 
         public UpdateProgressWindow()
         {
@@ -318,16 +318,16 @@ public static class SignerUpdateChecker
             WindowStartupLocation = WindowStartupLocation.CenterOwner;
             ResizeMode = ResizeMode.NoResize;
             ShowInTaskbar = false;
-            Background = new SolidColorBrush(Color.FromRgb(0xF8, 0xFA, 0xFC));
+            Background = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0xF8, 0xFA, 0xFC));
 
             _status = new TextBlock
             {
                 Text = "Đang chuẩn bị…",
                 Margin = new Thickness(16, 16, 16, 8),
                 TextWrapping = TextWrapping.Wrap,
-                Foreground = new SolidColorBrush(Color.FromRgb(0x1E, 0x29, 0x3B)),
+                Foreground = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x1E, 0x29, 0x3B)),
             };
-            _bar = new ProgressBar
+            _bar = new System.Windows.Controls.ProgressBar
             {
                 Height = 14,
                 Margin = new Thickness(16, 0, 16, 16),

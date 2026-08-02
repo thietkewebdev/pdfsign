@@ -1,8 +1,9 @@
-{
-  "version": "1.0.4",
-  "downloadUrl": "https://pdfsign.vn/api/signer/download",
-  "sha256": "",
-  "sizeBytes": 0,
-  "releaseNotes": "Cài per-user (không cần admin), checklist sẵn sàng ký, cập nhật trong ứng dụng. Chạy build-installer.ps1 để điền sha256 thật trước khi ship.",
-  "channel": "stable"
+﻿{
+    "version":  "1.0.4",
+    "downloadUrl":  "https://pdfsign.vn/api/signer/download",
+    "sha256":  "5f4e2a2d6f17f452c7135c52655b2dd45781a27c00f635ade95357a6bc7f4b21",
+    "sizeBytes":  97754538,
+    "releaseNotes":  "Per-user install, readiness checklist, in-app auto-update.",
+    "publishedAt":  "2026-08-02T15:12:26.1028844Z",
+    "channel":  "stable"
 }
