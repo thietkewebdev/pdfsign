@@ -60,7 +60,7 @@ pdfsign verify out.pdf                      # integrity + signature value (not t
 
 ## Phase 1 roadmap
 
-1. Done here: core signing (B-B, B-T), PKCS#11 token access, CLI, CI artifacts, SoftHSM2 tests.
+1. Done here: core signing (B-B, B-T), PKCS#11 token access, CLI, GUI skeleton, CI artifacts, SoftHSM2 tests.
 2. Real-token validation on Windows and macOS with Viettel, VNPT, BKAV (see `docs/TEST-TOKEN-THAT.md`);
    pin macOS module paths per vendor; handle tokens without `CKM_RSA_PKCS` (fallback to `CKM_SHA256_RSA_PKCS`
    by signing the attributes, not the digest) and `CKA_ALWAYS_AUTHENTICATE` keys.
@@ -68,6 +68,19 @@ pdfsign verify out.pdf                      # integrity + signature value (not t
 4. Local bridge parity on `127.0.0.1:17886` (`/health`, `/ready`, `/certs`) with the same CORS allowlist.
 5. GUI (below), tray, single instance, auto-update, installers (MSI/Inno on Windows, signed + notarized `.app`/`.dmg`).
 6. Then: B-LT (DSS with OCSP/CRL), ECDSA keys, encrypted PDFs, PDF/A-friendly appearance.
+
+## GUI skeleton (`apps/pdfsign-gui`)
+
+A minimal Tauri v2 app: pick a PDF, render it with pdf.js (self-hosted copy from `pdfsignpro-cloud/public/pdfjs`),
+drag to place the box (`rectPct`), scan tokens, list certificates (CA certs disabled), PIN field, sign.
+It is a separate Cargo workspace (needs Rust 1.90+, and on Linux the WebKitGTK 4.1 dev packages), so the core
+crates and CLI build without any webview dependency.
+
+```bash
+cargo build --release --manifest-path apps/pdfsign-gui/Cargo.toml   # -> apps/pdfsign-gui/target/release/pdfsign-gui
+```
+
+CI uploads `pdfsign-gui-windows-x64` and `pdfsign-gui-macos-arm64` (plain binaries, not installers yet).
 
 ## GUI recommendation: Tauri v2
 

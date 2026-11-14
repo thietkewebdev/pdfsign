@@ -62,6 +62,11 @@ cộng thêm `--module <đường dẫn>` và biến `PDFSIGN_PKCS11_MODULE`.
   (trừ khi `PDFSIGN_ALLOW_EXPIRED=1`).
 - Ghép khóa riêng (`signer/pades_signer.py`): theo `CKA_ID` (bỏ byte 0 ở cuối), rồi `CKA_LABEL`,
   lọc theo loại khóa RSA/EC; nếu chỉ có 1 khóa thì dùng nó; cuối cùng ghép theo thứ tự (cert thứ i với khóa thứ i).
+- Rủi ro (tái hiện được với SoftHSM2): `cert-index` dựa trên thứ tự `C_FindObjects`, thứ tự này có thể khác
+  giữa phiên chưa đăng nhập và phiên đã đăng nhập. Nếu token có thêm cert CA, index có thể trỏ vào cert CA;
+  khi đó luật "chỉ có 1 khóa thì dùng nó" ký bằng khóa người dùng nhưng nhúng cert CA, tạo chữ ký sai.
+  Bản Rust: sắp xếp cert cố định (cert người dùng trước, CA sau), ghép khóa theo modulus RSA (`CKA_MODULUS`)
+  trước tiên, không bao giờ dùng khóa có modulus khác cert, từ chối ký bằng cert CA, GUI chọn cert theo serial.
 
 ## 4. Xử lý PIN (rủi ro cần biết)
 
@@ -158,4 +163,4 @@ Xác thực: claim code (từ deep link) đổi lấy `jobToken` 48 hex; server 
 - Giữ tương thích: `rectPct`, `page`, mã lỗi `ERRCODE:*`, JSON của `list-certs`, thứ tự dò DLL.
 - Đổi có chủ đích: SubFilter `ETSI.CAdES.detached`, bỏ signing-time (PAdES B-B), tùy chọn TSA (B-T),
   giữ nguyên byte gốc (không ghi lại bằng pikepdf), sửa lỗi trang xoay, PIN không qua argv.
-- Chưa làm: LTV/DSS (B-LT), deep link, bridge, upload job, GUI. Xem roadmap trong `README.md`.
+- Chưa làm: LTV/DSS (B-LT), deep link, bridge, upload job; GUI mới là bộ khung. Xem roadmap trong `README.md`.
