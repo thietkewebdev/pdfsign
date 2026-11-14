@@ -10,10 +10,11 @@ rust-version.workspace = true
 [features]
 default = ["tsa"]
 # RFC 3161 timestamping over HTTP (PAdES B-T).
-tsa = ["dep:ureq", "dep:x509-tsp", "dep:cmpv2"]
+tsa = ["dep:ureq"]
 
 [dependencies]
 thiserror.workspace = true
+serde.workspace = true
 chrono.workspace = true
 hex.workspace = true
 lopdf.workspace = true
@@ -30,8 +31,10 @@ const-oid.workspace = true
 sha2.workspace = true
 rand.workspace = true
 rsa.workspace = true
-x509-tsp = { workspace = true, optional = true }
-cmpv2 = { version = "0.2", optional = true }
+x509-ocsp.workspace = true
+sha1.workspace = true
+x509-tsp.workspace = true
+cmpv2 = "0.2"
 ureq = { workspace = true, optional = true }
 
 [dev-dependencies]

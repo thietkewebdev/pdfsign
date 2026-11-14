@@ -45,6 +45,13 @@ pub trait RawSigner {
     }
     /// Return the RSA PKCS#1 v1.5 signature of `digest` (the implementation wraps it in DigestInfo).
     fn sign_sha256_digest(&mut self, digest: &[u8; 32]) -> std::result::Result<Vec<u8>, String>;
+
+    /// RSA PKCS#1 v1.5 + SHA-256 signature of `message` (the DER signed attributes).
+    /// Override when the device hashes itself (e.g. PKCS#11 `CKM_SHA256_RSA_PKCS`).
+    fn sign_sha256_message(&mut self, message: &[u8]) -> std::result::Result<Vec<u8>, String> {
+        let digest: [u8; 32] = Sha256::digest(message).into();
+        self.sign_sha256_digest(&digest)
+    }
 }
 
 /// Source of RFC 3161 timestamp tokens over a SHA-256 message imprint.
@@ -100,6 +107,10 @@ fn attribute(oid: ObjectIdentifier, value: &impl Encode) -> Result<Attribute> {
     })
 }
 
+pub fn sha256(data: &[u8]) -> [u8; 32] {
+    Sha256::digest(data).into()
+}
+
 pub fn parse_certificate(der_bytes: &[u8]) -> Result<Certificate> {
     Certificate::from_der(der_bytes).map_err(|e| Error::Certificate(e.to_string()))
 }
@@ -148,9 +159,8 @@ pub fn build_cades_detached(
 
     let signed_attrs = signed_attributes(&cert, &cert_der, message_digest)?;
     let to_sign = signed_attrs.to_der()?;
-    let attrs_digest: [u8; 32] = Sha256::digest(&to_sign).into();
     let signature = signer
-        .sign_sha256_digest(&attrs_digest)
+        .sign_sha256_message(&to_sign)
         .map_err(Error::Signer)?;
 
     let unsigned_attrs: Option<UnsignedAttributes> = match timestamper {

@@ -1,7 +1,7 @@
 //! Incremental-update PDF signing: append signature field + appearance, reserve /Contents,
 //! compute the ByteRange digest, embed the CMS. Prior bytes (and prior signatures) are untouched.
 
-use crate::appearance::{build_appearance, AppearanceOptions, ObjAlloc};
+use crate::appearance::{build_appearance, AppearanceOptions, ObjAlloc, StampValues};
 use crate::cades::{build_cades_detached, RawSigner, Timestamper};
 use crate::certinfo::summarize;
 use crate::error::{Error, Result};
@@ -81,6 +81,13 @@ impl Default for RectPct {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum SignatureKind {
+    #[default]
+    Signature,
+    DocTimeStamp,
+}
+
 #[derive(Debug, Clone)]
 pub struct SignOptions {
     pub page: PageSpec,
@@ -92,6 +99,10 @@ pub struct SignOptions {
     pub contact_info: Option<String>,
     pub signing_time: Option<DateTime<Utc>>,
     pub appearance: AppearanceOptions,
+    /// Regular signature or document timestamp (PAdES B-LTA).
+    pub kind: SignatureKind,
+    /// Certificate-derived placeholder values; filled by [`sign_pdf`].
+    pub cert_values: StampValues,
     /// Bytes reserved for the CMS blob. Default: 2 KiB + 2x embedded certs, +12 KiB with a timestamp.
     pub contents_reserve: Option<usize>,
 }
@@ -108,6 +119,8 @@ impl Default for SignOptions {
             contact_info: None,
             signing_time: None,
             appearance: AppearanceOptions::default(),
+            kind: SignatureKind::Signature,
+            cert_values: StampValues::default(),
             contents_reserve: None,
         }
     }
@@ -172,6 +185,13 @@ pub fn sign_pdf(
     if opts.appearance.signer_name.is_none() {
         opts.appearance.signer_name = Some(summary.display_name());
     }
+    opts.cert_values = StampValues {
+        cn: summary.subject_cn.clone().unwrap_or_default(),
+        org: summary.subject_o.clone().unwrap_or_default(),
+        issuer: summary.issuer_cn.clone().unwrap_or_default(),
+        serial: summary.serial.clone(),
+        ..Default::default()
+    };
     let prepared = prepare(input, &opts)?;
     let digest = prepared.digest();
     let cms = build_cades_detached(signer, &digest, timestamper)?;
@@ -422,25 +442,29 @@ pub fn prepare(input: &[u8], opts: &SignOptions) -> Result<PreparedPdf> {
     widget.set("V", Object::Reference(sig_id));
     widget.set("F", Object::Integer(132));
     widget.set("P", Object::Reference(page_id));
-    if opts.invisible || disp_w < 1.0 || disp_h < 1.0 {
+    if opts.invisible || opts.kind == SignatureKind::DocTimeStamp || disp_w < 1.0 || disp_h < 1.0 {
         widget.set(
             "Rect",
             Object::Array(vec![0.into(), 0.into(), 0.into(), 0.into()]),
         );
     } else {
-        let signer = opts.appearance.signer_name.clone().unwrap_or_default();
-        let time_text = opts
-            .appearance
-            .time_text
-            .clone()
-            .unwrap_or_else(|| signing_time.format("%d/%m/%Y %H:%M:%S").to_string());
+        let values = StampValues {
+            name: opts.appearance.signer_name.clone().unwrap_or_default(),
+            date: opts.appearance.time_text.clone().unwrap_or_else(|| {
+                signing_time
+                    .format(&opts.appearance.template.date_format)
+                    .to_string()
+            }),
+            reason: opts.reason.clone().unwrap_or_default(),
+            location: opts.location.clone().unwrap_or_default(),
+            ..opts.cert_values.clone()
+        };
         let ap_id = build_appearance(
             &mut alloc,
             disp_w,
             disp_h,
             geom.rotation,
-            &signer,
-            &time_text,
+            &values,
             &opts.appearance,
         )?;
         widget.set(
@@ -510,13 +534,23 @@ pub fn prepare(input: &[u8], opts: &SignOptions) -> Result<PreparedPdf> {
     // Signature dictionary with fixed-width placeholders.
     let reserve = opts.contents_reserve.unwrap_or(16384);
     offsets.insert(sig_id, out.len());
+    let is_dts = opts.kind == SignatureKind::DocTimeStamp;
     let _ = write!(
         out,
-        "{} {} obj\n<</Type /Sig/Filter /Adobe.PPKLite/SubFilter /ETSI.CAdES.detached",
-        sig_id.0, sig_id.1
+        "{} {} obj\n<</Type /{}/Filter /Adobe.PPKLite/SubFilter /{}",
+        sig_id.0,
+        sig_id.1,
+        if is_dts { "DocTimeStamp" } else { "Sig" },
+        if is_dts {
+            "ETSI.RFC3161"
+        } else {
+            "ETSI.CAdES.detached"
+        }
     );
-    out.extend_from_slice(b"/M ");
-    write_literal_string(&mut out, pdf_date(signing_time).as_bytes());
+    if !is_dts {
+        out.extend_from_slice(b"/M ");
+        write_literal_string(&mut out, pdf_date(signing_time).as_bytes());
+    }
     for (key, val) in [
         ("Reason", &opts.reason),
         ("Location", &opts.location),
@@ -539,57 +573,15 @@ pub fn prepare(input: &[u8], opts: &SignOptions) -> Result<PreparedPdf> {
     let gt_end = out.len();
     out.extend_from_slice(b">>\nendobj\n");
 
-    for (id, obj) in &all {
-        offsets.insert(*id, out.len());
-        let _ = writeln!(out, "{} {} obj", id.0, id.1);
-        write_object(&mut out, obj);
-        out.extend_from_slice(b"\nendobj\n");
-    }
-
-    let mut trailer = Dictionary::new();
-    trailer.set("Root", Object::Reference(root_id));
-    if let Ok(info) = doc.trailer.get(b"Info") {
-        trailer.set("Info", info.clone());
-    }
-    if let Ok(id) = doc.trailer.get(b"ID") {
-        trailer.set("ID", id.clone());
-    }
-    trailer.set("Prev", Object::Integer(xref.prev_offset as i64));
-
-    if xref.is_stream {
-        let xref_id = (alloc.next_id, 0u16);
-        let new_size = alloc.next_id + 1;
-        let xref_offset = out.len();
-        offsets.insert(xref_id, xref_offset);
-        let (index, data) = xref_stream_entries(&offsets);
-        trailer.set("Type", Object::Name(b"XRef".to_vec()));
-        trailer.set("Size", Object::Integer(new_size as i64));
-        trailer.set(
-            "Index",
-            Object::Array(index.into_iter().map(Object::Integer).collect()),
-        );
-        trailer.set("W", Object::Array(vec![1.into(), 4.into(), 2.into()]));
-        trailer.set("Length", Object::Integer(data.len() as i64));
-        let _ = writeln!(out, "{} 0 obj", xref_id.0);
-        write_dict(&mut out, &trailer);
-        out.extend_from_slice(b"\nstream\n");
-        out.extend_from_slice(&data);
-        out.extend_from_slice(b"\nendstream\nendobj\n");
-        let _ = write!(out, "startxref\n{xref_offset}\n%%EOF\n");
-    } else {
-        let xref_offset = out.len();
-        out.extend_from_slice(b"xref\n");
-        for (start, ids) in subsections(&offsets) {
-            let _ = writeln!(out, "{start} {}", ids.len());
-            for id in ids {
-                let _ = write!(out, "{:010} {:05} n\r\n", offsets[&id], id.1);
-            }
-        }
-        trailer.set("Size", Object::Integer(alloc.next_id as i64));
-        out.extend_from_slice(b"trailer\n");
-        write_dict(&mut out, &trailer);
-        let _ = write!(out, "\nstartxref\n{xref_offset}\n%%EOF\n");
-    }
+    write_objects_and_xref(
+        &mut out,
+        &mut offsets,
+        &all,
+        &doc,
+        root_id,
+        &xref,
+        alloc.next_id,
+    );
 
     let byte_range = [0, lt_pos, gt_end, out.len() - gt_end];
     let br = format!(
@@ -606,6 +598,117 @@ pub fn prepare(input: &[u8], opts: &SignOptions) -> Result<PreparedPdf> {
         byte_range,
         field_name,
     })
+}
+
+/// Write `all` objects, then the xref section (classic or stream, matching the original) and trailer.
+fn write_objects_and_xref(
+    out: &mut Vec<u8>,
+    offsets: &mut BTreeMap<ObjectId, usize>,
+    all: &BTreeMap<ObjectId, Object>,
+    doc: &Document,
+    root_id: ObjectId,
+    xref: &XrefInfo,
+    next_id: u32,
+) {
+    for (id, obj) in all {
+        offsets.insert(*id, out.len());
+        let _ = writeln!(out, "{} {} obj", id.0, id.1);
+        write_object(out, obj);
+        out.extend_from_slice(b"\nendobj\n");
+    }
+
+    let mut trailer = Dictionary::new();
+    trailer.set("Root", Object::Reference(root_id));
+    if let Ok(info) = doc.trailer.get(b"Info") {
+        trailer.set("Info", info.clone());
+    }
+    if let Ok(id) = doc.trailer.get(b"ID") {
+        trailer.set("ID", id.clone());
+    }
+    trailer.set("Prev", Object::Integer(xref.prev_offset as i64));
+
+    if xref.is_stream {
+        let xref_id = (next_id, 0u16);
+        let new_size = next_id + 1;
+        let xref_offset = out.len();
+        offsets.insert(xref_id, xref_offset);
+        let (index, data) = xref_stream_entries(offsets);
+        trailer.set("Type", Object::Name(b"XRef".to_vec()));
+        trailer.set("Size", Object::Integer(new_size as i64));
+        trailer.set(
+            "Index",
+            Object::Array(index.into_iter().map(Object::Integer).collect()),
+        );
+        trailer.set("W", Object::Array(vec![1.into(), 4.into(), 2.into()]));
+        trailer.set("Length", Object::Integer(data.len() as i64));
+        let _ = writeln!(out, "{} 0 obj", xref_id.0);
+        write_dict(out, &trailer);
+        out.extend_from_slice(b"\nstream\n");
+        out.extend_from_slice(&data);
+        out.extend_from_slice(b"\nendstream\nendobj\n");
+        let _ = write!(out, "startxref\n{xref_offset}\n%%EOF\n");
+    } else {
+        let xref_offset = out.len();
+        out.extend_from_slice(b"xref\n");
+        for (start, ids) in subsections(offsets) {
+            let _ = writeln!(out, "{start} {}", ids.len());
+            for id in ids {
+                let _ = write!(out, "{:010} {:05} n\r\n", offsets[&id], id.1);
+            }
+        }
+        trailer.set("Size", Object::Integer(next_id as i64));
+        out.extend_from_slice(b"trailer\n");
+        write_dict(out, &trailer);
+        let _ = write!(out, "\nstartxref\n{xref_offset}\n%%EOF\n");
+    }
+}
+
+/// Append one incremental update containing objects produced by `build`
+/// (new objects via the allocator, modified ones keyed by their existing id).
+pub fn append_update(
+    input: &[u8],
+    build: impl FnOnce(&Document, &mut ObjAlloc, &mut BTreeMap<ObjectId, Object>) -> Result<()>,
+) -> Result<Vec<u8>> {
+    let doc = Document::load_mem(input)?;
+    if doc.was_encrypted() || doc.trailer.has(b"Encrypt") {
+        return Err(Error::Unsupported(
+            "encrypted PDFs are not supported yet".into(),
+        ));
+    }
+    let xref = find_startxref(input)?;
+    let root_id = doc
+        .trailer
+        .get(b"Root")
+        .and_then(|o| o.as_reference())
+        .map_err(|_| Error::Unsupported("trailer has no /Root reference".into()))?;
+    let size = doc
+        .trailer
+        .get(b"Size")
+        .ok()
+        .and_then(|o| o.as_i64().ok())
+        .unwrap_or(0)
+        .max(0) as u32;
+    let mut alloc = ObjAlloc::new(size.max(doc.max_id + 1));
+    let mut all: BTreeMap<ObjectId, Object> = BTreeMap::new();
+    build(&doc, &mut alloc, &mut all)?;
+    for (id, obj) in alloc.objects.drain(..) {
+        all.insert(id, obj);
+    }
+    let mut out = input.to_vec();
+    if !matches!(out.last(), Some(b'\n') | Some(b'\r')) {
+        out.push(b'\n');
+    }
+    let mut offsets = BTreeMap::new();
+    write_objects_and_xref(
+        &mut out,
+        &mut offsets,
+        &all,
+        &doc,
+        root_id,
+        &xref,
+        alloc.next_id,
+    );
+    Ok(out)
 }
 
 fn subsections(offsets: &BTreeMap<ObjectId, usize>) -> Vec<(u32, Vec<ObjectId>)> {

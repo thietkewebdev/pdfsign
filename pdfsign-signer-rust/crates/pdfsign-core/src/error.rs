@@ -24,6 +24,8 @@ pub enum Error {
     Signer(String),
     #[error("timestamp (TSA) error: {0}")]
     Tsa(String),
+    #[error("LTV error: {0}")]
+    Ltv(String),
     #[error("verification failed: {0}")]
     Verify(String),
     #[error("I/O error: {0}")]

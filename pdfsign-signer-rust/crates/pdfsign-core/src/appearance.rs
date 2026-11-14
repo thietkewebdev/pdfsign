@@ -1,13 +1,13 @@
 //! Visible signature appearance (form XObject) with an embedded, subsetted Unicode font.
 //!
-//! Layouts mirror the pyHanko stamps in `desktop-signer/signer/sig_appearance.py`:
-//! - `valid` (default): red border, red circle with white tick, "Ký bởi: ..." + "Thời gian: ...".
-//! - `seal` (when an image is given): image on the left, signer + time text on the right.
+//! Driven by [`StampTemplate`]. The default template reproduces the WPF `valid` stamp
+//! (`desktop-signer/signer/sig_appearance.py`): red border, red tick, "Ký bởi" + "Thời gian".
 
 use crate::error::{Error, Result};
 use crate::pdfobj::fmt_real;
 use flate2::{write::ZlibEncoder, Compression};
 use lopdf::{Dictionary, Object, ObjectId, Stream};
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::io::Write;
 use unicode_normalization::UnicodeNormalization;
@@ -18,19 +18,22 @@ const PADDING: f64 = 6.0;
 const GAP: f64 = 8.0;
 const LINE_HEIGHT: f64 = 1.25;
 const RED: (f64, f64, f64) = (0.937, 0.231, 0.384);
-const SEAL_RED: (f64, f64, f64) = (0.863, 0.149, 0.149);
 const GRAY: (f64, f64, f64) = (0.29, 0.34, 0.39);
 pub const SIGNER_PREFIX: &str = "Ký bởi: ";
 pub const TS_PREFIX: &str = "Thời gian: ";
 
 #[derive(Debug, Clone, Default)]
 pub struct AppearanceOptions {
-    /// Name shown on the stamp. Defaults to subject O, else CN of the signing certificate.
+    /// Layout and text lines. Default reproduces the WPF `valid` stamp.
+    pub template: StampTemplate,
+    /// Overrides `{name}` (default: subject O, else CN of the signing certificate).
     pub signer_name: Option<String>,
-    /// Pre-formatted time text. Defaults to signing time in Asia/Ho_Chi_Minh, `dd/MM/yyyy HH:mm:ss`.
+    /// Overrides `{date}` (default: signing time in Vietnam time, `template.date_format`).
     pub time_text: Option<String>,
-    /// PNG or JPEG bytes (seal / handwritten signature). Switches to the `seal` layout.
+    /// Seal (con dấu) image, PNG or JPEG.
     pub image: Option<Vec<u8>>,
+    /// Handwritten signature image, PNG or JPEG.
+    pub signature_image: Option<Vec<u8>>,
     /// Alternative TrueType font (must cover Vietnamese). Defaults to bundled Noto Sans.
     pub font: Option<Vec<u8>>,
 }
@@ -147,158 +150,366 @@ struct TextRun {
     color: (f64, f64, f64),
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub enum StampLayout {
+    /// Images in a column on the left, text on the right (tick icon when there is no image).
+    #[default]
+    ImageLeft,
+    /// Images on top, text below.
+    ImageTop,
+    /// Images behind the text, filling the box.
+    ImageBackground,
+    /// Text only.
+    TextOnly,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub enum TextAlign {
+    #[default]
+    Left,
+    Center,
+}
+
+/// A user-defined signature appearance. Text lines may use placeholders:
+/// `{name}` (O, else CN), `{cn}`, `{org}`, `{issuer}`, `{serial}`, `{date}`, `{reason}`, `{location}`.
+/// A line whose placeholders all resolve to empty strings is dropped.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct StampTemplate {
+    pub id: String,
+    pub name: String,
+    pub lines: Vec<String>,
+    pub layout: StampLayout,
+    pub align: TextAlign,
+    pub show_border: bool,
+    pub show_check_icon: bool,
+    /// `#rrggbb`, used for the first line, border and icon.
+    pub accent_color: String,
+    /// `#rrggbb`, used for the other lines.
+    pub text_color: String,
+    /// Fixed font size in points; `None` = largest size that fits.
+    pub font_size: Option<f64>,
+    /// chrono format string for `{date}` (Vietnam time).
+    pub date_format: String,
+    /// File paths, resolved by the application layer into `AppearanceOptions` bytes.
+    pub seal_image: Option<String>,
+    pub signature_image: Option<String>,
+}
+
+impl Default for StampTemplate {
+    fn default() -> Self {
+        StampTemplate {
+            id: "default".into(),
+            name: "Mặc định (dấu tích)".into(),
+            lines: vec![
+                format!("{SIGNER_PREFIX}{{name}}"),
+                format!("{TS_PREFIX}{{date}}"),
+            ],
+            layout: StampLayout::ImageLeft,
+            align: TextAlign::Left,
+            show_border: true,
+            show_check_icon: true,
+            accent_color: "#ef3b62".into(),
+            text_color: "#4b5563".into(),
+            font_size: None,
+            date_format: "%d/%m/%Y %H:%M:%S".into(),
+            seal_image: None,
+            signature_image: None,
+        }
+    }
+}
+
+impl StampTemplate {
+    /// Built-in presets offered to new users.
+    pub fn presets() -> Vec<StampTemplate> {
+        vec![
+            StampTemplate::default(),
+            StampTemplate {
+                id: "seal".into(),
+                name: "Con dấu + chữ".into(),
+                lines: vec!["{name}".into(), "{date}".into()],
+                show_border: false,
+                show_check_icon: false,
+                accent_color: "#dc2626".into(),
+                ..Default::default()
+            },
+            StampTemplate {
+                id: "handwritten".into(),
+                name: "Chữ ký tay phía trên".into(),
+                lines: vec!["{cn}".into(), "{org}".into(), "Ngày ký: {date}".into()],
+                layout: StampLayout::ImageTop,
+                align: TextAlign::Center,
+                show_border: false,
+                show_check_icon: false,
+                accent_color: "#1f2937".into(),
+                date_format: "%d/%m/%Y".into(),
+                ..Default::default()
+            },
+            StampTemplate {
+                id: "full".into(),
+                name: "Đầy đủ thông tin".into(),
+                lines: vec![
+                    "Ký bởi: {name}".into(),
+                    "Người ký: {cn}".into(),
+                    "Thời gian: {date}".into(),
+                    "Lý do: {reason}".into(),
+                    "Nơi ký: {location}".into(),
+                ],
+                ..Default::default()
+            },
+        ]
+    }
+}
+
+/// Values substituted into template placeholders.
+#[derive(Debug, Clone, Default)]
+pub struct StampValues {
+    pub name: String,
+    pub cn: String,
+    pub org: String,
+    pub issuer: String,
+    pub serial: String,
+    pub date: String,
+    pub reason: String,
+    pub location: String,
+}
+
+impl StampValues {
+    fn get(&self, key: &str) -> Option<&str> {
+        Some(match key {
+            "name" => &self.name,
+            "cn" => &self.cn,
+            "org" => &self.org,
+            "issuer" => &self.issuer,
+            "serial" => &self.serial,
+            "date" => &self.date,
+            "reason" => &self.reason,
+            "location" => &self.location,
+            _ => return None,
+        })
+    }
+
+    /// Substitute placeholders; `None` when the line only had empty placeholders.
+    pub fn render_line(&self, line: &str) -> Option<String> {
+        let mut out = String::new();
+        let mut rest = line;
+        let (mut placeholders, mut filled) = (0, 0);
+        while let Some(start) = rest.find('{') {
+            out.push_str(&rest[..start]);
+            let Some(len) = rest[start..].find('}') else {
+                break;
+            };
+            let key = &rest[start + 1..start + len];
+            match self.get(key) {
+                Some(v) => {
+                    placeholders += 1;
+                    if !v.trim().is_empty() {
+                        filled += 1;
+                    }
+                    out.push_str(v);
+                }
+                None => out.push_str(&rest[start..start + len + 1]),
+            }
+            rest = &rest[start + len + 1..];
+        }
+        out.push_str(rest);
+        if placeholders > 0 && filled == 0 {
+            return None;
+        }
+        Some(out)
+    }
+}
+
+fn parse_color(hex: &str, fallback: (f64, f64, f64)) -> (f64, f64, f64) {
+    let h = hex.trim().trim_start_matches('#');
+    if h.len() != 6 {
+        return fallback;
+    }
+    let c = |i: usize| u8::from_str_radix(&h[i..i + 2], 16).map(|v| v as f64 / 255.0);
+    match (c(0), c(2), c(4)) {
+        (Ok(r), Ok(g), Ok(b)) => (r, g, b),
+        _ => fallback,
+    }
+}
+
+fn round3(v: f64) -> f64 {
+    (v * 1000.0).round() / 1000.0
+}
+
 /// Build the appearance form XObject and its resources. Returns the XObject id.
 pub fn build_appearance(
     alloc: &mut ObjAlloc,
     width: f64,
     height: f64,
     rotation: i64,
-    signer: &str,
-    time_text: &str,
+    values: &StampValues,
     opts: &AppearanceOptions,
 ) -> Result<ObjectId> {
     let font_data: &[u8] = opts.font.as_deref().unwrap_or(DEFAULT_FONT);
     let font = TextFont::new(font_data)?;
-    let signer: String = signer.nfc().collect();
-    let time_text: String = time_text.nfc().collect();
+    let tpl = &opts.template;
+    let accent = parse_color(&tpl.accent_color, RED);
+    let accent = (round3(accent.0), round3(accent.1), round3(accent.2));
+    let text_color = parse_color(&tpl.text_color, GRAY);
+    let text_color = (
+        round3(text_color.0),
+        round3(text_color.1),
+        round3(text_color.2),
+    );
 
     let mut ops: Vec<String> = Vec::new();
     let mut runs: Vec<TextRun> = Vec::new();
     let mut resources = Dictionary::new();
+    let mut xobjs = Dictionary::new();
 
-    if let Some(img_bytes) = &opts.image {
-        let (img_id, iw, ih) = embed_image(alloc, img_bytes)?;
-        let avail_h = (height - 2.0 * PADDING).max(1.0);
-        let img_area_w = (width * 0.45).min(avail_h);
-        let scale = (img_area_w / iw).min(avail_h / ih);
-        let (dw, dh) = (iw * scale, ih * scale);
-        ops.push(format!(
-            "q {} 0 0 {} {} {} cm /Im1 Do Q",
-            fmt_real(dw),
-            fmt_real(dh),
-            fmt_real(PADDING),
-            fmt_real((height - dh) / 2.0)
-        ));
-        let mut xobjs = Dictionary::new();
-        xobjs.set("Im1", Object::Reference(img_id));
-        resources.set("XObject", Object::Dictionary(xobjs));
-
-        let text_x = PADDING + img_area_w + PADDING;
-        let max_w = (width - text_x - PADDING).max(20.0);
-        let signer_text = if signer.is_empty() {
-            "—".to_string()
-        } else {
-            signer.clone()
-        };
-        let (mut size, mut s_lines, mut t_lines) = (6.0, Vec::new(), Vec::new());
-        for fs in (6..=14).rev() {
-            let fs = fs as f64;
-            s_lines = font.wrap(&signer_text, max_w, fs);
-            t_lines = font.wrap(&time_text, max_w, fs);
-            size = fs;
-            let needed = (s_lines.len() + t_lines.len()) as f64 * fs * LINE_HEIGHT
-                + if t_lines.is_empty() { 0.0 } else { 2.0 };
-            if needed <= avail_h {
-                break;
-            }
-        }
-        let leading = size * LINE_HEIGHT;
-        let total = (s_lines.len() + t_lines.len()) as f64 * leading
-            + if t_lines.is_empty() { 0.0 } else { 2.0 };
-        let mut y = (height + total) / 2.0;
-        for line in s_lines {
-            runs.push(TextRun {
-                text: line,
-                x: text_x,
-                y: y - size,
-                size,
-                color: SEAL_RED,
-            });
-            y -= leading;
-        }
-        if !t_lines.is_empty() {
-            y -= 2.0;
-        }
-        for line in t_lines {
-            runs.push(TextRun {
-                text: line,
-                x: text_x,
-                y: y - size,
-                size,
-                color: GRAY,
-            });
-            y -= leading;
-        }
+    let mut images = Vec::new();
+    for bytes in [&opts.image, &opts.signature_image].into_iter().flatten() {
+        images.push(embed_image(alloc, bytes)?);
+    }
+    let layout = if images.is_empty() && tpl.layout != StampLayout::TextOnly {
+        StampLayout::ImageLeft
     } else {
-        let icon = (height * 0.55).clamp(18.0, 40.0);
-        let text_x = PADDING + icon + GAP;
-        let max_w = (width - 2.0 * PADDING - icon - GAP).max(0.0);
-        let start_size = (height * 0.16).round().clamp(4.0, 12.0) as i64;
-        let signer_text = format!("{SIGNER_PREFIX}{signer}");
-        let ts_text = format!("{TS_PREFIX}{time_text}");
-        let avail_h = height - 2.0 * PADDING;
-        let (mut size, mut s_lines, mut t_lines) = (4.0, Vec::new(), Vec::new());
-        for fs in (4..=start_size).rev() {
-            let fs = fs as f64;
-            s_lines = font.wrap(&signer_text, max_w, fs);
-            t_lines = font.wrap(&ts_text, max_w, fs);
-            size = fs;
-            if (s_lines.len() + t_lines.len()) as f64 * fs * LINE_HEIGHT <= avail_h {
-                break;
-            }
-        }
+        tpl.layout
+    };
 
+    let inner = (
+        PADDING,
+        PADDING,
+        (width - 2.0 * PADDING).max(1.0),
+        (height - 2.0 * PADDING).max(1.0),
+    );
+    let draw_images =
+        |ops: &mut Vec<String>, xobjs: &mut Dictionary, area: (f64, f64, f64, f64)| {
+            let n = images.len() as f64;
+            let cell_w = area.2 / n;
+            for (i, (id, iw, ih)) in images.iter().enumerate() {
+                let scale = (cell_w / iw).min(area.3 / ih);
+                let (dw, dh) = (iw * scale, ih * scale);
+                let x = area.0 + i as f64 * cell_w + (cell_w - dw) / 2.0;
+                let y = area.1 + (area.3 - dh) / 2.0;
+                let name = format!("Im{}", i + 1);
+                ops.push(format!(
+                    "q {} 0 0 {} {} {} cm /{name} Do Q",
+                    fmt_real(dw),
+                    fmt_real(dh),
+                    fmt_real(x),
+                    fmt_real(y)
+                ));
+                xobjs.set(name, Object::Reference(*id));
+            }
+        };
+
+    if tpl.show_border {
         ops.push(format!(
             "q 1 w {} {} {} RG {} {} {} {} re S Q",
-            RED.0,
-            RED.1,
-            RED.2,
-            fmt_real(PADDING),
-            fmt_real(PADDING),
-            fmt_real(width - 2.0 * PADDING),
-            fmt_real(height - 2.0 * PADDING)
+            accent.0,
+            accent.1,
+            accent.2,
+            fmt_real(inner.0),
+            fmt_real(inner.1),
+            fmt_real(inner.2),
+            fmt_real(inner.3)
         ));
-        let (cx, cy, r) = (PADDING + icon / 2.0, height / 2.0, icon / 2.0 - 2.0);
-        ops.push(format!(
-            "q {} {} {} rg {} f Q",
-            RED.0,
-            RED.1,
-            RED.2,
-            circle_path(cx, cy, r)
-        ));
-        ops.push(format!(
-            "q 1 1 1 RG 2 w 1 J 1 j {} {} m {} {} l {} {} l S Q",
-            fmt_real(cx - 0.40 * r),
-            fmt_real(cy + 0.05 * r),
-            fmt_real(cx - 0.15 * r),
-            fmt_real(cy - 0.25 * r),
-            fmt_real(cx + 0.45 * r),
-            fmt_real(cy + 0.30 * r)
-        ));
+    }
 
-        let leading = size * LINE_HEIGHT;
-        let block_h = (s_lines.len() + t_lines.len()) as f64 * leading;
-        let mut y = (PADDING + size).max((height + block_h) / 2.0 - size);
-        for line in s_lines {
-            runs.push(TextRun {
-                text: line,
-                x: text_x,
-                y,
-                size,
-                color: RED,
-            });
-            y -= leading;
+    // Text area (x, y, w, h) in form space.
+    let text_area = match layout {
+        StampLayout::ImageLeft if !images.is_empty() => {
+            let col_w = (width * 0.45).min(inner.3 * images.len() as f64);
+            draw_images(&mut ops, &mut xobjs, (inner.0, inner.1, col_w, inner.3));
+            let x = inner.0 + col_w + PADDING;
+            (x, inner.1, (width - x - PADDING).max(10.0), inner.3)
         }
-        for line in t_lines {
-            runs.push(TextRun {
-                text: line,
-                x: text_x,
-                y,
-                size,
-                color: GRAY,
-            });
-            y -= leading;
+        StampLayout::ImageTop => {
+            let img_h = inner.3 * 0.5;
+            draw_images(
+                &mut ops,
+                &mut xobjs,
+                (inner.0, inner.1 + inner.3 - img_h, inner.2, img_h),
+            );
+            (inner.0, inner.1, inner.2, inner.3 - img_h - 2.0)
         }
+        StampLayout::ImageBackground => {
+            draw_images(&mut ops, &mut xobjs, inner);
+            inner
+        }
+        _ if tpl.show_check_icon && layout != StampLayout::TextOnly => {
+            let icon = (height * 0.55).clamp(18.0, 40.0).min(inner.3);
+            let (cx, cy, r) = (PADDING + icon / 2.0, height / 2.0, icon / 2.0 - 2.0);
+            ops.push(format!(
+                "q {} {} {} rg {} f Q",
+                accent.0,
+                accent.1,
+                accent.2,
+                circle_path(cx, cy, r)
+            ));
+            ops.push(format!(
+                "q 1 1 1 RG 2 w 1 J 1 j {} {} m {} {} l {} {} l S Q",
+                fmt_real(cx - 0.40 * r),
+                fmt_real(cy + 0.05 * r),
+                fmt_real(cx - 0.15 * r),
+                fmt_real(cy - 0.25 * r),
+                fmt_real(cx + 0.45 * r),
+                fmt_real(cy + 0.30 * r)
+            ));
+            let x = PADDING + icon + GAP;
+            (x, inner.1, (width - x - PADDING).max(10.0), inner.3)
+        }
+        _ => (inner.0 + 2.0, inner.1, inner.2 - 4.0, inner.3),
+    };
+    if !xobjs.is_empty() {
+        resources.set("XObject", Object::Dictionary(xobjs));
+    }
+
+    let lines: Vec<String> = tpl
+        .lines
+        .iter()
+        .filter_map(|l| values.render_line(l))
+        .map(|l| l.nfc().collect::<String>())
+        .collect();
+    let (tx, ty, tw, th) = text_area;
+    let start = tpl
+        .font_size
+        .unwrap_or_else(|| {
+            (th / (lines.len().max(1) as f64 * LINE_HEIGHT))
+                .min(height * 0.2)
+                .min(12.0)
+        })
+        .floor()
+        .clamp(4.0, 72.0) as i64;
+    let mut size = 4.0;
+    let mut wrapped: Vec<(usize, String)> = Vec::new();
+    for fs in (4..=start.max(4)).rev() {
+        let fs = fs as f64;
+        wrapped = lines
+            .iter()
+            .enumerate()
+            .flat_map(|(i, l)| font.wrap(l, tw, fs).into_iter().map(move |w| (i, w)))
+            .collect();
+        size = fs;
+        if wrapped.len() as f64 * fs * LINE_HEIGHT <= th {
+            break;
+        }
+    }
+    let leading = size * LINE_HEIGHT;
+    let block_h = wrapped.len() as f64 * leading;
+    let mut y = (ty + size * 0.2).max(ty + (th + block_h) / 2.0 - size);
+    for (i, text) in wrapped {
+        let x = match tpl.align {
+            TextAlign::Left => tx,
+            TextAlign::Center => tx + ((tw - font.width(&text, size)) / 2.0).max(0.0),
+        };
+        let color = if i == 0 { accent } else { text_color };
+        runs.push(TextRun {
+            text,
+            x,
+            y,
+            size,
+            color,
+        });
+        y -= leading;
     }
 
     if !runs.is_empty() {
@@ -587,18 +798,31 @@ mod tests {
     }
 
     #[test]
+    fn placeholders_drop_empty_lines() {
+        let v = StampValues {
+            name: "A".into(),
+            reason: String::new(),
+            ..Default::default()
+        };
+        assert_eq!(
+            v.render_line("Ký bởi: {name}").as_deref(),
+            Some("Ký bởi: A")
+        );
+        assert_eq!(v.render_line("Lý do: {reason}"), None);
+        assert_eq!(v.render_line("Cố định").as_deref(), Some("Cố định"));
+        assert_eq!(v.render_line("{unknown}").as_deref(), Some("{unknown}"));
+    }
+
+    #[test]
     fn builds_appearance_objects() {
         let mut alloc = ObjAlloc::new(100);
-        let id = build_appearance(
-            &mut alloc,
-            200.0,
-            60.0,
-            0,
-            "Nguyễn Văn A",
-            "14/11/2026 18:00:00",
-            &Default::default(),
-        )
-        .unwrap();
+        let values = StampValues {
+            name: "Nguyễn Văn A".into(),
+            date: "14/11/2026 18:00:00".into(),
+            ..Default::default()
+        };
+        let id =
+            build_appearance(&mut alloc, 200.0, 60.0, 0, &values, &Default::default()).unwrap();
         assert!(alloc.objects.iter().any(|(oid, _)| *oid == id));
         assert!(alloc.objects.len() >= 6);
     }

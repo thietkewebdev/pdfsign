@@ -10,7 +10,7 @@ pub mod token;
 pub use cryptoki::types::AuthPin;
 pub use discovery::{discover, ModuleCandidate};
 pub use error::{ErrorCode, TokenError};
-pub use token::{CertSelector, Module, SlotSummary, TokenCert, TokenSigner};
+pub use token::{CertSelector, Module, SignMechanism, SlotSummary, TokenCert, TokenSigner};
 
 /// Wrap a PIN string; the input `String` is moved into zeroizing storage.
 pub fn pin_from_string(pin: String) -> AuthPin {

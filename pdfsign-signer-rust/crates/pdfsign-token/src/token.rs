@@ -3,14 +3,24 @@
 use crate::error::{ErrorCode, Result, TokenError};
 use cryptoki::context::{CInitializeArgs, CInitializeFlags, Pkcs11};
 use cryptoki::error::{Error as CkError, RvError};
-use cryptoki::mechanism::Mechanism;
+use cryptoki::mechanism::{Mechanism, MechanismType};
 use cryptoki::object::{Attribute, AttributeType, KeyType, ObjectClass, ObjectHandle};
 use cryptoki::session::{Session, UserType};
 use cryptoki::slot::Slot;
 use cryptoki::types::AuthPin;
 use pdfsign_core::{summarize, CertSummary, RawSigner};
+use secrecy::ExposeSecret;
 use serde::Serialize;
 use std::path::{Path, PathBuf};
+
+/// `PDFSIGN_PKCS11_MECHANISM=sha256-rsa-pkcs` forces hash-on-token (diagnostics and tests).
+fn forced_mechanism() -> Option<SignMechanism> {
+    match std::env::var("PDFSIGN_PKCS11_MECHANISM").ok()?.as_str() {
+        "sha256-rsa-pkcs" => Some(SignMechanism::Sha256RsaPkcs),
+        "rsa-pkcs" => Some(SignMechanism::RsaPkcsDigestInfo),
+        _ => None,
+    }
+}
 
 /// DER prefix of DigestInfo{ sha256, NULL } (RFC 8017 section 9.2 note 1).
 const SHA256_DIGEST_INFO_PREFIX: [u8; 19] = [
@@ -174,6 +184,7 @@ impl Module {
         pin: &AuthPin,
         selector: &CertSelector,
     ) -> Result<TokenSigner> {
+        let (slot, _) = self.slot(slot_index)?;
         let session = self.open_session(slot_index, Some(pin))?;
         let certs = read_certs(&session)?;
         if certs.is_empty() {
@@ -222,11 +233,30 @@ impl Module {
         }
         let key = find_private_key(&session, &cert)?;
         let chain = build_chain(&cert, &certs);
+        let mechanisms = self.ctx.get_mechanism_list(slot).unwrap_or_default();
+        let mechanism = if forced_mechanism() == Some(SignMechanism::Sha256RsaPkcs)
+            || (!mechanisms.contains(&MechanismType::RSA_PKCS)
+                && mechanisms.contains(&MechanismType::SHA256_RSA_PKCS))
+        {
+            SignMechanism::Sha256RsaPkcs
+        } else {
+            SignMechanism::RsaPkcsDigestInfo
+        };
+        let always_auth = session
+            .get_attributes(key, &[AttributeType::AlwaysAuthenticate])
+            .ok()
+            .is_some_and(|a| {
+                a.iter()
+                    .any(|x| matches!(x, Attribute::AlwaysAuthenticate(true)))
+            });
+        let context_pin = always_auth.then(|| AuthPin::from(pin.expose_secret().to_string()));
         Ok(TokenSigner {
             session,
             key,
             cert,
             chain,
+            mechanism,
+            context_pin,
         })
     }
 }
@@ -404,17 +434,79 @@ fn build_chain(signer: &TokenCert, all: &[TokenCert]) -> Vec<Vec<u8>> {
     chain
 }
 
+/// How the RSA signature is produced on the device.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum SignMechanism {
+    /// CKM_RSA_PKCS over a DER DigestInfo (hash computed on the host). Preferred.
+    RsaPkcsDigestInfo,
+    /// CKM_SHA256_RSA_PKCS over the message (hash computed on the token).
+    Sha256RsaPkcs,
+}
+
 pub struct TokenSigner {
     session: Session,
     key: ObjectHandle,
     cert: TokenCert,
     chain: Vec<Vec<u8>>,
+    mechanism: SignMechanism,
+    /// Only kept for keys with CKA_ALWAYS_AUTHENTICATE, which need a context-specific login per signature.
+    context_pin: Option<AuthPin>,
 }
 
 impl TokenSigner {
     pub fn cert(&self) -> &TokenCert {
         &self.cert
     }
+
+    pub fn mechanism(&self) -> SignMechanism {
+        self.mechanism
+    }
+
+    fn context_login(&self) -> std::result::Result<(), String> {
+        if let Some(pin) = &self.context_pin {
+            self.session
+                .login(UserType::ContextSpecific, Some(pin))
+                .map_err(err_string)?;
+        }
+        Ok(())
+    }
+
+    fn sign_with(
+        &self,
+        mech: SignMechanism,
+        message: &[u8],
+    ) -> std::result::Result<Vec<u8>, CkError> {
+        let (mechanism, data) = match mech {
+            SignMechanism::RsaPkcsDigestInfo => {
+                let digest = pdfsign_core::cades::sha256(message);
+                let mut di = SHA256_DIGEST_INFO_PREFIX.to_vec();
+                di.extend_from_slice(&digest);
+                (Mechanism::RsaPkcs, di)
+            }
+            SignMechanism::Sha256RsaPkcs => (Mechanism::Sha256RsaPkcs, message.to_vec()),
+        };
+        self.session.sign(&mechanism, self.key, &data)
+    }
+}
+
+fn err_string(e: CkError) -> String {
+    let te: TokenError = e.into();
+    format!("{}: {}", te.code.as_str(), te.detail)
+}
+
+fn is_mechanism_unsupported(e: &CkError) -> bool {
+    matches!(
+        e,
+        CkError::Pkcs11(
+            RvError::MechanismInvalid
+                | RvError::MechanismParamInvalid
+                | RvError::FunctionNotSupported
+                | RvError::KeyFunctionNotPermitted
+                | RvError::KeyTypeInconsistent,
+            _
+        )
+    )
 }
 
 impl RawSigner for TokenSigner {
@@ -427,14 +519,30 @@ impl RawSigner for TokenSigner {
     }
 
     fn sign_sha256_digest(&mut self, digest: &[u8; 32]) -> std::result::Result<Vec<u8>, String> {
+        self.context_login()?;
         let mut digest_info = SHA256_DIGEST_INFO_PREFIX.to_vec();
         digest_info.extend_from_slice(digest);
         self.session
             .sign(&Mechanism::RsaPkcs, self.key, &digest_info)
-            .map_err(|e| {
-                let te: TokenError = e.into();
-                format!("{}: {}", te.code.as_str(), te.detail)
-            })
+            .map_err(err_string)
+    }
+
+    fn sign_sha256_message(&mut self, message: &[u8]) -> std::result::Result<Vec<u8>, String> {
+        self.context_login()?;
+        match self.sign_with(self.mechanism, message) {
+            Ok(sig) => Ok(sig),
+            Err(e) if is_mechanism_unsupported(&e) => {
+                let other = match self.mechanism {
+                    SignMechanism::RsaPkcsDigestInfo => SignMechanism::Sha256RsaPkcs,
+                    SignMechanism::Sha256RsaPkcs => SignMechanism::RsaPkcsDigestInfo,
+                };
+                self.context_login()?;
+                let sig = self.sign_with(other, message).map_err(err_string)?;
+                self.mechanism = other;
+                Ok(sig)
+            }
+            Err(e) => Err(err_string(e)),
+        }
     }
 }
 

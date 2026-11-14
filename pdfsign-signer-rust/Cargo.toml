@@ -33,6 +33,8 @@ der = { version = "0.7", features = ["alloc", "derive", "oid"] }
 cms = "0.2"
 x509-cert = "0.2"
 x509-tsp = "0.1"
+x509-ocsp = "0.2"
+sha1 = { version = "0.10", features = ["oid"] }
 spki = "0.7"
 const-oid = { version = "0.9", features = ["db"] }
 sha2 = { version = "0.10", features = ["oid"] }
@@ -42,6 +44,7 @@ ureq = "3"
 
 cryptoki = "0.12"
 libloading = "0.9"
+secrecy = "0.10"
 
 clap = { version = "4", features = ["derive"] }
 rpassword = "7"
