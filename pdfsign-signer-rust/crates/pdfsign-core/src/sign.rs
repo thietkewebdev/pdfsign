@@ -92,7 +92,7 @@ pub struct SignOptions {
     pub contact_info: Option<String>,
     pub signing_time: Option<DateTime<Utc>>,
     pub appearance: AppearanceOptions,
-    /// Bytes reserved for the CMS blob. Default: 16 KiB, or 32 KiB with a timestamp.
+    /// Bytes reserved for the CMS blob. Default: 2 KiB + 2x embedded certs, +12 KiB with a timestamp.
     pub contents_reserve: Option<usize>,
 }
 
@@ -162,9 +162,9 @@ pub fn sign_pdf(
     let mut opts = opts.clone();
     if opts.contents_reserve.is_none() {
         let chain_len: usize = signer.chain_der().iter().map(|c| c.len()).sum();
-        let base = 8192 + 2 * (cert_der.len() + chain_len);
+        let base = 2048 + 2 * (cert_der.len() + chain_len);
         opts.contents_reserve = Some(if timestamper.is_some() {
-            base + 16384
+            base + 12288
         } else {
             base
         });
