@@ -1,97 +1,92 @@
 # pdfsign-signer-rust
 
-Rust rewrite of the PDFSign desktop signer (phase 1: offline signing). Production apps
-`pdfsignpro-signer-wpf/` and `pdfsignpro-cloud/` are untouched.
+PDFSign desktop signer rewritten in Rust: offline PAdES signing with PKCS#11 USB tokens,
+Windows x64 first. Production apps `pdfsignpro-signer-wpf/` and `pdfsignpro-cloud/` are untouched.
 
 Docs (Vietnamese): [`docs/ANALYSIS.md`](docs/ANALYSIS.md) (how the WPF + pyHanko signer works),
 [`docs/COMPARE.md`](docs/COMPARE.md) (signature diff vs the WPF output),
-[`docs/TEST-TOKEN-THAT.md`](docs/TEST-TOKEN-THAT.md) (real token test checklist).
+[`docs/TEST-TOKEN-THAT.md`](docs/TEST-TOKEN-THAT.md) (Windows test checklist with real tokens).
+
+## Features (offline mode)
+
+- Batch signing: many PDFs at once with the same boxes/template, output folder + file suffix.
+- Several signatures per file: one incremental signature per box (earlier signatures stay valid).
+- Saved signature templates: seal image, handwritten signature image, text lines with placeholders
+  (`{name} {cn} {org} {date} {reason} {location} {issuer} {serial}`), layouts (image left/top/background,
+  text only), border, tick icon, colors, font size, date format. Stored per user.
+- PDF preview with page navigation; draw, drag and resize boxes with a live stamp preview; rotated pages handled.
+- PAdES B-B, B-T (RFC 3161, configurable TSA list), B-LT (chain via AIA, OCSP with CRL fallback, DSS + VRI),
+  B-LTA (document timestamp + DSS for its TSA).
+- Verify tab: per signature integrity, signer, claimed time, timestamp, chain, trust (user-added root CAs),
+  revocation from the DSS, LTV, PAdES level, document timestamps.
+- Remembers the last token module/slot and certificate serial, never the PIN.
+- Tokens without raw RSA: uses `CKM_SHA256_RSA_PKCS` when `CKM_RSA_PKCS` is missing or refused; per-signature
+  login for `CKA_ALWAYS_AUTHENTICATE` keys.
 
 ## Layout
 
-| Crate | Role |
+| Path | Role |
 |---|---|
-| `crates/pdfsign-core` | Incremental-update signing (classic xref and xref streams), PAdES B-B (`ETSI.CAdES.detached`, SHA-256, RSA PKCS#1 v1.5, signing-certificate-v2), optional RFC 3161 TSA (B-T), visible stamp (Noto Sans subset, Vietnamese), signature self-check |
-| `crates/pdfsign-token` | PKCS#11 via `cryptoki`: module discovery (port of the WPF/Python list, Viettel first), slots, certificates, PIN login, key matching, signing |
-| `crates/pdfsign-cli` | `pdfsign` binary: `list-tokens`, `list-certs`, `sign`, `verify` |
+| `crates/pdfsign-core` | PDF incremental update, CAdES/PAdES CMS, appearance templates, TSA, LTV (AIA/OCSP/CRL/DSS), document timestamps, verification |
+| `crates/pdfsign-token` | PKCS#11 via `cryptoki`: module discovery (port of the WPF list, Viettel first), slots, certs, key matching by modulus, mechanism fallback |
+| `crates/pdfsign-app` | Application layer shared by GUI and CLI: settings, template store, batch/multi-signature jobs, verify view, and the `remote` seam for the later web mode |
+| `crates/pdfsign-cli` | `pdfsign` CLI |
+| `apps/pdfsign-gui` | Tauri v2 desktop app "PDFSign" (separate Cargo workspace), Vietnamese UI |
 
-## Build
+Web mode (`pdfsignpro://` + bridge on 127.0.0.1:17886) is not implemented. It plugs in through
+`pdfsign_app::remote::RemoteJobSource`, which produces the same `SignJob` the offline UI builds.
 
-Requirements: Rust stable 1.85+; Windows needs the MSVC build tools, macOS the Xcode command line tools.
-No system libraries are needed (PKCS#11 modules are loaded at runtime).
+## Windows installers
+
+CI (`.github/workflows/pdfsign-signer-rust.yml`, runs only on changes under `pdfsign-signer-rust/**`) builds:
+
+| Artifact | Contents |
+|---|---|
+| `pdfsign-windows-installers` | `PDFSign_0.1.0_x64-setup.exe` (NSIS, per-user, no admin), `PDFSign_0.1.0_x64_en-US.msi` |
+| `pdfsign-windows-x64` | `pdfsign.exe` (CLI), `pdfsign-gui.exe` (portable GUI) |
+| `pdfsign-linux-x64` | Linux CLI |
+
+The installers are not Authenticode-signed yet. SmartScreen shows "Windows protected your PC": click
+"More info" then "Run anyway". WebView2 is preinstalled on Windows 10/11; otherwise the setup downloads it.
+The CLI is installed next to the app (`%LOCALAPPDATA%\PDFSign\pdfsign.exe` for the NSIS per-user install).
+
+Build locally on Windows: `cargo build --release -p pdfsign-cli`, then in `apps/pdfsign-gui`
+`npx @tauri-apps/cli@2 build --bundles nsis,msi`.
+
+## CLI
 
 ```bash
-cd pdfsign-signer-rust
-cargo build --release -p pdfsign-cli      # -> target/release/pdfsign(.exe)
-cargo test --workspace
+pdfsign list-tokens                                   # modules + token slots (no PIN)
+pdfsign list-certs [--module PATH] --json
+pdfsign sign a.pdf b.pdf --out-dir out --suffix=-da-ky --pin-prompt \
+  --box LAST:0.55,0.06,0.40,0.11 --box 1:0.05,0.06,0.40,0.11 \
+  --level B-LT --tsa http://timestamp.digicert.com --template default --reason "Phê duyệt"
+pdfsign verify signed.pdf --trust root-ca.cer [--json]
+pdfsign templates
 ```
 
-CI (`.github/workflows/pdfsign-signer-rust.yml`, only runs on changes under `pdfsign-signer-rust/**`) uploads
-`pdfsign-windows-x64`, `pdfsign-macos-universal` and `pdfsign-linux-x64` artifacts.
-
-## Run
-
-```bash
-pdfsign list-tokens                         # discovered modules + token slots (no PIN)
-pdfsign list-certs [--module PATH] --json   # same JSON shape as PDFSignProSignerCore --list-certs
-pdfsign sign --in in.pdf --out out.pdf --pin-prompt \
-  [--module PATH] [--slot 0] [--cert 0|serial:HEX] \
-  [--page LAST|N] [--rect 0.64,0.06,0.32,0.10] [--image seal.png] [--tsa URL] [--reason ...] [--location ...]
-pdfsign verify out.pdf                      # integrity + signature value (not trust validation)
-```
-
-- `--rect` is `rectPct` from the cloud job API: fractions of the displayed page, bottom-left origin.
-- PIN: hidden prompt (`--pin-prompt`, default for `sign`) or first line of stdin (`--pin-stdin`, for automation).
-  There is no PIN argument; PINs are never logged.
-- Errors print `ERRCODE:<CODE>` plus a Vietnamese message on stderr, same codes as the WPF host
-  (`PIN_INCORRECT`, `PIN_LOCKED`, `TOKEN_NOT_FOUND`, `NO_PKCS11_DLL`, ...).
-- Module override: `--module`, or env `PDFSIGN_PKCS11_MODULE` / `PKCS11_DLL`.
+- `--box PAGE:x,y,w,h`: fractions of the displayed page, bottom-left origin (cloud `rectPct`); PAGE = number or LAST.
+- PIN: hidden prompt or `--pin-stdin`; no PIN argument exists and PINs are never logged or saved.
+- Errors print `ERRCODE:<CODE>` + a Vietnamese message (same codes as the WPF host).
+- `PDFSIGN_PKCS11_MECHANISM=sha256-rsa-pkcs` forces hash-on-token signing (diagnostics).
+- Settings/templates live in `%APPDATA%\PDFSign` (override with `PDFSIGN_CONFIG_DIR`).
 
 ## Testing without a hardware token
 
-- `cargo test --workspace`: unit tests, round trips with a software key (classic xref, xref stream, rotated page,
-  image, double signature, tamper detection, `qpdf --check` when present) and a SoftHSM2 PKCS#11 test that
-  skips itself when SoftHSM2 is not installed.
-- `scripts/e2e-softhsm.sh [OUT]`: creates a SoftHSM2 token, imports the test key, runs the CLI through PKCS#11,
-  then validates with `pyhanko sign validate`, `pdfsig`, `qpdf --check` and renders the page with `pdftoppm`.
-- `scripts/compare-pyhanko.sh [OUT]`: signs the same PDF with the production Python core and with Rust, dumps both.
-- Test PKI in `tests/fixtures/pki` (regenerate with `scripts/gen-test-pki.sh`) is public and must never be trusted.
-  The CLI also accepts `--soft-key/--soft-cert/--soft-chain` (PEM) for tests only.
+- `cargo test --workspace`: unit tests, software-key round trips, SoftHSM2 token test (skips if absent).
+- `scripts/pki_services.py`: local TSA + OCSP + CRL + AIA for the `tests/fixtures/pki-ltv` test PKI;
+  `PDFSIGN_PKI_SERVICES=1 cargo test` then also runs the B-T/B-LT/B-LTA test.
+- `scripts/e2e-softhsm.sh`: SoftHSM2 end to end (single, hash-on-token, batch of 3, two signatures in one file,
+  B-T, B-LT, B-LTA, wrong PIN), validated with `pyhanko sign validate`, `pyhanko sign adesverify`,
+  pyHanko PAdES-LT/LTA (`LTV_PYTHON` = python with pyHanko <= 0.29), `pdfsig`, `qpdf --check`.
+- `scripts/compare-pyhanko.sh`: same key signed by the production Python core and by Rust, structural dump.
+- Test PKIs in `tests/fixtures/pki*` are public and must never be trusted.
 
-## Phase 1 roadmap
+## Roadmap
 
-1. Done here: core signing (B-B, B-T), PKCS#11 token access, CLI, GUI skeleton, CI artifacts, SoftHSM2 tests.
-2. Real-token validation on Windows and macOS with Viettel, VNPT, BKAV (see `docs/TEST-TOKEN-THAT.md`);
-   pin macOS module paths per vendor; handle tokens without `CKM_RSA_PKCS` (fallback to `CKM_SHA256_RSA_PKCS`
-   by signing the attributes, not the digest) and `CKA_ALWAYS_AUTHENTICATE` keys.
-3. Job flow parity: `pdfsignpro://` deep link, claim/get/complete API, `certMeta` upload, seal image download.
-4. Local bridge parity on `127.0.0.1:17886` (`/health`, `/ready`, `/certs`) with the same CORS allowlist.
-5. GUI (below), tray, single instance, auto-update, installers (MSI/Inno on Windows, signed + notarized `.app`/`.dmg`).
-6. Then: B-LT (DSS with OCSP/CRL), ECDSA keys, encrypted PDFs, PDF/A-friendly appearance.
-
-## GUI skeleton (`apps/pdfsign-gui`)
-
-A minimal Tauri v2 app: pick a PDF, render it with pdf.js (self-hosted copy from `pdfsignpro-cloud/public/pdfjs`),
-drag to place the box (`rectPct`), scan tokens, list certificates (CA certs disabled), PIN field, sign.
-It is a separate Cargo workspace (needs Rust 1.90+, and on Linux the WebKitGTK 4.1 dev packages), so the core
-crates and CLI build without any webview dependency.
-
-```bash
-cargo build --release --manifest-path apps/pdfsign-gui/Cargo.toml   # -> apps/pdfsign-gui/target/release/pdfsign-gui
-```
-
-CI uploads `pdfsign-gui-windows-x64` and `pdfsign-gui-macos-arm64` (plain binaries, not installers yet).
-
-## GUI recommendation: Tauri v2
-
-Pick **Tauri v2** over egui:
-
-- Placing the box needs a PDF renderer. Tauri can reuse pdf.js and the placement/stamp preview already built in
-  `pdfsignpro-cloud` (same `rectPct` contract, same `StampValidPreview` layout). egui would need pdfium
-  binaries per platform plus a rewrite of that UI.
-- Vietnamese text, IME and accessibility come for free from the system webview; egui's text shaping and IME are weaker.
-- Plugins cover the desktop needs: deep links (`pdfsignpro://`), single instance, tray, autostart, signed updater.
-- Small footprint: WebView2 is preinstalled on Windows 10/11, WKWebView on macOS; signing logic stays in these crates
-  and is exposed as Tauri commands. The PIN only crosses the IPC boundary once per signing and is kept as `AuthPin`.
-
-egui remains a good choice for an internal diagnostic tool (no web stack), but not for the end-user signer.
+1. Done: offline signer (above), Windows installers in CI.
+2. Real-token validation on Windows with Viettel, VNPT, BKAV (`docs/TEST-TOKEN-THAT.md`); pin verified driver paths and
+   Vietnamese CA TSA URLs.
+3. Authenticode signing of installers, auto-update, start with Windows, tray.
+4. Web mode: deep link, claim/get/complete job API, local bridge 17886 (seam: `pdfsign_app::remote`).
+5. Later: ECDSA keys, encrypted PDFs, PDF/A-aware appearances, macOS (paused).

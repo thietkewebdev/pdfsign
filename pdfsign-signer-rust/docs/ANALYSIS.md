@@ -158,9 +158,14 @@ có `Access-Control-Allow-Private-Network: true`. Không có xác thực nào kh
 
 Xác thực: claim code (từ deep link) đổi lấy `jobToken` 48 hex; server chỉ lưu SHA-256 của token.
 
-## 10. Quyết định cho bản Rust (giai đoạn 1)
+## 10. Quyết định cho bản Rust
 
-- Giữ tương thích: `rectPct`, `page`, mã lỗi `ERRCODE:*`, JSON của `list-certs`, thứ tự dò DLL.
-- Đổi có chủ đích: SubFilter `ETSI.CAdES.detached`, bỏ signing-time (PAdES B-B), tùy chọn TSA (B-T),
-  giữ nguyên byte gốc (không ghi lại bằng pikepdf), sửa lỗi trang xoay, PIN không qua argv.
-- Chưa làm: LTV/DSS (B-LT), deep link, bridge, upload job; GUI mới là bộ khung. Xem roadmap trong `README.md`.
+- Giữ tương thích: `rectPct`, `page`, mã lỗi `ERRCODE:*`, JSON của `list-certs`, thứ tự dò DLL (Windows).
+- Đổi có chủ đích: SubFilter `ETSI.CAdES.detached`, bỏ signing-time (PAdES B-B), dấu thời gian (B-T), LTV (B-LT:
+  chuỗi CA qua AIA, OCSP rồi CRL, DSS + VRI) và B-LTA (dấu thời gian tài liệu); giữ nguyên byte gốc (không ghi lại bằng
+  pikepdf); sửa lỗi trang xoay; PIN không qua argv, không lưu; ghép khóa theo modulus; tự chuyển `CKM_SHA256_RSA_PKCS`.
+- Kiến trúc: `pdfsign-core` (PDF/CMS/LTV), `pdfsign-token` (PKCS#11), `pdfsign-app` (cài đặt, mẫu, job hàng loạt,
+  xác minh), giao diện Tauri và CLI dùng chung `pdfsign-app`.
+- Web mode (deep link `pdfsignpro://`, bridge 17886, claim/complete) chưa làm; điểm nối là
+  `pdfsign_app::remote::RemoteJobSource`, tạo ra cùng `SignJob` như giao diện offline (mục 7 đến 9 mô tả hợp đồng).
+- Ưu tiên Windows x64 (NSIS + MSI); macOS tạm dừng.

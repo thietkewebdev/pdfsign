@@ -1,115 +1,96 @@
-# Checklist thử token thật (Viettel, VNPT, BKAV, ...) trên Windows và macOS
+# Checklist thử token thật trên Windows (Viettel, VNPT, BKAV, ...)
 
-Mục tiêu: xác nhận `pdfsign` nạp đúng driver PKCS#11, đọc được chứng thư, ký được, và Adobe Reader
-xác minh chữ ký. Ghi kết quả vào bảng cuối file rồi gửi lại.
+Mục tiêu: xác nhận ứng dụng PDFSign (bản Rust) nạp đúng driver PKCS#11 của token, đọc được chứng thư, ký được
+(đơn lẻ, hàng loạt, nhiều chữ ký, các mức B-B/B-T/B-LT/B-LTA) và Adobe Reader xác minh được. macOS tạm dừng.
 
 Lưu ý an toàn:
 
-- Token thường **khóa sau 3 đến 5 lần nhập sai PIN**. Nếu `pdfsign` báo "còn 1 lần nhập PIN", dừng lại.
-- Không gõ PIN vào dòng lệnh. `pdfsign` hỏi PIN ở chế độ ẩn (`--pin-prompt`), không ghi PIN vào log.
+- Token thường **khóa sau 3 đến 5 lần nhập sai PIN**. Nếu ứng dụng báo "còn 1 lần nhập PIN", dừng lại.
+- PIN chỉ nhập vào ô PIN (ẩn). Ứng dụng không lưu PIN, không ghi PIN vào log; chỉ nhớ đường dẫn driver và serial chứng thư.
 - Dùng file PDF thử, không dùng hợp đồng thật.
 
-## 0. Lấy bản build
+## 0. Cài đặt
 
-- Vào tab Actions của PR, workflow `pdfsign-signer-rust`, tải artifact:
-  `pdfsign-windows-x64` (`pdfsign.exe`) hoặc `pdfsign-macos-universal` (`pdfsign`).
-- macOS: `chmod +x pdfsign && xattr -d com.apple.quarantine pdfsign` (bản chưa ký số/notarize).
-- Hoặc tự build: `cargo build --release -p pdfsign-cli` trong `pdfsign-signer-rust/`.
+1. Vào PR, tab Checks, workflow `pdfsign-signer-rust`, tải artifact `pdfsign-windows-installers`.
+2. Chạy `PDFSign_0.1.0_x64-setup.exe` (cài cho user hiện tại, không cần quyền admin).
+   Bản chưa ký số nên SmartScreen báo "Windows protected your PC": bấm **More info** rồi **Run anyway**.
+   Hoặc dùng `PDFSign_0.1.0_x64_en-US.msi` (có thể cần quyền admin).
+3. Mở **PDFSign** từ Start menu. Nếu báo thiếu WebView2: cài "Microsoft Edge WebView2 Runtime" rồi mở lại.
+4. CLI đi kèm: `%LOCALAPPDATA%\PDFSign\pdfsign.exe` (bản NSIS). Dùng để lấy log chi tiết khi có lỗi.
 
-## 1. Windows
+## 1. Driver token
 
-1. Cài phần mềm token của nhà cung cấp (bản mới nhất từ trang CA):
-   - Viettel-CA: "Viettel-CA Token Manager" (thường cài `C:\Windows\System32\viettel-ca_v*.dll`).
-   - VNPT-CA: phần mềm quản lý token/plugin của VNPT-CA.
-   - BKAV-CA: "BkavCA Token Manager".
-   - FPT-CA, EasyCA, CA2, NewTel, ... tương tự.
-2. Cắm token, kiểm tra phần mềm của CA thấy chứng thư (và Device Manager nhận thiết bị).
-3. Mở PowerShell tại thư mục chứa `pdfsign.exe`:
-
-   ```powershell
-   .\pdfsign.exe --version
-   .\pdfsign.exe list-tokens
-   ```
-
-   - Kỳ vọng: có dòng DLL của hãng và `slot 0: <nhãn token> | <hãng> <model> | serial ...`.
-   - Nếu không thấy DLL: tìm thủ công rồi chạy lại với `--module`:
+1. Cài phần mềm token mới nhất của nhà cung cấp (Viettel-CA Token Manager, phần mềm token VNPT-CA, BkavCA Token Manager,
+   FPT-CA, EasyCA, CA2, NewTel, ...). Cắm token, kiểm tra phần mềm của CA thấy chứng thư.
+2. Trong PDFSign, tab **Ký số**, mục 3: bấm **Dò token**.
+   - Kỳ vọng: `<nhãn token> · <hãng>` và chứng thư `<Tên công ty> · hết hạn dd-mm-yyyy`.
+   - Nếu không thấy: bấm **Chọn driver…** và chọn file DLL. Tìm DLL bằng PowerShell:
 
      ```powershell
      Get-ChildItem C:\Windows\System32, "C:\Program Files", "C:\Program Files (x86)" -Recurse -Include *pkcs11*.dll,*csp11*.dll,*viettel*.dll,*vnpt*.dll,*bkav*.dll -ErrorAction SilentlyContinue | Select FullName
-     .\pdfsign.exe list-tokens --module "C:\duong\dan\toi\driver.dll"
      ```
 
-4. Liệt kê chứng thư (đa số token cho đọc cert không cần PIN; nếu rỗng thì thêm `--pin-prompt`):
+3. Ghi lại đường dẫn DLL thực tế vào bảng ở cuối file.
 
-   ```powershell
-   .\pdfsign.exe list-certs
-   .\pdfsign.exe list-certs --json
-   ```
+## 2. Ký trong giao diện
 
-5. Ký thử (hỏi PIN ẩn):
+Làm lần lượt, mỗi bước ghi Đạt/Không đạt:
 
-   ```powershell
-   .\pdfsign.exe sign --pin-prompt --cert 0 --in test.pdf --out test-signed.pdf --page LAST --rect 0.55,0.06,0.40,0.11
-   .\pdfsign.exe verify test-signed.pdf
-   ```
+- [ ] **Ký đơn lẻ B-B**: Thêm 1 file, kéo vẽ 1 ô ở góc dưới phải, mẫu "Mặc định", mức B-B, nhập PIN, **Ký số**.
+      Kết quả xanh "B-B · 1 chữ ký". Bấm **Mở** để xem file.
+- [ ] **Nhiều chữ ký trên một file**: vẽ 2 ô (trái và phải), ký. Kỳ vọng "2 chữ ký"; Adobe thấy 2 chữ ký đều hợp lệ.
+- [ ] **Ký hàng loạt**: thêm 5 đến 10 file khác nhau (có file nhiều trang, có trang xoay), giữ ô ở trang cuối và tick
+      "Ô ở trang cuối áp dụng cho trang cuối của mọi file", chọn thư mục lưu + hậu tố, ký. Tất cả kết quả xanh,
+      chỉ nhập PIN 1 lần.
+- [ ] **Mẫu chữ ký**: tab **Mẫu chữ ký**, tạo mẫu mới có ảnh con dấu (PNG nền trong) + ảnh chữ ký tay, sửa các dòng
+      (thử `{reason}`, `{location}`), lưu. Ký thử với mẫu đó, kiểm tra hình hiển thị đúng như xem trước.
+- [ ] **B-T**: mức B-T với từng TSA đang bật (tab **Cài đặt** có nút **Kiểm tra** từng TSA). Ghi TSA nào chạy được.
+      Thử thêm URL TSA của chính CA (Viettel, VNPT, BKAV...) nếu có.
+- [ ] **B-LT**: mức B-LT. Cần mạng để lấy OCSP/CRL của CA. Nếu kết quả có "cảnh báo" (rê chuột để xem),
+      ghi lại nội dung (ví dụ CA không có OCSP, CRL quá lớn).
+- [ ] **B-LTA**: mức B-LTA. Kỳ vọng thêm một "dấu thời gian tài liệu".
+- [ ] **Nhớ token**: đóng và mở lại ứng dụng: token và chứng thư được chọn sẵn, ô PIN trống.
+- [ ] **Rút token khi đang ký hàng loạt**: kỳ vọng báo lỗi token, các file còn lại được bỏ qua, không treo.
+- [ ] **Xác minh**: tab **Xác minh**, mở file vừa ký: thẻ "Hợp lệ", đúng người ký, đúng mức PAdES, LTV "Đầy đủ" với B-LT/B-LTA.
+      Thêm chứng thư CA gốc của nhà cung cấp trong **Cài đặt > CA gốc tin cậy** để mục "Tin cậy CA gốc" thành "Có".
+- [ ] **Xác minh file do WPF ký**: kỳ vọng mức "PKCS#7 (không phải PAdES)" và vẫn toàn vẹn.
 
-   Thêm timestamp (PAdES B-T), ví dụ TSA của CA hoặc `http://timestamp.digicert.com`:
+## 3. Token không hỗ trợ RSA thô
 
-   ```powershell
-   .\pdfsign.exe sign --pin-prompt --cert 0 --in test.pdf --out test-signed-bt.pdf --tsa http://timestamp.digicert.com
-   ```
+Một số token chỉ có `CKM_SHA256_RSA_PKCS`. Ứng dụng tự chuyển cơ chế. Để kiểm tra cả hai đường với cùng token:
 
-6. Thử lỗi có kiểm soát: rút token rồi ký (kỳ vọng `ERRCODE:TOKEN_NOT_FOUND` hoặc `TOKEN_REMOVED`).
-   **Không** cố tình nhập sai PIN quá 1 lần.
-7. Nếu có nhiều phần mềm token cùng cài: chạy `list-tokens` và ghi lại thứ tự DLL; kiểm tra lệnh `sign`
-   không chỉ định `--module` chọn đúng DLL (Viettel được ưu tiên giống bản WPF).
+```powershell
+cd $env:LOCALAPPDATA\PDFSign
+.\pdfsign.exe -v sign test.pdf --out t1.pdf --pin-prompt
+$env:PDFSIGN_PKCS11_MECHANISM = "sha256-rsa-pkcs"
+.\pdfsign.exe -v sign test.pdf --out t2.pdf --pin-prompt
+Remove-Item Env:PDFSIGN_PKCS11_MECHANISM
+.\pdfsign.exe verify t1.pdf
+.\pdfsign.exe verify t2.pdf
+```
 
-## 2. macOS (Apple Silicon và Intel)
+Dòng log `token signer ready mechanism=...` cho biết cơ chế đã dùng. Ghi lại nếu một trong hai lỗi.
 
-1. Cài driver macOS của CA (nếu CA có cung cấp). Ghi lại tên gói và phiên bản.
-2. Tìm thư viện PKCS#11 (dylib hoặc .so):
+## 4. Kiểm tra trong Adobe Acrobat Reader
 
-   ```bash
-   ./pdfsign list-tokens
-   find /usr/local/lib /opt/homebrew/lib /Library /Applications -iname '*pkcs11*' -o -iname '*.dylib' 2>/dev/null \
-     | grep -i -E 'pkcs11|viettel|vnpt|bkav|fpt|castle|etpkcs|epass|safenet|opensc'
-   ```
+Mở file đã ký ở từng mức:
 
-3. Nếu không tự dò được: `./pdfsign list-tokens --module /duong/dan/lib.dylib`.
-4. Kiến trúc: `file /duong/dan/lib.dylib` phải có `arm64` trên máy M1/M2/M3 (bản `pdfsign` là universal).
-   Nếu driver chỉ có `x86_64`, ghi lại: khi đó phải chạy `arch -x86_64 ./pdfsign ...`.
-5. Nếu macOS chặn thư viện chưa ký: System Settings > Privacy & Security > Allow, rồi chạy lại.
-6. Các lệnh `list-certs`, `sign`, `verify` giống Windows (thêm `--module` nếu cần).
+- [ ] Thanh trên cùng: "Signed and all signatures are valid" (nếu khác, ghi nguyên văn).
+- [ ] Signature Properties: "Document has not been modified since this signature was applied".
+- [ ] "Signer's identity is valid". Nếu "unknown": Edit > Preferences > Signatures > Verification > More, bật
+      "Validating Signatures/Certified Documents" với Windows Integration, mở lại file. Ghi CA có trong AATL không.
+- [ ] Advanced Properties: Hash = SHA256; Format = "CAdES Equivalent" (bản WPF hiện là "PKCS#7 - Detached").
+- [ ] B-T trở lên: "Signature includes an embedded timestamp", thời gian là của TSA.
+- [ ] B-LT/B-LTA: "Signature is LTV enabled".
+- [ ] Hình chữ ký đúng trang, đúng vị trí, tiếng Việt có dấu đúng, ảnh con dấu rõ, in ra giấy vẫn thấy.
 
-## 3. Kiểm tra trong Adobe Acrobat Reader
+## 5. Bảng kết quả (điền và gửi lại)
 
-Mở `test-signed.pdf` (và `test-signed-bt.pdf`):
+| Hãng / model token | Windows | Đường dẫn DLL | Dò token | Ký B-B | Hàng loạt | 2 chữ ký | B-T (TSA nào) | B-LT | B-LTA | Adobe (hợp lệ / danh tính / LTV) | Ghi chú |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| Viettel-CA | 10/11 x64 | | | | | | | | | | |
+| VNPT-CA | 10/11 x64 | | | | | | | | | | |
+| BKAV-CA | 10/11 x64 | | | | | | | | | | |
 
-- [ ] Thanh trên cùng: "Signed and all signatures are valid" (hoặc "At least one signature has problems":
-      ghi lại nguyên văn).
-- [ ] Bảng Signatures > chữ ký > "Signature Properties":
-  - [ ] "Document has not been modified since this signature was applied".
-  - [ ] "Signer's identity is valid". Nếu "unknown": Edit > Preferences > Signatures > Identities & Trusted
-        Certificates / Verification > bật "Windows Integration" (tin kho chứng thư Windows), mở lại file.
-        Ghi lại CA có nằm trong AATL không.
-  - [ ] Show Signer's Certificate: đúng tên công ty/người ký, đúng CA, chuỗi đầy đủ đến Root.
-  - [ ] Advanced Properties: Hash Algorithm = SHA256; Signature Format = **CAdES Equivalent / ETSI.CAdES.detached**
-        (bản WPF hiện tại hiện "PKCS#7 - Detached").
-  - [ ] Bản `--tsa`: "Signature includes an embedded timestamp", thời gian là của TSA.
-- [ ] Hình chữ ký: đúng trang, đúng vị trí, tiếng Việt có dấu hiển thị đúng, in ra giấy vẫn thấy.
-- [ ] Ký thêm lần 2 bằng Adobe hoặc bằng `pdfsign` lên file đã ký: chữ ký 1 vẫn hợp lệ.
-- [ ] So với file ký bằng WPF hiện tại trên cùng tài liệu: ghi khác biệt Adobe hiển thị.
-
-## 4. Bảng kết quả (điền và gửi lại)
-
-| Hãng / model token | HĐH + CPU | Đường dẫn module | list-tokens | list-certs | sign | Adobe: hợp lệ / danh tính / định dạng | Ghi chú |
-|---|---|---|---|---|---|---|---|
-| Viettel-CA | Windows 11 x64 | | | | | | |
-| VNPT-CA | Windows 11 x64 | | | | | | |
-| BKAV-CA | Windows 11 x64 | | | | | | |
-| Viettel-CA | macOS (M?) | | | | | | |
-| VNPT-CA | macOS (M?) | | | | | | |
-| BKAV-CA | macOS (M?) | | | | | | |
-
-Gửi kèm: output `list-tokens`, `list-certs --json` (không chứa PIN), file PDF đã ký, ảnh chụp bảng Signature
-Properties trong Adobe. Khi có lỗi, chạy lại với `-v` và gửi phần stderr.
+Gửi kèm: ảnh chụp kết quả trong ứng dụng, file PDF đã ký, ảnh Signature Properties trong Adobe. Khi lỗi, chạy lại bằng CLI
+với `-v` và gửi phần stderr (không chứa PIN).
