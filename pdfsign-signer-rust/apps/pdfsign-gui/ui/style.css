@@ -137,3 +137,4 @@ label > select, label > input, label > textarea { width: 100%; min-width: 0; }
 .results li .actions { display: flex; gap: 4px; }
 .results li .actions button { border: 1px solid var(--line); background: #fff; font-size: 12px; padding: 2px 8px; border-radius: 6px; }
 .settings .group > button, .verify .row > button { align-self: flex-start; }
+label.check > input { width: auto; flex: none; }
