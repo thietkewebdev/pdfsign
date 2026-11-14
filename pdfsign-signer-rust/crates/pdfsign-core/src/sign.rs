@@ -163,6 +163,11 @@ impl PreparedPdf {
     }
 }
 
+/// Number of pages in a PDF.
+pub fn page_count(input: &[u8]) -> Result<usize> {
+    Ok(Document::load_mem(input)?.get_pages().len())
+}
+
 /// Sign `input` and return the signed PDF (single incremental update).
 pub fn sign_pdf(
     input: &[u8],

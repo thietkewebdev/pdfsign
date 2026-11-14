@@ -24,7 +24,8 @@ pub use certinfo::{summarize, CertSummary};
 pub use error::{Error, Result};
 pub use pades::{sign_at_level, LevelOutcome, PadesLevel};
 pub use sign::{
-    append_update, prepare, sign_pdf, PageSpec, PreparedPdf, RectPct, SignOptions, SignatureKind,
+    append_update, page_count, prepare, sign_pdf, PageSpec, PreparedPdf, RectPct, SignOptions,
+    SignatureKind,
 };
 pub use verify::{
     verify_pdf, verify_pdf_with, RevocationStatus, SignatureKindReport, SignatureReport,

@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "PDFSign Signer",
+  "productName": "PDFSign",
   "version": "0.1.0",
-  "identifier": "vn.pdfsign.signer",
+  "identifier": "vn.pdfsign.desktop",
   "build": {
     "frontendDist": "ui"
   },
@@ -10,11 +10,13 @@
     "withGlobalTauri": true,
     "windows": [
       {
-        "title": "PDFSign Signer (Rust preview)",
-        "width": 1180,
-        "height": 820,
-        "minWidth": 900,
-        "minHeight": 600
+        "label": "main",
+        "title": "PDFSign - Ký số PDF",
+        "width": 1320,
+        "height": 880,
+        "minWidth": 1024,
+        "minHeight": 640,
+        "center": true
       }
     ],
     "security": {
@@ -23,7 +25,20 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all",
-    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"]
+    "targets": ["nsis", "msi"],
+    "publisher": "PDFSign",
+    "shortDescription": "Ký số PDF bằng USB token (PAdES)",
+    "longDescription": "Ký số PDF offline bằng USB token PKCS#11: ký hàng loạt, nhiều chữ ký, mẫu chữ ký, dấu thời gian, LTV, xác minh.",
+    "category": "Productivity",
+    "copyright": "PDFSign",
+    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"],
+    "windows": {
+      "webviewInstallMode": { "type": "downloadBootstrapper", "silent": true },
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": ["Vietnamese", "English"],
+        "displayLanguageSelector": false
+      }
+    }
   }
 }

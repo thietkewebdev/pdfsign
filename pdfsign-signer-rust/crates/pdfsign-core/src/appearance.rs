@@ -581,6 +581,56 @@ pub fn build_appearance(
     Ok(alloc.add(Object::Stream(flate_stream(dict, &content))))
 }
 
+/// One-page PDF of `width` x `height` points showing the stamp; used for live previews in the UI.
+pub fn preview_pdf(
+    width: f64,
+    height: f64,
+    values: &StampValues,
+    opts: &AppearanceOptions,
+) -> Result<Vec<u8>> {
+    let mut alloc = ObjAlloc::new(1);
+    let xobj = build_appearance(&mut alloc, width, height, 0, values, opts)?;
+    let mut doc = lopdf::Document::with_version("1.7");
+    for (id, obj) in alloc.objects.drain(..) {
+        doc.objects.insert(id, obj);
+    }
+    doc.max_id = alloc.next_id;
+    let content = doc.add_object(Stream::new(Dictionary::new(), b"q /S Do Q".to_vec()));
+    let mut xobjs = Dictionary::new();
+    xobjs.set("S", Object::Reference(xobj));
+    let mut res = Dictionary::new();
+    res.set("XObject", Object::Dictionary(xobjs));
+    let pages_id = doc.new_object_id();
+    let mut page = Dictionary::new();
+    page.set("Type", Object::Name(b"Page".to_vec()));
+    page.set("Parent", Object::Reference(pages_id));
+    page.set(
+        "MediaBox",
+        Object::Array(vec![
+            0.into(),
+            0.into(),
+            Object::Real(width as f32),
+            Object::Real(height as f32),
+        ]),
+    );
+    page.set("Resources", Object::Dictionary(res));
+    page.set("Contents", Object::Reference(content));
+    let page_id = doc.add_object(Object::Dictionary(page));
+    let mut pages = Dictionary::new();
+    pages.set("Type", Object::Name(b"Pages".to_vec()));
+    pages.set("Kids", Object::Array(vec![Object::Reference(page_id)]));
+    pages.set("Count", Object::Integer(1));
+    doc.objects.insert(pages_id, Object::Dictionary(pages));
+    let mut catalog = Dictionary::new();
+    catalog.set("Type", Object::Name(b"Catalog".to_vec()));
+    catalog.set("Pages", Object::Reference(pages_id));
+    let catalog_id = doc.add_object(Object::Dictionary(catalog));
+    doc.trailer.set("Root", Object::Reference(catalog_id));
+    let mut out = Vec::new();
+    doc.save_to(&mut out)?;
+    Ok(out)
+}
+
 fn circle_path(cx: f64, cy: f64, r: f64) -> String {
     let k = 0.552_284_749_831 * r;
     let f = fmt_real;
