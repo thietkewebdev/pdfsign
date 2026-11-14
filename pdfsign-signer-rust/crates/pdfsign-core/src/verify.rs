@@ -6,7 +6,9 @@
 //! (signature timestamp and document timestamps), and the resulting PAdES level.
 //! Trust is only asserted against anchors supplied by the caller; there is no OS trust store here.
 
-use crate::cades::{OID_CMS_ALGORITHM_PROTECTION, OID_SIGNATURE_TIME_STAMP_TOKEN, OID_SIGNING_CERTIFICATE_V2};
+use crate::cades::{
+    OID_CMS_ALGORITHM_PROTECTION, OID_SIGNATURE_TIME_STAMP_TOKEN, OID_SIGNING_CERTIFICATE_V2,
+};
 use crate::certinfo::summarize;
 use crate::error::{Error, Result};
 use chrono::{DateTime, Utc};
@@ -93,7 +95,13 @@ impl SignatureReport {
         self.digest_ok && self.signature_ok
     }
 
-    fn failed(name: String, kind: SignatureKindReport, sub_filter: String, byte_range: Vec<i64>, e: Error) -> Self {
+    fn failed(
+        name: String,
+        kind: SignatureKindReport,
+        sub_filter: String,
+        byte_range: Vec<i64>,
+        e: Error,
+    ) -> Self {
         SignatureReport {
             field_name: name,
             kind,
@@ -145,7 +153,11 @@ fn parse_cms(bytes: &[u8]) -> Result<ParsedCms> {
     let mut r = SliceReader::new(bytes)?;
     let ci = ContentInfo::decode(&mut r)?;
     let mut sd = SliceReader::new(ci.content.value())?;
-    let mut out = ParsedCms { certs: Vec::new(), signer_infos: Vec::new(), econtent: None };
+    let mut out = ParsedCms {
+        certs: Vec::new(),
+        signer_infos: Vec::new(),
+        econtent: None,
+    };
     let mut seen_sets = 0;
     while !sd.is_finished() {
         let el = Any::decode(&mut sd)?;
@@ -194,8 +206,12 @@ fn hash(oid: ObjectIdentifier, data: &[u8]) -> Option<Vec<u8>> {
 
 /// RSA PKCS#1 v1.5 verification of a precomputed digest.
 fn rsa_verify(cert: &Certificate, digest_oid: ObjectIdentifier, digest: &[u8], sig: &[u8]) -> bool {
-    let Ok(spki) = cert.tbs_certificate.subject_public_key_info.to_der() else { return false };
-    let Ok(pk) = RsaPublicKey::from_public_key_der(&spki) else { return false };
+    let Ok(spki) = cert.tbs_certificate.subject_public_key_info.to_der() else {
+        return false;
+    };
+    let Ok(pk) = RsaPublicKey::from_public_key_der(&spki) else {
+        return false;
+    };
     let scheme = match digest_oid {
         OID_SHA1 => Pkcs1v15Sign::new::<sha1::Sha1>(),
         OID_SHA256 => Pkcs1v15Sign::new::<sha2::Sha256>(),
@@ -218,7 +234,9 @@ fn sig_alg_digest(oid: ObjectIdentifier) -> Option<ObjectIdentifier> {
 
 /// Verify `signed`'s signature (tbs DER + algorithm + bits) with `issuer`'s key.
 fn verify_signed(issuer: &Certificate, tbs: &[u8], alg: ObjectIdentifier, sig: &[u8]) -> bool {
-    let Some(d) = sig_alg_digest(alg) else { return false };
+    let Some(d) = sig_alg_digest(alg) else {
+        return false;
+    };
     let Some(h) = hash(d, tbs) else { return false };
     rsa_verify(issuer, d, &h, sig)
 }
@@ -226,19 +244,28 @@ fn verify_signed(issuer: &Certificate, tbs: &[u8], alg: ObjectIdentifier, sig: &
 fn cert_issued_by(child: &Certificate, issuer: &Certificate) -> bool {
     child.tbs_certificate.issuer == issuer.tbs_certificate.subject
         && child.tbs_certificate.to_der().is_ok_and(|tbs| {
-            verify_signed(issuer, &tbs, child.signature_algorithm.oid, child.signature.raw_bytes())
+            verify_signed(
+                issuer,
+                &tbs,
+                child.signature_algorithm.oid,
+                child.signature.raw_bytes(),
+            )
         })
 }
 
 fn cn(c: &Certificate) -> String {
-    crate::certinfo::name_attr(&c.tbs_certificate.subject, ObjectIdentifier::new_unwrap("2.5.4.3"))
-        .unwrap_or_else(|| c.tbs_certificate.subject.to_string())
+    crate::certinfo::name_attr(
+        &c.tbs_certificate.subject,
+        ObjectIdentifier::new_unwrap("2.5.4.3"),
+    )
+    .unwrap_or_else(|| c.tbs_certificate.subject.to_string())
 }
 
 fn signer_cert<'a>(si: &SignerInfo, certs: &'a [Certificate]) -> Option<&'a Certificate> {
     certs.iter().find(|c| match &si.sid {
         SignerIdentifier::IssuerAndSerialNumber(ias) => {
-            c.tbs_certificate.serial_number == ias.serial_number && c.tbs_certificate.issuer == ias.issuer
+            c.tbs_certificate.serial_number == ias.serial_number
+                && c.tbs_certificate.issuer == ias.issuer
         }
         SignerIdentifier::SubjectKeyIdentifier(_) => false,
     })
@@ -247,7 +274,9 @@ fn signer_cert<'a>(si: &SignerInfo, certs: &'a [Certificate]) -> Option<&'a Cert
 /// Check message-digest and the signature over signed attributes. Returns (digest_ok, sig_ok).
 fn check_signer_info(si: &SignerInfo, cert: &Certificate, content: &[u8]) -> (bool, bool) {
     let digest_oid = si.digest_alg.oid;
-    let Some(content_digest) = hash(digest_oid, content) else { return (false, false) };
+    let Some(content_digest) = hash(digest_oid, content) else {
+        return (false, false);
+    };
     match &si.signed_attrs {
         Some(attrs) => {
             let md = attrs
@@ -263,15 +292,27 @@ fn check_signer_info(si: &SignerInfo, cert: &Certificate, content: &[u8]) -> (bo
                 .is_some_and(|h| rsa_verify(cert, digest_oid, &h, si.signature.as_bytes()));
             (digest_ok, sig_ok)
         }
-        None => (true, rsa_verify(cert, digest_oid, &content_digest, si.signature.as_bytes())),
+        None => (
+            true,
+            rsa_verify(cert, digest_oid, &content_digest, si.signature.as_bytes()),
+        ),
     }
 }
 
 /// Parse and check an RFC 3161 token against `imprint_data`. Returns (ok, genTime, certs).
-fn check_timestamp(token: &[u8], imprint_data: &[u8]) -> (bool, Option<DateTime<Utc>>, Vec<Certificate>) {
-    let Ok(cms) = parse_cms(token) else { return (false, None, Vec::new()) };
-    let Some(econtent) = cms.econtent.clone() else { return (false, None, cms.certs) };
-    let Ok(tst) = TstInfo::from_der(&econtent) else { return (false, None, cms.certs) };
+fn check_timestamp(
+    token: &[u8],
+    imprint_data: &[u8],
+) -> (bool, Option<DateTime<Utc>>, Vec<Certificate>) {
+    let Ok(cms) = parse_cms(token) else {
+        return (false, None, Vec::new());
+    };
+    let Some(econtent) = cms.econtent.clone() else {
+        return (false, None, cms.certs);
+    };
+    let Ok(tst) = TstInfo::from_der(&econtent) else {
+        return (false, None, cms.certs);
+    };
     let gen = DateTime::<Utc>::from_timestamp(tst.gen_time.to_unix_duration().as_secs() as i64, 0);
     let imprint_ok = hash(tst.message_imprint.hash_algorithm.oid, imprint_data)
         .is_some_and(|h| h == tst.message_imprint.hashed_message.as_bytes());
@@ -293,7 +334,9 @@ struct Dss {
 fn stream_bytes(doc: &Document, o: &Object) -> Option<Vec<u8>> {
     let id = o.as_reference().ok()?;
     let s = doc.get_object(id).ok()?.as_stream().ok()?;
-    s.decompressed_content().ok().or_else(|| Some(s.content.clone()))
+    s.decompressed_content()
+        .ok()
+        .or_else(|| Some(s.content.clone()))
 }
 
 fn read_dss(doc: &Document) -> Option<Dss> {
@@ -307,15 +350,26 @@ fn read_dss(doc: &Document) -> Option<Dss> {
     let items = |key: &[u8]| -> Vec<Vec<u8>> {
         let arr = match dss.get(key) {
             Ok(Object::Array(a)) => a.clone(),
-            Ok(Object::Reference(id)) => doc.get_object(*id).ok().and_then(|o| o.as_array().ok()).cloned().unwrap_or_default(),
+            Ok(Object::Reference(id)) => doc
+                .get_object(*id)
+                .ok()
+                .and_then(|o| o.as_array().ok())
+                .cloned()
+                .unwrap_or_default(),
             _ => Vec::new(),
         };
         arr.iter().filter_map(|o| stream_bytes(doc, o)).collect()
     };
     Some(Dss {
-        certs: items(b"Certs").iter().filter_map(|c| Certificate::from_der(c).ok()).collect(),
+        certs: items(b"Certs")
+            .iter()
+            .filter_map(|c| Certificate::from_der(c).ok())
+            .collect(),
         ocsps: items(b"OCSPs"),
-        crls: items(b"CRLs").iter().filter_map(|c| x509_cert::crl::CertificateList::from_der(c).ok()).collect(),
+        crls: items(b"CRLs")
+            .iter()
+            .filter_map(|c| x509_cert::crl::CertificateList::from_der(c).ok())
+            .collect(),
     })
 }
 
@@ -331,7 +385,10 @@ fn build_chain(start: &Certificate, pool: &[Certificate]) -> (Vec<Certificate>, 
         match pool.iter().find(|c| cert_issued_by(&cur, c)) {
             Some(issuer) => chain.push(issuer.clone()),
             None => {
-                sigs_ok = sigs_ok && pool.iter().any(|c| c.tbs_certificate.subject == cur.tbs_certificate.issuer);
+                sigs_ok = sigs_ok
+                    && pool
+                        .iter()
+                        .any(|c| c.tbs_certificate.subject == cur.tbs_certificate.issuer);
                 return (chain, false, sigs_ok);
             }
         }
@@ -339,12 +396,23 @@ fn build_chain(start: &Certificate, pool: &[Certificate]) -> (Vec<Certificate>, 
     (chain, false, sigs_ok)
 }
 
-fn revocation_for(cert: &Certificate, issuer: &Certificate, dss: &Dss, pool: &[Certificate]) -> RevocationStatus {
+fn revocation_for(
+    cert: &Certificate,
+    issuer: &Certificate,
+    dss: &Dss,
+    pool: &[Certificate],
+) -> RevocationStatus {
     let subject = cn(cert);
     for raw in &dss.ocsps {
-        let Ok(resp) = OcspResponse::from_der(raw) else { continue };
-        let Some(bytes) = resp.response_bytes else { continue };
-        let Ok(basic) = BasicOcspResponse::from_der(bytes.response.as_bytes()) else { continue };
+        let Ok(resp) = OcspResponse::from_der(raw) else {
+            continue;
+        };
+        let Some(bytes) = resp.response_bytes else {
+            continue;
+        };
+        let Ok(basic) = BasicOcspResponse::from_der(bytes.response.as_bytes()) else {
+            continue;
+        };
         let Some(single) = basic
             .tbs_response_data
             .responses
@@ -353,11 +421,25 @@ fn revocation_for(cert: &Certificate, issuer: &Certificate, dss: &Dss, pool: &[C
         else {
             continue;
         };
-        let Ok(tbs) = basic.tbs_response_data.to_der() else { continue };
-        let responders: Vec<Certificate> = basic.certs.clone().unwrap_or_default().into_iter().chain([issuer.clone()]).chain(pool.iter().cloned()).collect();
-        let signed = responders
-            .iter()
-            .any(|r| verify_signed(r, &tbs, basic.signature_algorithm.oid, basic.signature.raw_bytes()));
+        let Ok(tbs) = basic.tbs_response_data.to_der() else {
+            continue;
+        };
+        let responders: Vec<Certificate> = basic
+            .certs
+            .clone()
+            .unwrap_or_default()
+            .into_iter()
+            .chain([issuer.clone()])
+            .chain(pool.iter().cloned())
+            .collect();
+        let signed = responders.iter().any(|r| {
+            verify_signed(
+                r,
+                &tbs,
+                basic.signature_algorithm.oid,
+                basic.signature.raw_bytes(),
+            )
+        });
         if !signed {
             continue;
         }
@@ -366,14 +448,25 @@ fn revocation_for(cert: &Certificate, issuer: &Certificate, dss: &Dss, pool: &[C
             CertStatus::Revoked(_) => "revoked",
             CertStatus::Unknown(_) => "unknown",
         };
-        return RevocationStatus { subject, source: "OCSP".into(), status: status.into() };
+        return RevocationStatus {
+            subject,
+            source: "OCSP".into(),
+            status: status.into(),
+        };
     }
     for crl in &dss.crls {
         if crl.tbs_cert_list.issuer != cert.tbs_certificate.issuer {
             continue;
         }
-        let Ok(tbs) = crl.tbs_cert_list.to_der() else { continue };
-        if !verify_signed(issuer, &tbs, crl.signature_algorithm.oid, crl.signature.raw_bytes()) {
+        let Ok(tbs) = crl.tbs_cert_list.to_der() else {
+            continue;
+        };
+        if !verify_signed(
+            issuer,
+            &tbs,
+            crl.signature_algorithm.oid,
+            crl.signature.raw_bytes(),
+        ) {
             continue;
         }
         let revoked = crl
@@ -388,18 +481,36 @@ fn revocation_for(cert: &Certificate, issuer: &Certificate, dss: &Dss, pool: &[C
             status: if revoked { "revoked" } else { "good" }.into(),
         };
     }
-    RevocationStatus { subject, source: "none".into(), status: "unknown".into() }
+    RevocationStatus {
+        subject,
+        source: "none".into(),
+        status: "unknown".into(),
+    }
 }
 
 fn valid_at(c: &Certificate, t: DateTime<Utc>) -> bool {
-    let nb = c.tbs_certificate.validity.not_before.to_unix_duration().as_secs() as i64;
-    let na = c.tbs_certificate.validity.not_after.to_unix_duration().as_secs() as i64;
+    let nb = c
+        .tbs_certificate
+        .validity
+        .not_before
+        .to_unix_duration()
+        .as_secs() as i64;
+    let na = c
+        .tbs_certificate
+        .validity
+        .not_after
+        .to_unix_duration()
+        .as_secs() as i64;
     (nb..=na).contains(&t.timestamp())
 }
 
 fn decode_text(s: &[u8]) -> String {
     if s.starts_with(&[0xFE, 0xFF]) {
-        let u: Vec<u16> = s[2..].chunks(2).filter(|c| c.len() == 2).map(|c| u16::from_be_bytes([c[0], c[1]])).collect();
+        let u: Vec<u16> = s[2..]
+            .chunks(2)
+            .filter(|c| c.len() == 2)
+            .map(|c| u16::from_be_bytes([c[0], c[1]]))
+            .collect();
         String::from_utf16_lossy(&u)
     } else {
         String::from_utf8_lossy(s).into_owned()
@@ -409,7 +520,8 @@ fn decode_text(s: &[u8]) -> String {
 fn parse_pdf_date(s: &str) -> Option<DateTime<Utc>> {
     let s = s.trim_start_matches("D:");
     let digits: String = s.chars().take(14).collect();
-    let base = chrono::NaiveDateTime::parse_from_str(&format!("{digits:0<14}"), "%Y%m%d%H%M%S").ok()?;
+    let base =
+        chrono::NaiveDateTime::parse_from_str(&format!("{digits:0<14}"), "%Y%m%d%H%M%S").ok()?;
     let rest = &s[digits.len().min(s.len())..];
     let offset = match rest.chars().next() {
         Some(c @ ('+' | '-')) => {
@@ -435,7 +547,11 @@ pub fn verify_pdf(data: &[u8]) -> Result<Vec<SignatureReport>> {
 pub fn verify_pdf_with(data: &[u8], opts: &VerifyOptions) -> Result<Vec<SignatureReport>> {
     let doc = Document::load_mem(data)?;
     let dss = read_dss(&doc);
-    let anchors: Vec<Certificate> = opts.trust_anchors.iter().filter_map(|a| Certificate::from_der(a).ok()).collect();
+    let anchors: Vec<Certificate> = opts
+        .trust_anchors
+        .iter()
+        .filter_map(|a| Certificate::from_der(a).ok())
+        .collect();
     let mut reports = Vec::new();
     for obj in doc.objects.values() {
         let Ok(dict) = obj.as_dict() else { continue };
@@ -460,14 +576,20 @@ pub fn verify_pdf_with(data: &[u8], opts: &VerifyOptions) -> Result<Vec<Signatur
             .and_then(|o| o.as_name())
             .map(|n| String::from_utf8_lossy(n).into_owned())
             .unwrap_or_default();
-        let kind = if sub_filter == "ETSI.RFC3161" { SignatureKindReport::DocTimeStamp } else { SignatureKindReport::Signature };
+        let kind = if sub_filter == "ETSI.RFC3161" {
+            SignatureKindReport::DocTimeStamp
+        } else {
+            SignatureKindReport::Signature
+        };
         let br: Vec<i64> = sig
             .get(b"ByteRange")
             .and_then(|o| o.as_array())
             .map(|a| a.iter().filter_map(|o| o.as_i64().ok()).collect())
             .unwrap_or_default();
         let report = check_one(data, &name, kind, &sub_filter, sig, dss.as_ref(), &anchors)
-            .unwrap_or_else(|e| SignatureReport::failed(name.clone(), kind, sub_filter.clone(), br, e));
+            .unwrap_or_else(|e| {
+                SignatureReport::failed(name.clone(), kind, sub_filter.clone(), br, e)
+            });
         reports.push(report);
     }
     reports.sort_by_key(|r| r.byte_range.get(1).copied().unwrap_or(0));
@@ -479,7 +601,11 @@ pub fn verify_pdf_with(data: &[u8], opts: &VerifyOptions) -> Result<Vec<Signatur
         .map(|r| r.byte_range.get(1).copied().unwrap_or(0))
         .collect();
     for r in reports.iter_mut() {
-        if r.level == "B-LT" && dts_ends.iter().any(|e| *e > r.byte_range.get(1).copied().unwrap_or(0)) {
+        if r.level == "B-LT"
+            && dts_ends
+                .iter()
+                .any(|e| *e > r.byte_range.get(1).copied().unwrap_or(0))
+        {
             r.level = "B-LTA".into();
         }
     }
@@ -495,11 +621,21 @@ fn check_one(
     dss: Option<&Dss>,
     anchors: &[Certificate],
 ) -> Result<SignatureReport> {
-    let br: Vec<i64> = sig.get(b"ByteRange")?.as_array()?.iter().filter_map(|o| o.as_i64().ok()).collect();
+    let br: Vec<i64> = sig
+        .get(b"ByteRange")?
+        .as_array()?
+        .iter()
+        .filter_map(|o| o.as_i64().ok())
+        .collect();
     if br.len() != 4 || br.iter().any(|v| *v < 0) {
         return Err(Error::Verify("malformed ByteRange".into()));
     }
-    let (a, b, c, d) = (br[0] as usize, br[1] as usize, br[2] as usize, br[3] as usize);
+    let (a, b, c, d) = (
+        br[0] as usize,
+        br[1] as usize,
+        br[2] as usize,
+        br[3] as usize,
+    );
     if a + b > data.len() || c + d > data.len() || b > c {
         return Err(Error::Verify("ByteRange outside file".into()));
     }
@@ -515,24 +651,59 @@ fn check_one(
         _ => None,
     };
     let covers_whole_file = a == 0 && c + d == data.len();
-    let empty_dss = Dss { certs: Vec::new(), ocsps: Vec::new(), crls: Vec::new() };
+    let empty_dss = Dss {
+        certs: Vec::new(),
+        ocsps: Vec::new(),
+        crls: Vec::new(),
+    };
     let dss_ref = dss.unwrap_or(&empty_dss);
 
     let (signer, cms_certs, digest_ok, signature_ok, attrs_oids, has_sc2, has_ap, ts) = match kind {
         SignatureKindReport::DocTimeStamp => {
             let (ok, gen, certs) = check_timestamp(&contents, &signed_bytes);
             let cms = parse_cms(&contents)?;
-            let signer = cms.signer_infos.first().and_then(|si| signer_cert(si, &cms.certs)).cloned();
-            (signer, certs, ok, ok, Vec::new(), false, false, Some((ok, gen, Vec::new())))
+            let signer = cms
+                .signer_infos
+                .first()
+                .and_then(|si| signer_cert(si, &cms.certs))
+                .cloned();
+            (
+                signer,
+                certs,
+                ok,
+                ok,
+                Vec::new(),
+                false,
+                false,
+                Some((ok, gen, Vec::new())),
+            )
         }
         SignatureKindReport::Signature => {
             let cms = parse_cms(&contents)?;
-            let si = cms.signer_infos.first().ok_or_else(|| Error::Verify("no SignerInfo".into()))?;
-            let signer = signer_cert(si, &cms.certs).cloned().ok_or_else(|| Error::Verify("signer certificate not embedded".into()))?;
+            let si = cms
+                .signer_infos
+                .first()
+                .ok_or_else(|| Error::Verify("no SignerInfo".into()))?;
+            let signer = signer_cert(si, &cms.certs)
+                .cloned()
+                .ok_or_else(|| Error::Verify("signer certificate not embedded".into()))?;
             let (digest_ok, sig_ok) = check_signer_info(si, &signer, &signed_bytes);
-            let oids: Vec<String> = si.signed_attrs.iter().flat_map(|a| a.iter()).map(|a| a.oid.to_string()).collect();
-            let has_sc2 = si.signed_attrs.iter().flat_map(|a| a.iter()).any(|a| a.oid == OID_SIGNING_CERTIFICATE_V2);
-            let has_ap = si.signed_attrs.iter().flat_map(|a| a.iter()).any(|a| a.oid == OID_CMS_ALGORITHM_PROTECTION);
+            let oids: Vec<String> = si
+                .signed_attrs
+                .iter()
+                .flat_map(|a| a.iter())
+                .map(|a| a.oid.to_string())
+                .collect();
+            let has_sc2 = si
+                .signed_attrs
+                .iter()
+                .flat_map(|a| a.iter())
+                .any(|a| a.oid == OID_SIGNING_CERTIFICATE_V2);
+            let has_ap = si
+                .signed_attrs
+                .iter()
+                .flat_map(|a| a.iter())
+                .any(|a| a.oid == OID_CMS_ALGORITHM_PROTECTION);
             let ts = si
                 .unsigned_attrs
                 .iter()
@@ -544,7 +715,16 @@ fn check_one(
                     let (ok, gen, certs) = check_timestamp(&tok, si.signature.as_bytes());
                     (ok, gen, certs)
                 });
-            (Some(signer), cms.certs, digest_ok, sig_ok, oids, has_sc2, has_ap, ts)
+            (
+                Some(signer),
+                cms.certs,
+                digest_ok,
+                sig_ok,
+                oids,
+                has_sc2,
+                has_ap,
+                ts,
+            )
         }
     };
     let signer = signer.ok_or_else(|| Error::Verify("signer certificate not found".into()))?;
@@ -560,7 +740,8 @@ fn check_one(
     let (chain, chain_complete, chain_sigs_ok) = build_chain(&signer, &pool);
     let at = ts_time.or(claimed_time).unwrap_or_else(Utc::now);
     let cert_valid_at_signing = chain.iter().all(|c| valid_at(c, at));
-    let trusted = (!anchors.is_empty()).then(|| chain_complete && chain.last().is_some_and(|root| anchors.contains(root)));
+    let trusted = (!anchors.is_empty())
+        .then(|| chain_complete && chain.last().is_some_and(|root| anchors.contains(root)));
 
     // Revocation coverage: signer chain plus the timestamp signer's chain.
     let mut revocation = Vec::new();
@@ -568,11 +749,10 @@ fn check_one(
     let mut chains = vec![chain.clone()];
     if kind == SignatureKindReport::Signature {
         if let Some(ts_signer) = ts_certs.iter().find(|c| {
-            !c.tbs_certificate
-                .extensions
-                .iter()
-                .flatten()
-                .any(|e| e.extn_id == ObjectIdentifier::new_unwrap("2.5.29.19") && e.extn_value.as_bytes().len() > 2)
+            !c.tbs_certificate.extensions.iter().flatten().any(|e| {
+                e.extn_id == ObjectIdentifier::new_unwrap("2.5.29.19")
+                    && e.extn_value.as_bytes().len() > 2
+            })
         }) {
             let (tchain, tcomplete, _) = build_chain(ts_signer, &pool);
             ltv &= tcomplete;

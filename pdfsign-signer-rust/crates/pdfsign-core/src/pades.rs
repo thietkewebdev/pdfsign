@@ -61,14 +61,25 @@ pub fn sign_at_level(
     http: Option<&dyn Http>,
 ) -> Result<LevelOutcome> {
     if level >= PadesLevel::BT && tsa.is_none() {
-        return Err(Error::Tsa(format!("{} cần máy chủ cấp dấu thời gian (TSA)", level.as_str())));
+        return Err(Error::Tsa(format!(
+            "{} cần máy chủ cấp dấu thời gian (TSA)",
+            level.as_str()
+        )));
     }
     let tsa_for_sig = if level >= PadesLevel::BT { tsa } else { None };
     let mut pdf = sign_pdf(input, opts, signer, tsa_for_sig)?;
-    let mut achieved = if level >= PadesLevel::BT { PadesLevel::BT } else { PadesLevel::BB };
+    let mut achieved = if level >= PadesLevel::BT {
+        PadesLevel::BT
+    } else {
+        PadesLevel::BB
+    };
     let mut warnings = Vec::new();
     if level < PadesLevel::BLT {
-        return Ok(LevelOutcome { pdf, achieved, warnings });
+        return Ok(LevelOutcome {
+            pdf,
+            achieved,
+            warnings,
+        });
     }
 
     let http = http.ok_or_else(|| Error::Ltv("B-LT cần kết nối mạng để lấy OCSP/CRL".into()))?;
@@ -76,7 +87,10 @@ pub fn sign_at_level(
     let (with_dss, data) = add_ltv_for_last_signature(&pdf, &pool, http)?;
     pdf = with_dss;
     if !data.revoked.is_empty() {
-        return Err(Error::Ltv(format!("chứng thư đã bị thu hồi: {}", data.revoked.join(", "))));
+        return Err(Error::Ltv(format!(
+            "chứng thư đã bị thu hồi: {}",
+            data.revoked.join(", ")
+        )));
     }
     warnings.extend(data.warnings.iter().cloned());
     if data.warnings.is_empty() {
@@ -92,5 +106,9 @@ pub fn sign_at_level(
             achieved = PadesLevel::BLTA;
         }
     }
-    Ok(LevelOutcome { pdf, achieved, warnings })
+    Ok(LevelOutcome {
+        pdf,
+        achieved,
+        warnings,
+    })
 }

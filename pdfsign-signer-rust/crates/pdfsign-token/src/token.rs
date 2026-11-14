@@ -233,10 +233,11 @@ impl Module {
         }
         let key = find_private_key(&session, &cert)?;
         let chain = build_chain(&cert, &certs);
-        let mechanisms = self.ctx.get_mechanism_list(slot).unwrap_or_default();
+        // get_mechanism_list() makes cryptoki log every vendor mechanism it does not know;
+        // probing the two mechanisms we can use is quieter and sufficient.
+        let has = |m: MechanismType| self.ctx.get_mechanism_info(slot, m).is_ok();
         let mechanism = if forced_mechanism() == Some(SignMechanism::Sha256RsaPkcs)
-            || (!mechanisms.contains(&MechanismType::RSA_PKCS)
-                && mechanisms.contains(&MechanismType::SHA256_RSA_PKCS))
+            || (!has(MechanismType::RSA_PKCS) && has(MechanismType::SHA256_RSA_PKCS))
         {
             SignMechanism::Sha256RsaPkcs
         } else {

@@ -27,7 +27,9 @@ fn levels_with_local_pki() {
     let input = std::fs::read(fixtures().join("sample.pdf")).unwrap();
     let tsa = HttpTimestamper::new("http://127.0.0.1:18080/tsa");
     let http = UreqHttp::default();
-    let verify_opts = VerifyOptions { trust_anchors: vec![ca] };
+    let verify_opts = VerifyOptions {
+        trust_anchors: vec![ca],
+    };
 
     for (level, expected) in [
         (PadesLevel::BT, "B-T"),
@@ -36,7 +38,15 @@ fn levels_with_local_pki() {
     ] {
         // No chain from the "token": the CA must be fetched through AIA.
         let mut signer = SoftSigner::from_pem(&key, &cert, vec![]).unwrap();
-        let out = sign_at_level(&input, &SignOptions::default(), &mut signer, level, Some(&tsa), Some(&http)).unwrap();
+        let out = sign_at_level(
+            &input,
+            &SignOptions::default(),
+            &mut signer,
+            level,
+            Some(&tsa),
+            Some(&http),
+        )
+        .unwrap();
         assert_eq!(out.achieved, level, "warnings: {:?}", out.warnings);
         let reports = verify_pdf_with(&out.pdf, &verify_opts).unwrap();
         let sig = &reports[0];
@@ -49,8 +59,14 @@ fn levels_with_local_pki() {
             assert!(sig.revocation.iter().all(|r| r.status == "good"));
         }
         if level == PadesLevel::BLTA {
-            assert!(reports.iter().any(|r| r.level == "DocTimeStamp" && r.timestamp_ok == Some(true)));
+            assert!(reports
+                .iter()
+                .any(|r| r.level == "DocTimeStamp" && r.timestamp_ok == Some(true)));
         }
-        std::fs::write(std::env::temp_dir().join(format!("pdfsign-{expected}.pdf")), &out.pdf).unwrap();
+        std::fs::write(
+            std::env::temp_dir().join(format!("pdfsign-{expected}.pdf")),
+            &out.pdf,
+        )
+        .unwrap();
     }
 }

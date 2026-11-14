@@ -54,7 +54,11 @@ impl Default for UreqHttp {
 #[cfg(feature = "tsa")]
 impl Http for UreqHttp {
     fn get(&self, url: &str) -> Result<Vec<u8>> {
-        let mut r = self.agent.get(url).call().map_err(|e| Error::Ltv(format!("GET {url}: {e}")))?;
+        let mut r = self
+            .agent
+            .get(url)
+            .call()
+            .map_err(|e| Error::Ltv(format!("GET {url}: {e}")))?;
         r.body_mut()
             .with_config()
             .limit(20 * 1024 * 1024)
@@ -101,15 +105,18 @@ impl ValidationData {
 }
 
 fn subject_label(c: &Certificate) -> String {
-    crate::certinfo::name_attr(&c.tbs_certificate.subject, ObjectIdentifier::new_unwrap("2.5.4.3"))
-        .unwrap_or_else(|| c.tbs_certificate.subject.to_string())
+    crate::certinfo::name_attr(
+        &c.tbs_certificate.subject,
+        ObjectIdentifier::new_unwrap("2.5.4.3"),
+    )
+    .unwrap_or_else(|| c.tbs_certificate.subject.to_string())
 }
 
 fn is_self_signed(c: &Certificate) -> bool {
     c.tbs_certificate.subject == c.tbs_certificate.issuer
 }
 
-fn extension<'a>(c: &'a Certificate, oid: ObjectIdentifier) -> Option<&'a [u8]> {
+fn extension(c: &Certificate, oid: ObjectIdentifier) -> Option<&[u8]> {
     c.tbs_certificate
         .extensions
         .iter()
@@ -149,7 +156,9 @@ fn crl_urls(c: &Certificate) -> Vec<String> {
             dps.0
                 .iter()
                 .filter_map(|dp| match &dp.distribution_point {
-                    Some(DistributionPointName::FullName(names)) => Some(names.iter().filter_map(uri).collect::<Vec<_>>()),
+                    Some(DistributionPointName::FullName(names)) => {
+                        Some(names.iter().filter_map(uri).collect::<Vec<_>>())
+                    }
                     _ => None,
                 })
                 .flatten()
@@ -161,14 +170,23 @@ fn crl_urls(c: &Certificate) -> Vec<String> {
 /// Parse certificates from DER, PEM, or a degenerate PKCS#7 (.p7c) as served by AIA URLs.
 fn parse_cert_bundle(data: &[u8]) -> Vec<Vec<u8>> {
     if let Ok(certs) = crate::soft::certs_from_pem_or_der(data) {
-        let ok: Vec<_> = certs.into_iter().filter(|c| Certificate::from_der(c).is_ok()).collect();
+        let ok: Vec<_> = certs
+            .into_iter()
+            .filter(|c| Certificate::from_der(c).is_ok())
+            .collect();
         if !ok.is_empty() {
             return ok;
         }
     }
-    let Ok(mut r) = SliceReader::new(data) else { return Vec::new() };
-    let Ok(ci) = ContentInfo::decode(&mut r) else { return Vec::new() };
-    let Ok(sd) = ci.content.decode_as::<SignedData>() else { return Vec::new() };
+    let Ok(mut r) = SliceReader::new(data) else {
+        return Vec::new();
+    };
+    let Ok(ci) = ContentInfo::decode(&mut r) else {
+        return Vec::new();
+    };
+    let Ok(sd) = ci.content.decode_as::<SignedData>() else {
+        return Vec::new();
+    };
     sd.certificates
         .map(|cs| {
             cs.0.iter()
@@ -183,14 +201,23 @@ fn parse_cert_bundle(data: &[u8]) -> Vec<Vec<u8>> {
 
 fn ocsp_request(cert: &Certificate, issuer: &Certificate) -> Result<Vec<u8>> {
     let name_hash = Sha1::digest(cert.tbs_certificate.issuer.to_der()?);
-    let key_hash = Sha1::digest(issuer.tbs_certificate.subject_public_key_info.subject_public_key.raw_bytes());
+    let key_hash = Sha1::digest(
+        issuer
+            .tbs_certificate
+            .subject_public_key_info
+            .subject_public_key
+            .raw_bytes(),
+    );
     let req = OcspRequest {
         tbs_request: TbsRequest {
             version: Version::V1,
             requestor_name: None,
             request_list: vec![Request {
                 req_cert: CertId {
-                    hash_algorithm: spki::AlgorithmIdentifierOwned { oid: OID_SHA1, parameters: Some(der::Any::null()) },
+                    hash_algorithm: spki::AlgorithmIdentifierOwned {
+                        oid: OID_SHA1,
+                        parameters: Some(der::Any::null()),
+                    },
                     issuer_name_hash: OctetString::new(name_hash.to_vec())?,
                     issuer_key_hash: OctetString::new(key_hash.to_vec())?,
                     serial_number: cert.tbs_certificate.serial_number.clone(),
@@ -204,27 +231,42 @@ fn ocsp_request(cert: &Certificate, issuer: &Certificate) -> Result<Vec<u8>> {
     Ok(req.to_der()?)
 }
 
-/// Parse an OCSPResponse; returns (status for `serial`, responder certs).
-pub fn parse_ocsp(resp: &[u8]) -> Result<(Vec<(Vec<u8>, CertStatus)>, Vec<Vec<u8>>)> {
+/// (serial bytes, status) per SingleResponse.
+pub type OcspStatuses = Vec<(Vec<u8>, CertStatus)>;
+
+/// Parse an OCSPResponse; returns the per-serial statuses and the responder certificates.
+pub fn parse_ocsp(resp: &[u8]) -> Result<(OcspStatuses, Vec<Vec<u8>>)> {
     let r = OcspResponse::from_der(resp).map_err(|e| Error::Ltv(format!("OCSP: {e}")))?;
     if r.response_status != OcspResponseStatus::Successful {
         return Err(Error::Ltv(format!("OCSP status {:?}", r.response_status)));
     }
-    let bytes = r.response_bytes.ok_or_else(|| Error::Ltv("OCSP: no responseBytes".into()))?;
-    let basic = BasicOcspResponse::from_der(bytes.response.as_bytes()).map_err(|e| Error::Ltv(format!("OCSP basic: {e}")))?;
+    let bytes = r
+        .response_bytes
+        .ok_or_else(|| Error::Ltv("OCSP: no responseBytes".into()))?;
+    let basic = BasicOcspResponse::from_der(bytes.response.as_bytes())
+        .map_err(|e| Error::Ltv(format!("OCSP basic: {e}")))?;
     let statuses = basic
         .tbs_response_data
         .responses
         .iter()
         .map(|s| (s.cert_id.serial_number.as_bytes().to_vec(), s.cert_status))
         .collect();
-    let certs = basic.certs.unwrap_or_default().iter().filter_map(|c| c.to_der().ok()).collect();
+    let certs = basic
+        .certs
+        .unwrap_or_default()
+        .iter()
+        .filter_map(|c| c.to_der().ok())
+        .collect();
     Ok((statuses, certs))
 }
 
 /// Collect chain + revocation data for `start` certificates. `pool` holds other known certs
 /// (e.g. from the token or the CMS) used before falling back to AIA downloads.
-pub fn collect_validation_data(start: &[Vec<u8>], pool: &[Vec<u8>], http: &dyn Http) -> ValidationData {
+pub fn collect_validation_data(
+    start: &[Vec<u8>],
+    pool: &[Vec<u8>],
+    http: &dyn Http,
+) -> ValidationData {
     let mut data = ValidationData::default();
     let mut known: Vec<Vec<u8>> = start.iter().chain(pool.iter()).cloned().collect();
     let mut queue: Vec<Vec<u8>> = start.to_vec();
@@ -234,7 +276,9 @@ pub fn collect_validation_data(start: &[Vec<u8>], pool: &[Vec<u8>], http: &dyn H
             continue;
         }
         done.push(der_bytes.clone());
-        let Ok(cert) = parse_certificate(&der_bytes) else { continue };
+        let Ok(cert) = parse_certificate(&der_bytes) else {
+            continue;
+        };
         ValidationData::push_unique(&mut data.certs, der_bytes.clone());
         if is_self_signed(&cert) {
             continue;
@@ -244,7 +288,8 @@ pub fn collect_validation_data(start: &[Vec<u8>], pool: &[Vec<u8>], http: &dyn H
         let find_issuer = |known: &[Vec<u8>]| {
             known.iter().find_map(|k| {
                 let c = parse_certificate(k).ok()?;
-                (c.tbs_certificate.subject == cert.tbs_certificate.issuer && *k != der_bytes).then(|| (k.clone(), c))
+                (c.tbs_certificate.subject == cert.tbs_certificate.issuer && *k != der_bytes)
+                    .then(|| (k.clone(), c))
             })
         };
         let mut issuer = find_issuer(&known);
@@ -252,7 +297,9 @@ pub fn collect_validation_data(start: &[Vec<u8>], pool: &[Vec<u8>], http: &dyn H
             for url in aia_urls(&cert, OID_AD_CA_ISSUERS) {
                 match http.get(&url) {
                     Ok(body) => known.extend(parse_cert_bundle(&body)),
-                    Err(e) => data.warnings.push(format!("{label}: không tải được chứng thư CA ({e})")),
+                    Err(e) => data
+                        .warnings
+                        .push(format!("{label}: không tải được chứng thư CA ({e})")),
                 }
                 issuer = find_issuer(&known);
                 if issuer.is_some() {
@@ -261,7 +308,9 @@ pub fn collect_validation_data(start: &[Vec<u8>], pool: &[Vec<u8>], http: &dyn H
             }
         }
         let Some((issuer_der, issuer_cert)) = issuer else {
-            data.warnings.push(format!("{label}: không tìm được chứng thư CA cấp phát (AIA)"));
+            data.warnings.push(format!(
+                "{label}: không tìm được chứng thư CA cấp phát (AIA)"
+            ));
             continue;
         };
         queue.push(issuer_der);
@@ -277,11 +326,16 @@ pub fn collect_validation_data(start: &[Vec<u8>], pool: &[Vec<u8>], http: &dyn H
             match result {
                 Ok((resp, (statuses, responder_certs))) => {
                     let serial = cert.tbs_certificate.serial_number.as_bytes();
-                    match statuses.iter().find(|(s, _)| s.as_slice() == serial).map(|(_, st)| st) {
+                    match statuses
+                        .iter()
+                        .find(|(s, _)| s.as_slice() == serial)
+                        .map(|(_, st)| st)
+                    {
                         Some(CertStatus::Good(_)) => {}
                         Some(CertStatus::Revoked(_)) => data.revoked.push(label.clone()),
                         _ => {
-                            data.warnings.push(format!("{label}: OCSP trả về trạng thái không xác định"));
+                            data.warnings
+                                .push(format!("{label}: OCSP trả về trạng thái không xác định"));
                             continue;
                         }
                     }
@@ -304,12 +358,15 @@ pub fn collect_validation_data(start: &[Vec<u8>], pool: &[Vec<u8>], http: &dyn H
                         have_revinfo = true;
                         break;
                     }
-                    Err(e) => data.warnings.push(format!("{label}: không tải được CRL ({e})")),
+                    Err(e) => data
+                        .warnings
+                        .push(format!("{label}: không tải được CRL ({e})")),
                 }
             }
         }
         if !have_revinfo {
-            data.warnings.push(format!("{label}: thiếu thông tin thu hồi (OCSP/CRL)"));
+            data.warnings
+                .push(format!("{label}: thiếu thông tin thu hồi (OCSP/CRL)"));
         }
     }
     data
@@ -356,11 +413,16 @@ pub fn signature_contents(pdf: &[u8]) -> Result<Vec<(Vec<u8>, Vec<u8>)>> {
     let mut out = Vec::new();
     for obj in doc.objects.values() {
         let Ok(d) = obj.as_dict() else { continue };
-        let is_sig = matches!(d.get(b"Type").and_then(|o| o.as_name()), Ok(b"Sig") | Ok(b"DocTimeStamp"));
+        let is_sig = matches!(
+            d.get(b"Type").and_then(|o| o.as_name()),
+            Ok(b"Sig") | Ok(b"DocTimeStamp")
+        );
         if !is_sig || !d.has(b"ByteRange") {
             continue;
         }
-        let Ok(Object::String(raw, _)) = d.get(b"Contents") else { continue };
+        let Ok(Object::String(raw, _)) = d.get(b"Contents") else {
+            continue;
+        };
         let start = d
             .get(b"ByteRange")
             .and_then(|o| o.as_array())
@@ -386,13 +448,23 @@ fn der_total_len(b: &[u8]) -> Option<usize> {
     if n == 0 || n > 4 || b.len() < 2 + n {
         return None;
     }
-    Some(2 + n + b[2..2 + n].iter().fold(0usize, |acc, x| (acc << 8) | *x as usize))
+    Some(
+        2 + n
+            + b[2..2 + n]
+                .iter()
+                .fold(0usize, |acc, x| (acc << 8) | *x as usize),
+    )
 }
 
 fn ref_array(doc: &Document, dss: &Dictionary, key: &[u8]) -> Vec<Object> {
     match dss.get(key) {
         Ok(Object::Array(a)) => a.clone(),
-        Ok(Object::Reference(id)) => doc.get_object(*id).ok().and_then(|o| o.as_array().ok()).cloned().unwrap_or_default(),
+        Ok(Object::Reference(id)) => doc
+            .get_object(*id)
+            .ok()
+            .and_then(|o| o.as_array().ok())
+            .cloned()
+            .unwrap_or_default(),
         _ => Vec::new(),
     }
 }
@@ -400,78 +472,90 @@ fn ref_array(doc: &Document, dss: &Dictionary, key: &[u8]) -> Vec<Object> {
 /// Append a DSS update. Existing DSS entries are kept; `vri_contents` are the raw /Contents
 /// bytes of the signatures the data applies to (VRI keys = SHA-1 of those bytes).
 pub fn add_dss(pdf: &[u8], data: &ValidationData, vri_contents: &[Vec<u8>]) -> Result<Vec<u8>> {
-    append_update(pdf, |doc, alloc: &mut ObjAlloc, modified: &mut BTreeMap<ObjectId, Object>| {
-        let root_id = doc.trailer.get(b"Root").and_then(|o| o.as_reference())?;
-        let mut catalog = doc.get_dictionary(root_id)?.clone();
-        let (existing_id, mut dss) = match catalog.get(b"DSS") {
-            Ok(Object::Reference(id)) => (Some(*id), doc.get_dictionary(*id)?.clone()),
-            Ok(Object::Dictionary(d)) => (None, d.clone()),
-            _ => (None, Dictionary::new()),
-        };
-        let mut add_streams = |key: &str, items: &[Vec<u8>]| -> Vec<Object> {
-            let mut arr = ref_array(doc, &dss, key.as_bytes());
-            let mut refs = Vec::new();
-            for item in items {
-                let id = alloc.add(Object::Stream(flate_stream(Dictionary::new(), item)));
-                arr.push(Object::Reference(id));
-                refs.push(Object::Reference(id));
-            }
-            dss.set(key, Object::Array(arr));
-            refs
-        };
-        let cert_refs = add_streams("Certs", &data.certs);
-        let ocsp_refs = add_streams("OCSPs", &data.ocsps);
-        let crl_refs = add_streams("CRLs", &data.crls);
+    append_update(
+        pdf,
+        |doc, alloc: &mut ObjAlloc, modified: &mut BTreeMap<ObjectId, Object>| {
+            let root_id = doc.trailer.get(b"Root").and_then(|o| o.as_reference())?;
+            let mut catalog = doc.get_dictionary(root_id)?.clone();
+            let (existing_id, mut dss) = match catalog.get(b"DSS") {
+                Ok(Object::Reference(id)) => (Some(*id), doc.get_dictionary(*id)?.clone()),
+                Ok(Object::Dictionary(d)) => (None, d.clone()),
+                _ => (None, Dictionary::new()),
+            };
+            let mut add_streams = |key: &str, items: &[Vec<u8>]| -> Vec<Object> {
+                let mut arr = ref_array(doc, &dss, key.as_bytes());
+                let mut refs = Vec::new();
+                for item in items {
+                    let id = alloc.add(Object::Stream(flate_stream(Dictionary::new(), item)));
+                    arr.push(Object::Reference(id));
+                    refs.push(Object::Reference(id));
+                }
+                dss.set(key, Object::Array(arr));
+                refs
+            };
+            let cert_refs = add_streams("Certs", &data.certs);
+            let ocsp_refs = add_streams("OCSPs", &data.ocsps);
+            let crl_refs = add_streams("CRLs", &data.crls);
 
-        let mut vri = match dss.get(b"VRI") {
-            Ok(Object::Dictionary(d)) => d.clone(),
-            Ok(Object::Reference(id)) => doc.get_dictionary(*id)?.clone(),
-            _ => Dictionary::new(),
-        };
-        for contents in vri_contents {
-            let key = hex::encode_upper(Sha1::digest(contents));
-            let mut entry = Dictionary::new();
-            entry.set("Cert", Object::Array(cert_refs.clone()));
-            if !ocsp_refs.is_empty() {
-                entry.set("OCSP", Object::Array(ocsp_refs.clone()));
+            let mut vri = match dss.get(b"VRI") {
+                Ok(Object::Dictionary(d)) => d.clone(),
+                Ok(Object::Reference(id)) => doc.get_dictionary(*id)?.clone(),
+                _ => Dictionary::new(),
+            };
+            for contents in vri_contents {
+                let key = hex::encode_upper(Sha1::digest(contents));
+                let mut entry = Dictionary::new();
+                entry.set("Cert", Object::Array(cert_refs.clone()));
+                if !ocsp_refs.is_empty() {
+                    entry.set("OCSP", Object::Array(ocsp_refs.clone()));
+                }
+                if !crl_refs.is_empty() {
+                    entry.set("CRL", Object::Array(crl_refs.clone()));
+                }
+                let now = chrono::Utc::now().format("D:%Y%m%d%H%M%SZ").to_string();
+                entry.set(
+                    "TU",
+                    Object::String(now.into_bytes(), StringFormat::Literal),
+                );
+                vri.set(key, Object::Dictionary(entry));
             }
-            if !crl_refs.is_empty() {
-                entry.set("CRL", Object::Array(crl_refs.clone()));
-            }
-            let now = chrono::Utc::now().format("D:%Y%m%d%H%M%SZ").to_string();
-            entry.set("TU", Object::String(now.into_bytes(), StringFormat::Literal));
-            vri.set(key, Object::Dictionary(entry));
-        }
-        dss.set("VRI", Object::Dictionary(vri));
-        dss.set("Type", Object::Name(b"DSS".to_vec()));
+            dss.set("VRI", Object::Dictionary(vri));
+            dss.set("Type", Object::Name(b"DSS".to_vec()));
 
-        match existing_id {
-            Some(id) => {
-                modified.insert(id, Object::Dictionary(dss));
+            match existing_id {
+                Some(id) => {
+                    modified.insert(id, Object::Dictionary(dss));
+                }
+                None => {
+                    let id = alloc.add(Object::Dictionary(dss));
+                    catalog.set("DSS", Object::Reference(id));
+                    let mut esic = Dictionary::new();
+                    esic.set("BaseVersion", Object::Name(b"1.7".to_vec()));
+                    esic.set("ExtensionLevel", Object::Integer(5));
+                    let mut ext = match catalog.get(b"Extensions") {
+                        Ok(Object::Dictionary(d)) => d.clone(),
+                        _ => Dictionary::new(),
+                    };
+                    ext.set("ESIC", Object::Dictionary(esic));
+                    catalog.set("Extensions", Object::Dictionary(ext));
+                    modified.insert(root_id, Object::Dictionary(catalog));
+                }
             }
-            None => {
-                let id = alloc.add(Object::Dictionary(dss));
-                catalog.set("DSS", Object::Reference(id));
-                let mut esic = Dictionary::new();
-                esic.set("BaseVersion", Object::Name(b"1.7".to_vec()));
-                esic.set("ExtensionLevel", Object::Integer(5));
-                let mut ext = match catalog.get(b"Extensions") {
-                    Ok(Object::Dictionary(d)) => d.clone(),
-                    _ => Dictionary::new(),
-                };
-                ext.set("ESIC", Object::Dictionary(esic));
-                catalog.set("Extensions", Object::Dictionary(ext));
-                modified.insert(root_id, Object::Dictionary(catalog));
-            }
-        }
-        Ok(())
-    })
+            Ok(())
+        },
+    )
 }
 
 /// Collect validation data for the last signature in `pdf` and append a DSS update.
-pub fn add_ltv_for_last_signature(pdf: &[u8], pool: &[Vec<u8>], http: &dyn Http) -> Result<(Vec<u8>, ValidationData)> {
+pub fn add_ltv_for_last_signature(
+    pdf: &[u8],
+    pool: &[Vec<u8>],
+    http: &dyn Http,
+) -> Result<(Vec<u8>, ValidationData)> {
     let sigs = signature_contents(pdf)?;
-    let (cms, raw) = sigs.last().ok_or_else(|| Error::Ltv("no signature to extend".into()))?;
+    let (cms, raw) = sigs
+        .last()
+        .ok_or_else(|| Error::Ltv("no signature to extend".into()))?;
     let certs = certs_in_cms(cms)?;
     let data = collect_validation_data(&certs, pool, http);
     if data.certs.is_empty() {

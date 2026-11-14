@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/pdfsign-core", "crates/pdfsign-token", "crates/pdfsign-cli"]
+members = ["crates/pdfsign-core", "crates/pdfsign-token", "crates/pdfsign-app", "crates/pdfsign-cli"]
 
 [workspace.package]
 version = "0.1.0"
@@ -12,6 +12,7 @@ rust-version = "1.85"
 [workspace.dependencies]
 pdfsign-core = { path = "crates/pdfsign-core" }
 pdfsign-token = { path = "crates/pdfsign-token" }
+pdfsign-app = { path = "crates/pdfsign-app" }
 
 anyhow = "1"
 thiserror = "2"

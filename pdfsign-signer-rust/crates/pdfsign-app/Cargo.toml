@@ -1,0 +1,17 @@
+[package]
+name = "pdfsign-app"
+description = "Application layer shared by the PDFSign GUI and CLI: settings, templates, batch/multi-signature jobs, verify view"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+pdfsign-core.workspace = true
+pdfsign-token.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+chrono.workspace = true
+dirs = "6"

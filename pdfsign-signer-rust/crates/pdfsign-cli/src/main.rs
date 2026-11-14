@@ -1,9 +1,13 @@
 use anyhow::{anyhow, bail, Context, Result};
 use clap::{Args, Parser, Subcommand};
+use pdfsign_app::jobs::{run_job, OutputSpec, Placement, SignJob};
+use pdfsign_app::settings::config_dir;
+use pdfsign_app::templates::TemplateStore;
+use pdfsign_app::verify_view::verify_file;
+use pdfsign_core::ltv::UreqHttp;
 use pdfsign_core::soft::{certs_from_pem_or_der, SoftSigner};
-use pdfsign_core::{
-    sign_pdf, verify_pdf, AppearanceOptions, PageSpec, RawSigner, RectPct, SignOptions, Timestamper,
-};
+use pdfsign_core::tsa::HttpTimestamper;
+use pdfsign_core::{PadesLevel, RawSigner, StampTemplate, Timestamper};
 use pdfsign_token::{discover, AuthPin, CertSelector, ErrorCode, Module, TokenError};
 use serde_json::json;
 use std::io::BufRead;
@@ -43,11 +47,19 @@ enum Command {
         #[arg(long)]
         json: bool,
     },
-    /// Sign a PDF (PAdES B-B, or B-T with --tsa).
+    /// Sign one or many PDFs, with one or many signature boxes each.
     Sign(Box<SignArgs>),
-    /// Check integrity + signature value of every signature in a PDF (not trust validation).
+    /// Verify every signature: integrity, signer, time, chain, timestamp, LTV.
     Verify {
         file: PathBuf,
+        /// Trusted root certificate(s), PEM or DER.
+        #[arg(long)]
+        trust: Vec<PathBuf>,
+        #[arg(long)]
+        json: bool,
+    },
+    /// List saved signature templates (shared with the GUI).
+    Templates {
         #[arg(long)]
         json: bool,
     },
@@ -75,10 +87,21 @@ struct PinArgs {
 
 #[derive(Args)]
 struct SignArgs {
-    #[arg(long = "in")]
-    input: PathBuf,
-    #[arg(long = "out")]
-    output: PathBuf,
+    /// Input PDF(s). Several files = batch with the same boxes and template.
+    #[arg(required = true)]
+    inputs: Vec<PathBuf>,
+    /// Output file (single input only).
+    #[arg(long = "out", conflicts_with = "out_dir")]
+    output: Option<PathBuf>,
+    /// Output folder for batch signing (default: next to each input).
+    #[arg(long)]
+    out_dir: Option<PathBuf>,
+    /// Suffix added to output names in folder mode.
+    #[arg(long, default_value = "-da-ky", allow_hyphen_values = true)]
+    suffix: String,
+    /// Overwrite existing outputs instead of adding " (2)".
+    #[arg(long)]
+    overwrite: bool,
     #[command(flatten)]
     token: TokenArgs,
     #[command(flatten)]
@@ -86,33 +109,38 @@ struct SignArgs {
     /// Certificate index from list-certs, or serial:<HEX>.
     #[arg(long, default_value = "0")]
     cert: CertSelector,
-    /// 1-based page number or LAST.
-    #[arg(long, default_value = "LAST")]
-    page: PageSpec,
-    /// Box as x,y,w,h fractions of the displayed page, bottom-left origin (same as rectPct).
-    #[arg(long, default_value = "0.64,0.06,0.32,0.10")]
-    rect: RectPct,
-    /// No visible appearance.
-    #[arg(long)]
+    /// Signature box PAGE:x,y,w,h (PAGE = number or LAST; fractions of the displayed page,
+    /// bottom-left origin). Repeat for several signatures on the same file.
+    #[arg(long = "box", value_parser = parse_box)]
+    boxes: Vec<Placement>,
+    /// Invisible signature (no box).
+    #[arg(long, conflicts_with = "boxes")]
     invisible: bool,
-    /// PNG/JPEG seal or handwritten signature image (seal layout).
+    /// PAdES level: B-B, B-T, B-LT, B-LTA.
+    #[arg(long, default_value = "B-B")]
+    level: PadesLevel,
+    /// RFC 3161 TSA URL (required for B-T and above).
     #[arg(long)]
-    image: Option<PathBuf>,
+    tsa: Option<String>,
+    /// Saved template id (see `templates`), or default.
+    #[arg(long, default_value = "default")]
+    template: String,
+    /// Template JSON file (overrides --template).
+    #[arg(long)]
+    template_file: Option<PathBuf>,
+    /// Seal image (PNG/JPEG), overrides the template's.
+    #[arg(long)]
+    seal_image: Option<PathBuf>,
+    /// Handwritten signature image (PNG/JPEG), overrides the template's.
+    #[arg(long)]
+    signature_image: Option<PathBuf>,
     /// TrueType font for the stamp (default: bundled Noto Sans).
     #[arg(long)]
     font: Option<PathBuf>,
-    /// Override the name on the stamp (default: subject O, else CN).
-    #[arg(long)]
-    signer_name: Option<String>,
     #[arg(long)]
     reason: Option<String>,
     #[arg(long)]
     location: Option<String>,
-    #[arg(long)]
-    field_name: Option<String>,
-    /// RFC 3161 TSA URL; adds a signature timestamp (PAdES B-T).
-    #[arg(long)]
-    tsa: Option<String>,
     /// TEST ONLY: sign with a PKCS#8 PEM key instead of a token.
     #[arg(long, requires = "soft_cert", conflicts_with_all = ["module", "pin_prompt", "pin_stdin"])]
     soft_key: Option<PathBuf>,
@@ -124,6 +152,24 @@ struct SignArgs {
     soft_chain: Option<PathBuf>,
     #[arg(long)]
     json: bool,
+}
+
+fn parse_box(s: &str) -> std::result::Result<Placement, String> {
+    let (page, rect) = s.split_once(':').ok_or("box must be PAGE:x,y,w,h")?;
+    let page = if page.eq_ignore_ascii_case("last") {
+        0
+    } else {
+        page.parse::<u32>()
+            .map_err(|_| format!("bad page {page}"))?
+    };
+    let r: pdfsign_core::RectPct = rect.parse()?;
+    Ok(Placement {
+        page,
+        x: r.x,
+        y: r.y,
+        w: r.w,
+        h: r.h,
+    })
 }
 
 fn read_pin(args: &PinArgs, required: bool) -> Result<Option<AuthPin>> {
@@ -280,42 +326,57 @@ fn cmd_list_certs(token: &TokenArgs, pin: &PinArgs, as_json: bool) -> Result<()>
 }
 
 fn cmd_sign(a: SignArgs) -> Result<()> {
-    let input =
-        std::fs::read(&a.input).with_context(|| format!("reading {}", a.input.display()))?;
-    let appearance = AppearanceOptions {
-        signer_name: a.signer_name.clone(),
-        time_text: None,
-        image: a
-            .image
-            .as_ref()
-            .map(std::fs::read)
-            .transpose()
-            .context("reading --image")?,
-        font: a
-            .font
-            .as_ref()
-            .map(std::fs::read)
-            .transpose()
-            .context("reading --font")?,
+    if a.output.is_some() && a.inputs.len() > 1 {
+        bail!("--out only works with one input; use --out-dir for batch signing");
+    }
+    let store = TemplateStore::new(&config_dir());
+    let template: StampTemplate = match &a.template_file {
+        Some(f) => serde_json::from_slice(&std::fs::read(f)?).context("reading --template-file")?,
+        None => store
+            .get(&a.template)
+            .ok_or_else(|| anyhow!("template {} not found", a.template))?,
     };
-    let opts = SignOptions {
-        page: a.page,
-        rect: a.rect,
-        invisible: a.invisible,
-        field_name: a.field_name.clone(),
+    let mut appearance = store.appearance(&template)?;
+    if let Some(p) = &a.seal_image {
+        appearance.image = Some(std::fs::read(p).context("reading --seal-image")?);
+    }
+    if let Some(p) = &a.signature_image {
+        appearance.signature_image = Some(std::fs::read(p).context("reading --signature-image")?);
+    }
+    if let Some(p) = &a.font {
+        appearance.font = Some(std::fs::read(p).context("reading --font")?);
+    }
+    let placements = if a.invisible {
+        Vec::new()
+    } else if a.boxes.is_empty() {
+        vec![Placement {
+            page: 0,
+            x: 0.64,
+            y: 0.06,
+            w: 0.32,
+            h: 0.10,
+        }]
+    } else {
+        a.boxes.clone()
+    };
+    let job = SignJob {
+        inputs: a.inputs.clone(),
+        output: match &a.output {
+            Some(path) => OutputSpec::File { path: path.clone() },
+            None => OutputSpec::Folder {
+                dir: a.out_dir.clone(),
+                suffix: a.suffix.clone(),
+            },
+        },
+        placements,
+        level: a.level,
+        tsa_url: a.tsa.clone(),
         reason: a.reason.clone(),
         location: a.location.clone(),
-        appearance,
-        ..Default::default()
+        overwrite: a.overwrite,
     };
-    #[cfg(feature = "tsa")]
-    let tsa = a
-        .tsa
-        .as_ref()
-        .map(|u| pdfsign_core::tsa::HttpTimestamper::new(u.clone()));
-    #[cfg(not(feature = "tsa"))]
-    let tsa: Option<NoTsa> = a.tsa.as_ref().map(|_| NoTsa);
-    let tsa_ref = tsa.as_ref().map(|t| t as &dyn Timestamper);
+    let tsa = a.tsa.as_ref().map(|u| HttpTimestamper::new(u.clone()));
+    let http = UreqHttp::default();
 
     let mut signer: Box<dyn RawSigner> = if let Some(key) = &a.soft_key {
         let cert = std::fs::read(
@@ -342,114 +403,107 @@ fn cmd_sign(a: SignArgs) -> Result<()> {
         }
         let pin = read_pin(&a.pin, true)?.expect("PIN required");
         tracing::info!(module = %module.path().display(), slot = a.token.slot, "signing with token");
-        Box::new(module.signer(a.token.slot, &pin, &a.cert)?)
+        let s = module.signer(a.token.slot, &pin, &a.cert)?;
+        tracing::info!(mechanism = ?s.mechanism(), "token signer ready");
+        Box::new(s)
     };
 
-    let signed = sign_pdf(&input, &opts, signer.as_mut(), tsa_ref)?;
-    let report = verify_pdf(&signed)?
-        .into_iter()
-        .find(|r| r.covers_whole_file)
-        .ok_or_else(|| anyhow!("new signature not found after signing"))?;
-    if !report.is_intact() {
-        bail!("self-check failed after signing: {report:?}");
-    }
-    std::fs::write(&a.output, &signed)
-        .with_context(|| format!("writing {}", a.output.display()))?;
-    let summary = pdfsign_core::summarize(&signer.certificate_der())?;
-    let level = if report.has_timestamp {
-        "PAdES-B-T"
-    } else {
-        "PAdES-B-B"
-    };
+    let results = run_job(
+        &job,
+        &appearance,
+        signer.as_mut(),
+        tsa.as_ref().map(|t| t as &dyn Timestamper),
+        Some(&http),
+        |done, total, current| {
+            if total > 1 && done < total && !a.json {
+                eprintln!("[{}/{}] {}", done + 1, total, current.display());
+            }
+        },
+    );
+    let failed = results.iter().filter(|r| !r.ok).count();
     if a.json {
         println!(
             "{}",
-            serde_json::to_string_pretty(&json!({
-                "ok": true,
-                "out": a.output,
-                "fieldName": report.field_name,
-                "level": level,
-                "subjectO": summary.subject_o,
-                "subjectCN": summary.subject_cn,
-                "issuerCN": summary.issuer_cn,
-                "serial": summary.serial,
-                "signingTime": chrono::Utc::now().format("%Y-%m-%dT%H:%M:%SZ").to_string(),
-            }))?
+            serde_json::to_string_pretty(&json!({ "ok": failed == 0, "results": results }))?
         );
     } else {
-        println!(
-            "OK {} -> {} ({}, field {})",
-            a.input.display(),
-            a.output.display(),
-            level,
-            report.field_name
-        );
+        for r in &results {
+            match (&r.output, &r.error) {
+                (Some(out), None) => println!(
+                    "OK {} -> {} ({}, {} chữ ký)",
+                    r.input.display(),
+                    out.display(),
+                    r.level.as_deref().unwrap_or("?"),
+                    r.signatures
+                ),
+                (_, Some(e)) => println!("LỖI {}: {e}", r.input.display()),
+                _ => {}
+            }
+            for w in &r.warnings {
+                println!("  cảnh báo: {w}");
+            }
+        }
+    }
+    if failed > 0 {
+        if let Some(code) = results
+            .iter()
+            .filter_map(|r| r.error.as_deref())
+            .find_map(code_from_signer_message)
+        {
+            bail!(TokenError::new(code, "signing failed"));
+        }
+        bail!("{failed}/{} file ký thất bại", results.len());
     }
     Ok(())
 }
 
-#[cfg(not(feature = "tsa"))]
-struct NoTsa;
-#[cfg(not(feature = "tsa"))]
-impl Timestamper for NoTsa {
-    fn timestamp(&self, _: &[u8; 32]) -> pdfsign_core::Result<Vec<u8>> {
-        Err(pdfsign_core::Error::Tsa("built without TSA support".into()))
-    }
-}
-
-fn cmd_verify(file: &Path, as_json: bool) -> Result<bool> {
-    let data = std::fs::read(file)?;
-    let reports = verify_pdf(&data)?;
-    let all_ok = !reports.is_empty() && reports.iter().all(|r| r.is_intact());
+fn cmd_verify(file: &Path, trust: &[PathBuf], as_json: bool) -> Result<bool> {
+    let views = verify_file(file, trust)?;
+    let all_ok = !views.is_empty() && views.iter().all(|v| v.integrity && v.verdict != "invalid");
     if as_json {
-        let list: Vec<_> = reports
-            .iter()
-            .map(|r| {
-                json!({
-                    "field": r.field_name, "subFilter": r.sub_filter, "signerCN": r.signer_cn,
-                    "byteRange": r.byte_range, "coversWholeFile": r.covers_whole_file,
-                    "digestOk": r.digest_ok, "signatureOk": r.signature_ok,
-                    "signingCertificateV2": r.has_signing_certificate_v2,
-                    "cmsAlgorithmProtection": r.has_algorithm_protection,
-                    "timestamp": r.has_timestamp, "signedAttributes": r.signed_attribute_oids,
-                    "error": r.error,
-                })
-            })
-            .collect();
         println!(
             "{}",
-            serde_json::to_string_pretty(&json!({ "ok": all_ok, "signatures": list }))?
+            serde_json::to_string_pretty(&json!({ "ok": all_ok, "signatures": views }))?
         );
-    } else {
-        if reports.is_empty() {
-            println!("Không có chữ ký trong file.");
-        }
-        for r in &reports {
-            if let Some(err) = &r.error {
-                println!(
-                    "{}: {} | không đọc được CMS: {err}",
-                    r.field_name, r.sub_filter
-                );
-                continue;
-            }
-            println!(
-                "{}: {} | {} | digest {} | chữ ký {} | phủ toàn file {} | TSA {}",
-                r.field_name,
-                r.sub_filter,
-                r.signer_cn.as_deref().unwrap_or("?"),
-                ok(r.digest_ok),
-                ok(r.signature_ok),
-                ok(r.covers_whole_file),
-                ok(r.has_timestamp)
-            );
+        return Ok(all_ok);
+    }
+    if views.is_empty() {
+        println!("Không có chữ ký trong file.");
+    }
+    for v in &views {
+        println!(
+            "{} [{}] {} | {} | tính toàn vẹn {} | mức {} | LTV {} | ký lúc {} | dấu thời gian {}",
+            v.field,
+            v.verdict,
+            v.sub_filter,
+            v.signer.as_deref().unwrap_or("?"),
+            ok(v.integrity),
+            v.level,
+            ok(v.ltv),
+            v.claimed_time.as_deref().unwrap_or("-"),
+            v.timestamp_time.as_deref().unwrap_or("-"),
+        );
+        for n in &v.notes {
+            println!("    - {n}");
         }
     }
     Ok(all_ok)
 }
 
-/// Token failures during C_Sign arrive as "CODE: detail" strings through `RawSigner`.
+fn cmd_templates(as_json: bool) -> Result<()> {
+    let list = TemplateStore::new(&config_dir()).list();
+    if as_json {
+        println!("{}", serde_json::to_string_pretty(&list)?);
+    } else {
+        for t in list {
+            println!("{}\t{}\t{}", t.id, t.name, t.lines.join(" | "));
+        }
+    }
+    Ok(())
+}
+
+/// Token failures during C_Sign arrive as "...CODE: detail" strings through `RawSigner`.
 fn code_from_signer_message(msg: &str) -> Option<ErrorCode> {
-    let code = msg.split(':').next()?;
     [
         ErrorCode::PinIncorrect,
         ErrorCode::PinLocked,
@@ -461,7 +515,7 @@ fn code_from_signer_message(msg: &str) -> Option<ErrorCode> {
         ErrorCode::DeviceError,
     ]
     .into_iter()
-    .find(|c| c.as_str() == code)
+    .find(|c| msg.contains(c.as_str()))
 }
 
 fn ok(b: bool) -> &'static str {
@@ -487,7 +541,8 @@ fn main() -> ExitCode {
         Command::ListTokens { module, json } => cmd_list_tokens(module.as_deref(), json),
         Command::ListCerts { token, pin, json } => cmd_list_certs(&token, &pin, json),
         Command::Sign(args) => cmd_sign(*args),
-        Command::Verify { file, json } => match cmd_verify(&file, json) {
+        Command::Templates { json } => cmd_templates(json),
+        Command::Verify { file, trust, json } => match cmd_verify(&file, &trust, json) {
             Ok(true) => Ok(()),
             Ok(false) => return ExitCode::from(2),
             Err(e) => Err(e),
@@ -505,6 +560,7 @@ fn main() -> ExitCode {
                     Some(te.code)
                 }
                 (None, Some(pdfsign_core::Error::Signer(msg))) => code_from_signer_message(msg),
+                (None, None) => code_from_signer_message(&e.to_string()),
                 _ => None,
             };
             if let Some(code) = token_code {
