@@ -1,0 +1,103 @@
+name: pdfsign-signer-rust
+
+on:
+  push:
+    paths:
+      - "pdfsign-signer-rust/**"
+      - ".github/workflows/pdfsign-signer-rust.yml"
+  pull_request:
+    paths:
+      - "pdfsign-signer-rust/**"
+      - ".github/workflows/pdfsign-signer-rust.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: pdfsign-signer-rust-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: pdfsign-signer-rust
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: pdfsign-signer-rust
+      - run: cargo test --workspace --locked
+      - run: cargo build --release --locked -p pdfsign-cli
+      - run: ./target/release/pdfsign.exe --version
+      - run: ./target/release/pdfsign.exe list-tokens
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pdfsign-windows-x64
+          path: pdfsign-signer-rust/target/release/pdfsign.exe
+          if-no-files-found: error
+
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: pdfsign-signer-rust
+      - run: cargo test --workspace --locked
+      - run: |
+          cargo build --release --locked -p pdfsign-cli --target aarch64-apple-darwin
+          cargo build --release --locked -p pdfsign-cli --target x86_64-apple-darwin
+          mkdir -p dist
+          lipo -create -output dist/pdfsign \
+            target/aarch64-apple-darwin/release/pdfsign target/x86_64-apple-darwin/release/pdfsign
+          lipo -info dist/pdfsign
+          ./dist/pdfsign --version
+      - name: SoftHSM2 end-to-end
+        run: |
+          brew install softhsm opensc qpdf
+          PDFSIGN_BIN="$PWD/dist/pdfsign" ./scripts/e2e-softhsm.sh target/e2e
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pdfsign-macos-universal
+          path: pdfsign-signer-rust/dist/pdfsign
+          if-no-files-found: error
+
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: pdfsign-signer-rust
+      - run: cargo fmt --all --check
+      - run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      - run: cargo test --workspace --locked
+      - run: cargo build --release --locked -p pdfsign-cli
+      - name: Install SoftHSM2, OpenSC, poppler, qpdf, pyHanko
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y softhsm2 opensc poppler-utils qpdf
+          pipx install pyhanko-cli
+          pipx inject pyhanko-cli 'pyHanko[pkcs11,opentype]'
+      - name: SoftHSM2 end-to-end (pyHanko + pdfsig validation)
+        run: PDFSIGN_BIN="$PWD/target/release/pdfsign" ./scripts/e2e-softhsm.sh target/e2e
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pdfsign-linux-x64
+          path: pdfsign-signer-rust/target/release/pdfsign
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: e2e-results-linux
+          path: pdfsign-signer-rust/target/e2e

@@ -8,8 +8,8 @@ use crate::error::{Error, Result};
 use cms::cert::{CertificateChoices, IssuerAndSerialNumber};
 use cms::content_info::{CmsVersion, ContentInfo};
 use cms::signed_data::{
-    CertificateSet, EncapsulatedContentInfo, SignedAttributes, SignedData, SignerIdentifier, SignerInfo,
-    SignerInfos, UnsignedAttributes,
+    CertificateSet, EncapsulatedContentInfo, SignedAttributes, SignedData, SignerIdentifier,
+    SignerInfo, SignerInfos, UnsignedAttributes,
 };
 use const_oid::db::rfc5911::{ID_CONTENT_TYPE, ID_DATA, ID_MESSAGE_DIGEST, ID_SIGNED_DATA};
 use const_oid::ObjectIdentifier;
@@ -23,11 +23,14 @@ use x509_cert::serial_number::SerialNumber;
 use x509_cert::Certificate;
 
 pub const OID_SHA256: ObjectIdentifier = ObjectIdentifier::new_unwrap("2.16.840.1.101.3.4.2.1");
-pub const OID_RSA_ENCRYPTION: ObjectIdentifier = ObjectIdentifier::new_unwrap("1.2.840.113549.1.1.1");
-pub const OID_SHA256_WITH_RSA: ObjectIdentifier = ObjectIdentifier::new_unwrap("1.2.840.113549.1.1.11");
+pub const OID_RSA_ENCRYPTION: ObjectIdentifier =
+    ObjectIdentifier::new_unwrap("1.2.840.113549.1.1.1");
+pub const OID_SHA256_WITH_RSA: ObjectIdentifier =
+    ObjectIdentifier::new_unwrap("1.2.840.113549.1.1.11");
 pub const OID_SIGNING_CERTIFICATE_V2: ObjectIdentifier =
     ObjectIdentifier::new_unwrap("1.2.840.113549.1.9.16.2.47");
-pub const OID_CMS_ALGORITHM_PROTECTION: ObjectIdentifier = ObjectIdentifier::new_unwrap("1.2.840.113549.1.9.52");
+pub const OID_CMS_ALGORITHM_PROTECTION: ObjectIdentifier =
+    ObjectIdentifier::new_unwrap("1.2.840.113549.1.9.52");
 pub const OID_SIGNATURE_TIME_STAMP_TOKEN: ObjectIdentifier =
     ObjectIdentifier::new_unwrap("1.2.840.113549.1.9.16.2.14");
 
@@ -76,16 +79,25 @@ struct CmsAlgorithmProtection {
 }
 
 fn sha256_alg() -> AlgorithmIdentifierOwned {
-    AlgorithmIdentifierOwned { oid: OID_SHA256, parameters: None }
+    AlgorithmIdentifierOwned {
+        oid: OID_SHA256,
+        parameters: None,
+    }
 }
 
 fn rsa_alg() -> AlgorithmIdentifierOwned {
-    AlgorithmIdentifierOwned { oid: OID_SHA256_WITH_RSA, parameters: Some(Any::null()) }
+    AlgorithmIdentifierOwned {
+        oid: OID_SHA256_WITH_RSA,
+        parameters: Some(Any::null()),
+    }
 }
 
 fn attribute(oid: ObjectIdentifier, value: &impl Encode) -> Result<Attribute> {
     let any = Any::from_der(&value.to_der()?)?;
-    Ok(Attribute { oid, values: SetOfVec::try_from(vec![any])? })
+    Ok(Attribute {
+        oid,
+        values: SetOfVec::try_from(vec![any])?,
+    })
 }
 
 pub fn parse_certificate(der_bytes: &[u8]) -> Result<Certificate> {
@@ -93,20 +105,32 @@ pub fn parse_certificate(der_bytes: &[u8]) -> Result<Certificate> {
 }
 
 /// Build the signed attributes for `message_digest` (SHA-256 over the PDF ByteRange).
-pub fn signed_attributes(cert: &Certificate, cert_der: &[u8], message_digest: &[u8; 32]) -> Result<SignedAttributes> {
+pub fn signed_attributes(
+    cert: &Certificate,
+    cert_der: &[u8],
+    message_digest: &[u8; 32],
+) -> Result<SignedAttributes> {
     let ess = SigningCertificateV2 {
         certs: vec![EssCertIdV2 {
             cert_hash: OctetString::new(Sha256::digest(cert_der).to_vec())?,
             issuer_serial: Some(IssuerSerial {
-                issuer: vec![GeneralName::DirectoryName(cert.tbs_certificate.issuer.clone())],
+                issuer: vec![GeneralName::DirectoryName(
+                    cert.tbs_certificate.issuer.clone(),
+                )],
                 serial_number: cert.tbs_certificate.serial_number.clone(),
             }),
         }],
     };
-    let protection = CmsAlgorithmProtection { digest_algorithm: sha256_alg(), signature_algorithm: Some(rsa_alg()) };
+    let protection = CmsAlgorithmProtection {
+        digest_algorithm: sha256_alg(),
+        signature_algorithm: Some(rsa_alg()),
+    };
     let attrs = vec![
         attribute(ID_CONTENT_TYPE, &ID_DATA)?,
-        attribute(ID_MESSAGE_DIGEST, &OctetString::new(message_digest.to_vec())?)?,
+        attribute(
+            ID_MESSAGE_DIGEST,
+            &OctetString::new(message_digest.to_vec())?,
+        )?,
         attribute(OID_SIGNING_CERTIFICATE_V2, &ess)?,
         attribute(OID_CMS_ALGORITHM_PROTECTION, &protection)?,
     ];
@@ -125,7 +149,9 @@ pub fn build_cades_detached(
     let signed_attrs = signed_attributes(&cert, &cert_der, message_digest)?;
     let to_sign = signed_attrs.to_der()?;
     let attrs_digest: [u8; 32] = Sha256::digest(&to_sign).into();
-    let signature = signer.sign_sha256_digest(&attrs_digest).map_err(Error::Signer)?;
+    let signature = signer
+        .sign_sha256_digest(&attrs_digest)
+        .map_err(Error::Signer)?;
 
     let unsigned_attrs: Option<UnsignedAttributes> = match timestamper {
         Some(tsa) => {
@@ -159,18 +185,26 @@ pub fn build_cades_detached(
         if seen.contains(&der_bytes) {
             continue;
         }
-        certs.push(CertificateChoices::Certificate(parse_certificate(&der_bytes)?));
+        certs.push(CertificateChoices::Certificate(parse_certificate(
+            &der_bytes,
+        )?));
         seen.push(der_bytes);
     }
 
     let signed_data = SignedData {
         version: CmsVersion::V1,
         digest_algorithms: SetOfVec::try_from(vec![sha256_alg()])?,
-        encap_content_info: EncapsulatedContentInfo { econtent_type: ID_DATA, econtent: None },
+        encap_content_info: EncapsulatedContentInfo {
+            econtent_type: ID_DATA,
+            econtent: None,
+        },
         certificates: Some(CertificateSet(SetOfVec::try_from(certs)?)),
         crls: None,
         signer_infos: SignerInfos(SetOfVec::try_from(vec![signer_info])?),
     };
-    let ci = ContentInfo { content_type: ID_SIGNED_DATA, content: Any::encode_from(&signed_data)? };
+    let ci = ContentInfo {
+        content_type: ID_SIGNED_DATA,
+        content: Any::encode_from(&signed_data)?,
+    };
     Ok(ci.to_der()?)
 }

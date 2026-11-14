@@ -1,7 +1,9 @@
 use anyhow::{anyhow, bail, Context, Result};
 use clap::{Args, Parser, Subcommand};
 use pdfsign_core::soft::{certs_from_pem_or_der, SoftSigner};
-use pdfsign_core::{sign_pdf, verify_pdf, AppearanceOptions, PageSpec, RawSigner, RectPct, SignOptions, Timestamper};
+use pdfsign_core::{
+    sign_pdf, verify_pdf, AppearanceOptions, PageSpec, RawSigner, RectPct, SignOptions, Timestamper,
+};
 use pdfsign_token::{discover, AuthPin, CertSelector, ErrorCode, Module, TokenError};
 use serde_json::json;
 use std::io::BufRead;
@@ -9,7 +11,11 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 #[derive(Parser)]
-#[command(name = "pdfsign", version, about = "PDFSign signer: PAdES signing with PKCS#11 USB tokens")]
+#[command(
+    name = "pdfsign",
+    version,
+    about = "PDFSign signer: PAdES signing with PKCS#11 USB tokens"
+)]
 struct Cli {
     /// Verbose logs on stderr (PINs are never logged).
     #[arg(short, long, global = true)]
@@ -38,7 +44,7 @@ enum Command {
         json: bool,
     },
     /// Sign a PDF (PAdES B-B, or B-T with --tsa).
-    Sign(SignArgs),
+    Sign(Box<SignArgs>),
     /// Check integrity + signature value of every signature in a PDF (not trust validation).
     Verify {
         file: PathBuf,
@@ -123,7 +129,10 @@ struct SignArgs {
 fn read_pin(args: &PinArgs, required: bool) -> Result<Option<AuthPin>> {
     let pin = if args.pin_stdin {
         let mut line = String::new();
-        std::io::stdin().lock().read_line(&mut line).context("reading PIN from stdin")?;
+        std::io::stdin()
+            .lock()
+            .read_line(&mut line)
+            .context("reading PIN from stdin")?;
         Some(line.trim_end_matches(['\r', '\n']).to_string())
     } else if args.pin_prompt || required {
         Some(rpassword::prompt_password("PIN token: ").context("reading PIN")?)
@@ -145,7 +154,10 @@ fn open_module(token: &TokenArgs) -> Result<Module> {
     }
     let candidates = discover(None);
     if candidates.is_empty() {
-        bail!(TokenError::new(ErrorCode::NoPkcs11Dll, "no PKCS#11 module found; pass --module"));
+        bail!(TokenError::new(
+            ErrorCode::NoPkcs11Dll,
+            "no PKCS#11 module found; pass --module"
+        ));
     }
     let mut last = None;
     for c in candidates {
@@ -153,19 +165,28 @@ fn open_module(token: &TokenArgs) -> Result<Module> {
         match Module::load(&c.path) {
             Ok(m) => match m.token_slots() {
                 Ok(slots) if !slots.is_empty() => return Ok(m),
-                Ok(_) => last = Some(TokenError::new(ErrorCode::TokenNotFound, c.path.display().to_string())),
+                Ok(_) => {
+                    last = Some(TokenError::new(
+                        ErrorCode::TokenNotFound,
+                        c.path.display().to_string(),
+                    ))
+                }
                 Err(e) => last = Some(e),
             },
             Err(e) => last = Some(e),
         }
     }
-    Err(last.unwrap_or_else(|| TokenError::new(ErrorCode::TokenNotFound, "no token")).into())
+    Err(last
+        .unwrap_or_else(|| TokenError::new(ErrorCode::TokenNotFound, "no token"))
+        .into())
 }
 
 fn cmd_list_tokens(module: Option<&Path>, as_json: bool) -> Result<()> {
     let mut rows = Vec::new();
     for c in discover(module) {
-        let slots = Module::load(&c.path).and_then(|m| m.token_slots()).map(|s| s.into_iter().map(|(_, s)| s).collect::<Vec<_>>());
+        let slots = Module::load(&c.path)
+            .and_then(|m| m.token_slots())
+            .map(|s| s.into_iter().map(|(_, s)| s).collect::<Vec<_>>());
         rows.push((c, slots));
     }
     if as_json {
@@ -176,18 +197,31 @@ fn cmd_list_tokens(module: Option<&Path>, as_json: bool) -> Result<()> {
                 Err(e) => json!({ "module": c.path, "vendor": c.vendor, "source": c.source, "error": e.code.as_str() }),
             })
             .collect();
-        println!("{}", serde_json::to_string_pretty(&json!({ "found": !out.is_empty(), "modules": out }))?);
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&json!({ "found": !out.is_empty(), "modules": out }))?
+        );
         return Ok(());
     }
     if rows.is_empty() {
-        println!("Không tìm thấy module PKCS#11 nào. Cài driver token hoặc dùng --module <đường dẫn>.");
+        println!(
+            "Không tìm thấy module PKCS#11 nào. Cài driver token hoặc dùng --module <đường dẫn>."
+        );
     }
     for (c, slots) in rows {
-        println!("{} [{}] ({:?})", c.path.display(), c.vendor.as_deref().unwrap_or("?"), c.source);
+        println!(
+            "{} [{}] ({:?})",
+            c.path.display(),
+            c.vendor.as_deref().unwrap_or("?"),
+            c.source
+        );
         match slots {
             Ok(s) if s.is_empty() => println!("  (không có token)"),
             Ok(s) => s.iter().for_each(|s| {
-                println!("  slot {}: {} | {} {} | serial {}", s.index, s.label, s.manufacturer, s.model, s.serial)
+                println!(
+                    "  slot {}: {} | {} {} | serial {}",
+                    s.index, s.label, s.manufacturer, s.model, s.serial
+                )
             }),
             Err(e) => println!("  lỗi: {} {}", e.code.as_str(), e.detail),
         }
@@ -217,7 +251,9 @@ fn cmd_list_certs(token: &TokenArgs, pin: &PinArgs, as_json: bool) -> Result<()>
             .collect();
         println!(
             "{}",
-            serde_json::to_string_pretty(&json!({ "dllPath": module.path(), "slot": token.slot, "certs": list }))?
+            serde_json::to_string_pretty(
+                &json!({ "dllPath": module.path(), "slot": token.slot, "certs": list })
+            )?
         );
         return Ok(());
     }
@@ -233,19 +269,34 @@ fn cmd_list_certs(token: &TokenArgs, pin: &PinArgs, as_json: bool) -> Result<()>
             s.issuer_cn.as_deref().unwrap_or("-"),
             s.serial,
             s.valid_to.format("%d-%m-%Y"),
-            if s.is_time_valid(now) { "" } else { " (KHÔNG còn hiệu lực)" }
+            if s.is_time_valid(now) {
+                ""
+            } else {
+                " (KHÔNG còn hiệu lực)"
+            }
         );
     }
     Ok(())
 }
 
 fn cmd_sign(a: SignArgs) -> Result<()> {
-    let input = std::fs::read(&a.input).with_context(|| format!("reading {}", a.input.display()))?;
+    let input =
+        std::fs::read(&a.input).with_context(|| format!("reading {}", a.input.display()))?;
     let appearance = AppearanceOptions {
         signer_name: a.signer_name.clone(),
         time_text: None,
-        image: a.image.as_ref().map(std::fs::read).transpose().context("reading --image")?,
-        font: a.font.as_ref().map(std::fs::read).transpose().context("reading --font")?,
+        image: a
+            .image
+            .as_ref()
+            .map(std::fs::read)
+            .transpose()
+            .context("reading --image")?,
+        font: a
+            .font
+            .as_ref()
+            .map(std::fs::read)
+            .transpose()
+            .context("reading --font")?,
     };
     let opts = SignOptions {
         page: a.page,
@@ -258,21 +309,38 @@ fn cmd_sign(a: SignArgs) -> Result<()> {
         ..Default::default()
     };
     #[cfg(feature = "tsa")]
-    let tsa = a.tsa.as_ref().map(|u| pdfsign_core::tsa::HttpTimestamper::new(u.clone()));
+    let tsa = a
+        .tsa
+        .as_ref()
+        .map(|u| pdfsign_core::tsa::HttpTimestamper::new(u.clone()));
     #[cfg(not(feature = "tsa"))]
     let tsa: Option<NoTsa> = a.tsa.as_ref().map(|_| NoTsa);
     let tsa_ref = tsa.as_ref().map(|t| t as &dyn Timestamper);
 
     let mut signer: Box<dyn RawSigner> = if let Some(key) = &a.soft_key {
-        let cert = std::fs::read(a.soft_cert.as_ref().ok_or_else(|| anyhow!("--soft-cert required"))?)?;
+        let cert = std::fs::read(
+            a.soft_cert
+                .as_ref()
+                .ok_or_else(|| anyhow!("--soft-cert required"))?,
+        )?;
         let chain = match &a.soft_chain {
             Some(p) => certs_from_pem_or_der(&std::fs::read(p)?)?,
             None => Vec::new(),
         };
-        Box::new(SoftSigner::from_pem(&std::fs::read_to_string(key)?, &cert, chain)?)
+        Box::new(SoftSigner::from_pem(
+            &std::fs::read_to_string(key)?,
+            &cert,
+            chain,
+        )?)
     } else {
-        let pin = read_pin(&a.pin, true)?.expect("PIN required");
         let module = open_module(&a.token)?;
+        let (_, slot) = module.slot(a.token.slot)?;
+        if slot.pin_final_try {
+            eprintln!("CẢNH BÁO: token chỉ còn 1 lần nhập PIN. Nhập sai sẽ KHÓA token.");
+        } else if slot.pin_count_low {
+            eprintln!("Cảnh báo: token báo đã có lần nhập sai PIN gần đây.");
+        }
+        let pin = read_pin(&a.pin, true)?.expect("PIN required");
         tracing::info!(module = %module.path().display(), slot = a.token.slot, "signing with token");
         Box::new(module.signer(a.token.slot, &pin, &a.cert)?)
     };
@@ -285,9 +353,14 @@ fn cmd_sign(a: SignArgs) -> Result<()> {
     if !report.is_intact() {
         bail!("self-check failed after signing: {report:?}");
     }
-    std::fs::write(&a.output, &signed).with_context(|| format!("writing {}", a.output.display()))?;
+    std::fs::write(&a.output, &signed)
+        .with_context(|| format!("writing {}", a.output.display()))?;
     let summary = pdfsign_core::summarize(&signer.certificate_der())?;
-    let level = if report.has_timestamp { "PAdES-B-T" } else { "PAdES-B-B" };
+    let level = if report.has_timestamp {
+        "PAdES-B-T"
+    } else {
+        "PAdES-B-B"
+    };
     if a.json {
         println!(
             "{}",
@@ -304,7 +377,13 @@ fn cmd_sign(a: SignArgs) -> Result<()> {
             }))?
         );
     } else {
-        println!("OK {} -> {} ({}, field {})", a.input.display(), a.output.display(), level, report.field_name);
+        println!(
+            "OK {} -> {} ({}, field {})",
+            a.input.display(),
+            a.output.display(),
+            level,
+            report.field_name
+        );
     }
     Ok(())
 }
@@ -337,14 +416,20 @@ fn cmd_verify(file: &Path, as_json: bool) -> Result<bool> {
                 })
             })
             .collect();
-        println!("{}", serde_json::to_string_pretty(&json!({ "ok": all_ok, "signatures": list }))?);
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&json!({ "ok": all_ok, "signatures": list }))?
+        );
     } else {
         if reports.is_empty() {
             println!("Không có chữ ký trong file.");
         }
         for r in &reports {
             if let Some(err) = &r.error {
-                println!("{}: {} | không đọc được CMS: {err}", r.field_name, r.sub_filter);
+                println!(
+                    "{}: {} | không đọc được CMS: {err}",
+                    r.field_name, r.sub_filter
+                );
                 continue;
             }
             println!(
@@ -393,14 +478,15 @@ fn main() -> ExitCode {
     tracing_subscriber::fmt()
         .with_writer(std::io::stderr)
         .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_env("PDFSIGN_LOG").unwrap_or_else(|_| filter.into()),
+            tracing_subscriber::EnvFilter::try_from_env("PDFSIGN_LOG")
+                .unwrap_or_else(|_| filter.into()),
         )
         .init();
 
     let result = match cli.command {
         Command::ListTokens { module, json } => cmd_list_tokens(module.as_deref(), json),
         Command::ListCerts { token, pin, json } => cmd_list_certs(&token, &pin, json),
-        Command::Sign(args) => cmd_sign(args),
+        Command::Sign(args) => cmd_sign(*args),
         Command::Verify { file, json } => match cmd_verify(&file, json) {
             Ok(true) => Ok(()),
             Ok(false) => return ExitCode::from(2),
@@ -410,7 +496,10 @@ fn main() -> ExitCode {
     match result {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
-            let token_code = match (e.downcast_ref::<TokenError>(), e.downcast_ref::<pdfsign_core::Error>()) {
+            let token_code = match (
+                e.downcast_ref::<TokenError>(),
+                e.downcast_ref::<pdfsign_core::Error>(),
+            ) {
                 (Some(te), _) => {
                     tracing::debug!(detail = %te.detail, "token error");
                     Some(te.code)

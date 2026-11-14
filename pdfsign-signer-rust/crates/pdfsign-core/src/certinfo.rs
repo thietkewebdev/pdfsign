@@ -43,13 +43,18 @@ pub fn summarize(cert_der: &[u8]) -> Result<CertSummary> {
     let serial_hex = hex::encode_upper(tbs.serial_number.as_bytes());
     let serial = serial_hex.trim_start_matches('0');
     let to_utc = |t: &x509_cert::time::Time| {
-        DateTime::<Utc>::from_timestamp(t.to_unix_duration().as_secs() as i64, 0).unwrap_or_default()
+        DateTime::<Utc>::from_timestamp(t.to_unix_duration().as_secs() as i64, 0)
+            .unwrap_or_default()
     };
     Ok(CertSummary {
         subject_o: name_attr(&tbs.subject, OID_O),
         subject_cn: name_attr(&tbs.subject, OID_CN),
         issuer_cn: name_attr(&tbs.issuer, OID_CN),
-        serial: if serial.is_empty() { "0".into() } else { serial.into() },
+        serial: if serial.is_empty() {
+            "0".into()
+        } else {
+            serial.into()
+        },
         valid_from: to_utc(&tbs.validity.not_before),
         valid_to: to_utc(&tbs.validity.not_after),
         is_rsa: tbs.subject_public_key_info.algorithm.oid == crate::cades::OID_RSA_ENCRYPTION,
@@ -68,12 +73,18 @@ pub fn any_to_string(v: &Any) -> Option<String> {
     let bytes = v.value();
     match v.tag() {
         Tag::BmpString => {
-            let units: Vec<u16> = bytes.chunks(2).filter(|c| c.len() == 2).map(|c| u16::from_be_bytes([c[0], c[1]])).collect();
+            let units: Vec<u16> = bytes
+                .chunks(2)
+                .filter(|c| c.len() == 2)
+                .map(|c| u16::from_be_bytes([c[0], c[1]]))
+                .collect();
             String::from_utf16(&units).ok()
         }
-        Tag::Utf8String | Tag::PrintableString | Tag::Ia5String | Tag::TeletexString | Tag::VisibleString => {
-            Some(String::from_utf8_lossy(bytes).into_owned())
-        }
+        Tag::Utf8String
+        | Tag::PrintableString
+        | Tag::Ia5String
+        | Tag::TeletexString
+        | Tag::VisibleString => Some(String::from_utf8_lossy(bytes).into_owned()),
         _ => None,
     }
 }

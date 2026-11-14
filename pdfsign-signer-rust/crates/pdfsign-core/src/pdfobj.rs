@@ -123,7 +123,10 @@ mod tests {
     fn serializes_basic_objects() {
         let mut d = Dictionary::new();
         d.set("Type", Object::Name(b"Annot".to_vec()));
-        d.set("Rect", Object::Array(vec![1.into(), Object::Real(2.5), Object::Reference((3, 0))]));
+        d.set(
+            "Rect",
+            Object::Array(vec![1.into(), Object::Real(2.5), Object::Reference((3, 0))]),
+        );
         d.set("T", Object::string_literal("a(b)"));
         d.set("N", Object::Name(b"A B".to_vec()));
         let mut out = Vec::new();

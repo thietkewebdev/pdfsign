@@ -67,7 +67,10 @@ pub struct TokenError {
 
 impl TokenError {
     pub fn new(code: ErrorCode, detail: impl Into<String>) -> Self {
-        Self { code, detail: detail.into() }
+        Self {
+            code,
+            detail: detail.into(),
+        }
     }
 }
 
@@ -79,7 +82,9 @@ pub fn classify(rv: RvError) -> ErrorCode {
         RvError::PinLocked => ErrorCode::PinLocked,
         RvError::PinExpired => ErrorCode::PinExpired,
         RvError::PinInvalid | RvError::PinLenRange => ErrorCode::PinInvalid,
-        RvError::TokenNotPresent | RvError::TokenNotRecognized | RvError::SlotIdInvalid => ErrorCode::TokenNotFound,
+        RvError::TokenNotPresent | RvError::TokenNotRecognized | RvError::SlotIdInvalid => {
+            ErrorCode::TokenNotFound
+        }
         RvError::DeviceRemoved => ErrorCode::TokenRemoved,
         RvError::FunctionCanceled => ErrorCode::UserCancelled,
         RvError::DeviceError | RvError::DeviceMemory => ErrorCode::DeviceError,

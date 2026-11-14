@@ -60,14 +60,24 @@ impl std::str::FromStr for RectPct {
         if v.iter().any(|x| !(0.0..=1.0).contains(x) || !x.is_finite()) {
             return Err("rect values must be within 0..1".into());
         }
-        Ok(RectPct { x: v[0], y: v[1], w: v[2], h: v[3] })
+        Ok(RectPct {
+            x: v[0],
+            y: v[1],
+            w: v[2],
+            h: v[3],
+        })
     }
 }
 
 impl Default for RectPct {
     /// Default of sign_core.py: bottom-right area.
     fn default() -> Self {
-        RectPct { x: 0.64, y: 0.06, w: 0.32, h: 0.10 }
+        RectPct {
+            x: 0.64,
+            y: 0.06,
+            w: 0.32,
+            h: 0.10,
+        }
     }
 }
 
@@ -128,7 +138,10 @@ impl PreparedPdf {
     pub fn embed(mut self, cms_der: &[u8]) -> Result<Vec<u8>> {
         let reserved = self.reserved_bytes();
         if cms_der.len() > reserved {
-            return Err(Error::ContentsTooSmall { needed: cms_der.len(), reserved });
+            return Err(Error::ContentsTooSmall {
+                needed: cms_der.len(),
+                reserved,
+            });
         }
         let start = self.byte_range[1] + 1;
         let hex = hex::encode_upper(cms_der);
@@ -150,7 +163,11 @@ pub fn sign_pdf(
     if opts.contents_reserve.is_none() {
         let chain_len: usize = signer.chain_der().iter().map(|c| c.len()).sum();
         let base = 8192 + 2 * (cert_der.len() + chain_len);
-        opts.contents_reserve = Some(if timestamper.is_some() { base + 16384 } else { base });
+        opts.contents_reserve = Some(if timestamper.is_some() {
+            base + 16384
+        } else {
+            base
+        });
     }
     if opts.appearance.signer_name.is_none() {
         opts.appearance.signer_name = Some(summary.display_name());
@@ -180,13 +197,18 @@ fn find_startxref(data: &[u8]) -> Result<XrefInfo> {
         .take_while(|c| c.is_ascii_digit())
         .map(|c| *c as char)
         .collect();
-    let prev_offset: usize = digits.parse().map_err(|_| Error::Unsupported("bad startxref".into()))?;
+    let prev_offset: usize = digits
+        .parse()
+        .map_err(|_| Error::Unsupported("bad startxref".into()))?;
     if prev_offset >= data.len() {
         return Err(Error::Unsupported("startxref beyond EOF".into()));
     }
     let at = &data[prev_offset..];
     let is_stream = !at.starts_with(b"xref");
-    Ok(XrefInfo { prev_offset, is_stream })
+    Ok(XrefInfo {
+        prev_offset,
+        is_stream,
+    })
 }
 
 fn num(doc: &Document, o: &Object) -> Option<f64> {
@@ -240,7 +262,9 @@ fn page_geometry(doc: &Document, page_id: ObjectId) -> PageGeometry {
             (v.len() == 4).then_some(v)
         })
         .unwrap_or_else(|| vec![0.0, 0.0, 595.2, 841.8]);
-    let rotation = inherited(doc, page_id, b"Rotate").and_then(|o| num(doc, o)).unwrap_or(0.0) as i64;
+    let rotation = inherited(doc, page_id, b"Rotate")
+        .and_then(|o| num(doc, o))
+        .unwrap_or(0.0) as i64;
     PageGeometry {
         x0: mb[0].min(mb[2]),
         y0: mb[1].min(mb[3]),
@@ -256,7 +280,11 @@ fn page_geometry(doc: &Document, page_id: ObjectId) -> PageGeometry {
 /// /Rotate turns the page clockwise for display, so for 90 the displayed bottom-left is the
 /// user-space bottom-right. `_box_from_pct` in pades_signer.py has the 90/270 cases swapped.
 pub fn box_from_pct(g: PageGeometry, r: RectPct) -> (f64, f64, f64, f64, f64, f64) {
-    let (dw, dh) = if g.rotation == 90 || g.rotation == 270 { (g.height, g.width) } else { (g.width, g.height) };
+    let (dw, dh) = if g.rotation == 90 || g.rotation == 270 {
+        (g.height, g.width)
+    } else {
+        (g.width, g.height)
+    };
     let (dx1, dy1) = (r.x * dw, r.y * dh);
     let (dx2, dy2) = ((r.x + r.w) * dw, (r.y + r.h) * dh);
     let to_user = |px: f64, py: f64| match g.rotation {
@@ -281,14 +309,22 @@ fn pdf_date(t: DateTime<FixedOffset>) -> String {
     let off = t.offset().local_minus_utc();
     let sign = if off >= 0 { '+' } else { '-' };
     let off = off.abs();
-    format!("D:{}{}{:02}'{:02}'", t.format("%Y%m%d%H%M%S"), sign, off / 3600, (off % 3600) / 60)
+    format!(
+        "D:{}{}{:02}'{:02}'",
+        t.format("%Y%m%d%H%M%S"),
+        sign,
+        off / 3600,
+        (off % 3600) / 60
+    )
 }
 
 fn collect_field_names(doc: &Document, field: &Object, out: &mut BTreeSet<String>, depth: usize) {
     if depth > 32 {
         return;
     }
-    let Ok(d) = deref(doc, field).as_dict() else { return };
+    let Ok(d) = deref(doc, field).as_dict() else {
+        return;
+    };
     if let Ok(Object::String(s, _)) = d.get(b"T").map(|o| deref(doc, o)) {
         out.insert(String::from_utf8_lossy(s).into_owned());
     }
@@ -305,7 +341,9 @@ fn collect_field_names(doc: &Document, field: &Object, out: &mut BTreeSet<String
 pub fn prepare(input: &[u8], opts: &SignOptions) -> Result<PreparedPdf> {
     let doc = Document::load_mem(input)?;
     if doc.was_encrypted() || doc.trailer.has(b"Encrypt") {
-        return Err(Error::Unsupported("encrypted PDFs are not supported yet".into()));
+        return Err(Error::Unsupported(
+            "encrypted PDFs are not supported yet".into(),
+        ));
     }
     let xref = find_startxref(input)?;
 
@@ -315,9 +353,9 @@ pub fn prepare(input: &[u8], opts: &SignOptions) -> Result<PreparedPdf> {
     }
     let page_id = match opts.page {
         PageSpec::Last => *pages.values().last().expect("non-empty"),
-        PageSpec::Number(n) => *pages
-            .get(&n)
-            .ok_or_else(|| Error::Placement(format!("page {n} out of range (1..{})", pages.len())))?,
+        PageSpec::Number(n) => *pages.get(&n).ok_or_else(|| {
+            Error::Placement(format!("page {n} out of range (1..{})", pages.len()))
+        })?,
     };
 
     let root_id = doc
@@ -325,7 +363,13 @@ pub fn prepare(input: &[u8], opts: &SignOptions) -> Result<PreparedPdf> {
         .get(b"Root")
         .and_then(|o| o.as_reference())
         .map_err(|_| Error::Unsupported("trailer has no /Root reference".into()))?;
-    let size = doc.trailer.get(b"Size").ok().and_then(|o| o.as_i64().ok()).unwrap_or(0).max(0) as u32;
+    let size = doc
+        .trailer
+        .get(b"Size")
+        .ok()
+        .and_then(|o| o.as_i64().ok())
+        .unwrap_or(0)
+        .max(0) as u32;
     let mut alloc = ObjAlloc::new(size.max(doc.max_id + 1));
     let mut modified: BTreeMap<ObjectId, Object> = BTreeMap::new();
 
@@ -350,14 +394,22 @@ pub fn prepare(input: &[u8], opts: &SignOptions) -> Result<PreparedPdf> {
         collect_field_names(&doc, f, &mut existing, 0);
     }
     let field_name = match &opts.field_name {
-        Some(n) if existing.contains(n) => return Err(Error::Placement(format!("field {n} already exists"))),
+        Some(n) if existing.contains(n) => {
+            return Err(Error::Placement(format!("field {n} already exists")))
+        }
         Some(n) => n.clone(),
-        None => (1..).map(|i| format!("Signature{i}")).find(|n| !existing.contains(n)).expect("unbounded"),
+        None => (1..)
+            .map(|i| format!("Signature{i}"))
+            .find(|n| !existing.contains(n))
+            .expect("unbounded"),
     };
 
     let geom = page_geometry(&doc, page_id);
     let (llx, lly, urx, ury, disp_w, disp_h) = box_from_pct(geom, opts.rect);
-    let signing_time = opts.signing_time.unwrap_or_else(Utc::now).with_timezone(&vn_offset());
+    let signing_time = opts
+        .signing_time
+        .unwrap_or_else(Utc::now)
+        .with_timezone(&vn_offset());
 
     let sig_id = alloc.reserve();
     let widget_id = alloc.reserve();
@@ -371,7 +423,10 @@ pub fn prepare(input: &[u8], opts: &SignOptions) -> Result<PreparedPdf> {
     widget.set("F", Object::Integer(132));
     widget.set("P", Object::Reference(page_id));
     if opts.invisible || disp_w < 1.0 || disp_h < 1.0 {
-        widget.set("Rect", Object::Array(vec![0.into(), 0.into(), 0.into(), 0.into()]));
+        widget.set(
+            "Rect",
+            Object::Array(vec![0.into(), 0.into(), 0.into(), 0.into()]),
+        );
     } else {
         let signer = opts.appearance.signer_name.clone().unwrap_or_default();
         let time_text = opts
@@ -379,10 +434,23 @@ pub fn prepare(input: &[u8], opts: &SignOptions) -> Result<PreparedPdf> {
             .time_text
             .clone()
             .unwrap_or_else(|| signing_time.format("%d/%m/%Y %H:%M:%S").to_string());
-        let ap_id = build_appearance(&mut alloc, disp_w, disp_h, geom.rotation, &signer, &time_text, &opts.appearance)?;
+        let ap_id = build_appearance(
+            &mut alloc,
+            disp_w,
+            disp_h,
+            geom.rotation,
+            &signer,
+            &time_text,
+            &opts.appearance,
+        )?;
         widget.set(
             "Rect",
-            Object::Array([llx, lly, urx, ury].iter().map(|v| Object::Real(*v as f32)).collect()),
+            Object::Array(
+                [llx, lly, urx, ury]
+                    .iter()
+                    .map(|v| Object::Real(*v as f32))
+                    .collect(),
+            ),
         );
         let mut ap = Dictionary::new();
         ap.set("N", Object::Reference(ap_id));
@@ -442,10 +510,18 @@ pub fn prepare(input: &[u8], opts: &SignOptions) -> Result<PreparedPdf> {
     // Signature dictionary with fixed-width placeholders.
     let reserve = opts.contents_reserve.unwrap_or(16384);
     offsets.insert(sig_id, out.len());
-    let _ = write!(out, "{} {} obj\n<</Type /Sig/Filter /Adobe.PPKLite/SubFilter /ETSI.CAdES.detached", sig_id.0, sig_id.1);
+    let _ = write!(
+        out,
+        "{} {} obj\n<</Type /Sig/Filter /Adobe.PPKLite/SubFilter /ETSI.CAdES.detached",
+        sig_id.0, sig_id.1
+    );
     out.extend_from_slice(b"/M ");
     write_literal_string(&mut out, pdf_date(signing_time).as_bytes());
-    for (key, val) in [("Reason", &opts.reason), ("Location", &opts.location), ("ContactInfo", &opts.contact_info)] {
+    for (key, val) in [
+        ("Reason", &opts.reason),
+        ("Location", &opts.location),
+        ("ContactInfo", &opts.contact_info),
+    ] {
         if let Some(v) = val {
             let _ = write!(out, "/{key} ");
             write_object(&mut out, &text_string(v));
@@ -465,7 +541,7 @@ pub fn prepare(input: &[u8], opts: &SignOptions) -> Result<PreparedPdf> {
 
     for (id, obj) in &all {
         offsets.insert(*id, out.len());
-        let _ = write!(out, "{} {} obj\n", id.0, id.1);
+        let _ = writeln!(out, "{} {} obj", id.0, id.1);
         write_object(&mut out, obj);
         out.extend_from_slice(b"\nendobj\n");
     }
@@ -488,10 +564,13 @@ pub fn prepare(input: &[u8], opts: &SignOptions) -> Result<PreparedPdf> {
         let (index, data) = xref_stream_entries(&offsets);
         trailer.set("Type", Object::Name(b"XRef".to_vec()));
         trailer.set("Size", Object::Integer(new_size as i64));
-        trailer.set("Index", Object::Array(index.into_iter().map(Object::Integer).collect()));
+        trailer.set(
+            "Index",
+            Object::Array(index.into_iter().map(Object::Integer).collect()),
+        );
         trailer.set("W", Object::Array(vec![1.into(), 4.into(), 2.into()]));
         trailer.set("Length", Object::Integer(data.len() as i64));
-        let _ = write!(out, "{} 0 obj\n", xref_id.0);
+        let _ = writeln!(out, "{} 0 obj", xref_id.0);
         write_dict(&mut out, &trailer);
         out.extend_from_slice(b"\nstream\n");
         out.extend_from_slice(&data);
@@ -513,13 +592,20 @@ pub fn prepare(input: &[u8], opts: &SignOptions) -> Result<PreparedPdf> {
     }
 
     let byte_range = [0, lt_pos, gt_end, out.len() - gt_end];
-    let br = format!("[{} {} {} {}]", byte_range[0], byte_range[1], byte_range[2], byte_range[3]);
+    let br = format!(
+        "[{} {} {} {}]",
+        byte_range[0], byte_range[1], byte_range[2], byte_range[3]
+    );
     if br.len() > BR_WIDTH {
         return Err(Error::Unsupported("ByteRange placeholder overflow".into()));
     }
     out[br_pos..br_pos + br.len()].copy_from_slice(br.as_bytes());
 
-    Ok(PreparedPdf { data: out, byte_range, field_name })
+    Ok(PreparedPdf {
+        data: out,
+        byte_range,
+        field_name,
+    })
 }
 
 fn subsections(offsets: &BTreeMap<ObjectId, usize>) -> Vec<(u32, Vec<ObjectId>)> {
@@ -555,17 +641,34 @@ mod tests {
     #[test]
     fn rect_pct_rotation_mapping() {
         // Displayed bottom-left corner box on a portrait page shown as landscape.
-        let r = RectPct { x: 0.0, y: 0.0, w: 0.5, h: 0.25 };
-        let g90 = PageGeometry { x0: 0.0, y0: 0.0, width: 600.0, height: 800.0, rotation: 90 };
+        let r = RectPct {
+            x: 0.0,
+            y: 0.0,
+            w: 0.5,
+            h: 0.25,
+        };
+        let g90 = PageGeometry {
+            x0: 0.0,
+            y0: 0.0,
+            width: 600.0,
+            height: 800.0,
+            rotation: 90,
+        };
         let (llx, lly, urx, ury, dw, dh) = box_from_pct(g90, r);
         assert_eq!((dw, dh), (400.0, 150.0));
         // Rotate 90 (clockwise): displayed bottom-left = user-space bottom-right.
         assert_eq!((llx, lly, urx, ury), (450.0, 0.0, 600.0, 400.0));
         // Rotate 270: displayed bottom-left = user-space top-left.
-        let g270 = PageGeometry { rotation: 270, ..g90 };
+        let g270 = PageGeometry {
+            rotation: 270,
+            ..g90
+        };
         let (llx, lly, urx, ury, _, _) = box_from_pct(g270, r);
         assert_eq!((llx, lly, urx, ury), (0.0, 400.0, 150.0, 800.0));
-        let g180 = PageGeometry { rotation: 180, ..g90 };
+        let g180 = PageGeometry {
+            rotation: 180,
+            ..g90
+        };
         let (llx, lly, urx, ury, _, _) = box_from_pct(g180, r);
         assert_eq!((llx, lly, urx, ury), (300.0, 600.0, 600.0, 800.0));
     }

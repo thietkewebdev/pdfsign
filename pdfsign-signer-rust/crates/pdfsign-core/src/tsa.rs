@@ -18,7 +18,10 @@ pub struct HttpTimestamper {
 
 impl HttpTimestamper {
     pub fn new(url: impl Into<String>) -> Self {
-        Self { url: url.into(), timeout: Duration::from_secs(30) }
+        Self {
+            url: url.into(),
+            timeout: Duration::from_secs(30),
+        }
     }
 }
 
@@ -26,7 +29,10 @@ pub fn build_request(imprint: &[u8; 32], nonce: &[u8; 8]) -> Result<Vec<u8>> {
     let req = TimeStampReq {
         version: TspVersion::V1,
         message_imprint: MessageImprint {
-            hash_algorithm: AlgorithmIdentifier { oid: OID_SHA256, parameters: None },
+            hash_algorithm: AlgorithmIdentifier {
+                oid: OID_SHA256,
+                parameters: None,
+            },
             hashed_message: OctetString::new(imprint.to_vec())?,
         },
         req_policy: None,
@@ -39,16 +45,26 @@ pub fn build_request(imprint: &[u8; 32], nonce: &[u8; 8]) -> Result<Vec<u8>> {
 
 /// Parse a TimeStampResp, check status, imprint and nonce; return the token DER.
 pub fn parse_response(resp_der: &[u8], imprint: &[u8; 32], nonce: &[u8; 8]) -> Result<Vec<u8>> {
-    let resp = TimeStampResp::from_der(resp_der).map_err(|e| Error::Tsa(format!("bad response: {e}")))?;
+    let resp =
+        TimeStampResp::from_der(resp_der).map_err(|e| Error::Tsa(format!("bad response: {e}")))?;
     match resp.status.status {
         PkiStatus::Accepted | PkiStatus::GrantedWithMods => {}
         other => return Err(Error::Tsa(format!("TSA rejected request: {other:?}"))),
     }
-    let token = resp.time_stamp_token.ok_or_else(|| Error::Tsa("response has no token".into()))?;
-    let sd: SignedData = token.content.decode_as().map_err(|e| Error::Tsa(format!("token: {e}")))?;
-    let econtent = sd.encap_content_info.econtent.ok_or_else(|| Error::Tsa("token has no TSTInfo".into()))?;
+    let token = resp
+        .time_stamp_token
+        .ok_or_else(|| Error::Tsa("response has no token".into()))?;
+    let sd: SignedData = token
+        .content
+        .decode_as()
+        .map_err(|e| Error::Tsa(format!("token: {e}")))?;
+    let econtent = sd
+        .encap_content_info
+        .econtent
+        .ok_or_else(|| Error::Tsa("token has no TSTInfo".into()))?;
     let tst_der = OctetString::from_der(&econtent.to_der()?)?;
-    let tst = TstInfo::from_der(tst_der.as_bytes()).map_err(|e| Error::Tsa(format!("TSTInfo: {e}")))?;
+    let tst =
+        TstInfo::from_der(tst_der.as_bytes()).map_err(|e| Error::Tsa(format!("TSTInfo: {e}")))?;
     if tst.message_imprint.hashed_message.as_bytes() != imprint {
         return Err(Error::Tsa("message imprint mismatch".into()));
     }

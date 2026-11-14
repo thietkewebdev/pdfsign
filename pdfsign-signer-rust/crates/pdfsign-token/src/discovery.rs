@@ -14,21 +14,86 @@ use std::path::{Path, PathBuf};
 /// Filename substrings (case-insensitive) that mark a candidate PKCS#11 module.
 /// Verbatim from `DLL_PATTERNS` in pkcs11_discovery.py.
 pub const DLL_PATTERNS: &[&str] = &[
-    "pkcs11", "csp11", "viettel", "vnpt", "ca2", "fpt", "newtel", "safe", "safenet", "smartsign", "efy",
-    "trustca", "trust-ca", "misa", "cmc", "oneca", "one-ca", "easyca", "bkav", "etoken",
+    "pkcs11",
+    "csp11",
+    "viettel",
+    "vnpt",
+    "ca2",
+    "fpt",
+    "newtel",
+    "safe",
+    "safenet",
+    "smartsign",
+    "efy",
+    "trustca",
+    "trust-ca",
+    "misa",
+    "cmc",
+    "oneca",
+    "one-ca",
+    "easyca",
+    "bkav",
+    "etoken",
     // Feitian / Watchdata / G+D / OpenSC / Thales / Atos / A.E.T. / Gemalto / CA2 / SAVIS /
     // SoftDreams / WinCA / NewCA / K-Sign middleware names.
-    "ngp11", "castle", "epass", "eps2003", "shuttle", "ftpkcs11", "ftsafe", "wdpkcs", "watchdata", "aetpkss",
-    "opensc", "idprime", "starcos", "cardos", "safesign", "gclib", "nacencomm", "savis", "softdreams", "winca",
-    "newca", "ksign",
+    "ngp11",
+    "castle",
+    "epass",
+    "eps2003",
+    "shuttle",
+    "ftpkcs11",
+    "ftsafe",
+    "wdpkcs",
+    "watchdata",
+    "aetpkss",
+    "opensc",
+    "idprime",
+    "starcos",
+    "cardos",
+    "safesign",
+    "gclib",
+    "nacencomm",
+    "savis",
+    "softdreams",
+    "winca",
+    "newca",
+    "ksign",
 ];
 
 /// Folder-name markers under Program Files whose whole subtree is scanned deeply.
 /// Verbatim from `_VENDOR_DIR_MARKERS` in pkcs11_discovery.py.
 pub const VENDOR_DIR_MARKERS: &[&str] = &[
-    "viettel", "vnpt", "ca2", "fpt", "newtel", "smartsign", "efy", "trustca", "trust-ca", "misa", "cmc", "safe",
-    "safenet", "safesign", "oneca", "one-ca", "one_ca", "bkav", "easyca", "easysign", "feitian", "watchdata",
-    "gemalto", "thales", "nacencomm", "savis", "softdreams", "winca", "newca", "ksign", "opensc",
+    "viettel",
+    "vnpt",
+    "ca2",
+    "fpt",
+    "newtel",
+    "smartsign",
+    "efy",
+    "trustca",
+    "trust-ca",
+    "misa",
+    "cmc",
+    "safe",
+    "safenet",
+    "safesign",
+    "oneca",
+    "one-ca",
+    "one_ca",
+    "bkav",
+    "easyca",
+    "easysign",
+    "feitian",
+    "watchdata",
+    "gemalto",
+    "thales",
+    "nacencomm",
+    "savis",
+    "softdreams",
+    "winca",
+    "newca",
+    "ksign",
+    "opensc",
 ];
 
 /// Preferred Viettel modules, newest first (`_PREFERRED_VIETTEL_DLLS`).
@@ -42,7 +107,11 @@ pub const PREFERRED_VIETTEL_DLLS: &[&str] = &[
     r"C:\Windows\System32\viettel-ca.dll",
 ];
 
-pub const WINDOWS_SCAN_DIRS: &[&str] = &[r"C:\Windows\System32", r"C:\Program Files", r"C:\Program Files (x86)"];
+pub const WINDOWS_SCAN_DIRS: &[&str] = &[
+    r"C:\Windows\System32",
+    r"C:\Program Files",
+    r"C:\Program Files (x86)",
+];
 const MAX_SCAN_DEPTH: usize = 2;
 const MAX_SCAN_DEPTH_VENDOR: usize = 8;
 
@@ -55,32 +124,81 @@ pub struct KnownModule {
 }
 
 pub const KNOWN_WINDOWS: &[KnownModule] = &[
-    KnownModule { vendor: "SafeNet/Thales eToken", path: r"C:\Windows\System32\eTPKCS11.dll", verified: false },
-    KnownModule { vendor: "Feitian ePass2003", path: r"C:\Windows\System32\eps2003csp11.dll", verified: false },
+    KnownModule {
+        vendor: "SafeNet/Thales eToken",
+        path: r"C:\Windows\System32\eTPKCS11.dll",
+        verified: false,
+    },
+    KnownModule {
+        vendor: "Feitian ePass2003",
+        path: r"C:\Windows\System32\eps2003csp11.dll",
+        verified: false,
+    },
     KnownModule {
         vendor: "OpenSC",
         path: r"C:\Program Files\OpenSC Project\OpenSC\pkcs11\opensc-pkcs11.dll",
         verified: false,
     },
-    KnownModule { vendor: "SoftHSM2 (test)", path: r"C:\SoftHSM2\lib\softhsm2-x64.dll", verified: false },
+    KnownModule {
+        vendor: "SoftHSM2 (test)",
+        path: r"C:\SoftHSM2\lib\softhsm2-x64.dll",
+        verified: false,
+    },
 ];
 
 pub const KNOWN_MACOS: &[KnownModule] = &[
-    KnownModule { vendor: "OpenSC", path: "/Library/OpenSC/lib/opensc-pkcs11.so", verified: false },
-    KnownModule { vendor: "SafeNet/Thales eToken", path: "/usr/local/lib/libeTPkcs11.dylib", verified: false },
-    KnownModule { vendor: "Feitian ePass2003", path: "/usr/local/lib/libcastle.1.0.0.dylib", verified: false },
-    KnownModule { vendor: "SoftHSM2 (Homebrew, test)", path: "/opt/homebrew/lib/softhsm/libsofthsm2.so", verified: false },
-    KnownModule { vendor: "SoftHSM2 (Homebrew Intel, test)", path: "/usr/local/lib/softhsm/libsofthsm2.so", verified: false },
+    KnownModule {
+        vendor: "OpenSC",
+        path: "/Library/OpenSC/lib/opensc-pkcs11.so",
+        verified: false,
+    },
+    KnownModule {
+        vendor: "SafeNet/Thales eToken",
+        path: "/usr/local/lib/libeTPkcs11.dylib",
+        verified: false,
+    },
+    KnownModule {
+        vendor: "Feitian ePass2003",
+        path: "/usr/local/lib/libcastle.1.0.0.dylib",
+        verified: false,
+    },
+    KnownModule {
+        vendor: "SoftHSM2 (Homebrew, test)",
+        path: "/opt/homebrew/lib/softhsm/libsofthsm2.so",
+        verified: false,
+    },
+    KnownModule {
+        vendor: "SoftHSM2 (Homebrew Intel, test)",
+        path: "/usr/local/lib/softhsm/libsofthsm2.so",
+        verified: false,
+    },
 ];
 
 pub const KNOWN_LINUX: &[KnownModule] = &[
-    KnownModule { vendor: "SoftHSM2 (test)", path: "/usr/lib/softhsm/libsofthsm2.so", verified: true },
-    KnownModule { vendor: "SoftHSM2 (test)", path: "/usr/lib/x86_64-linux-gnu/softhsm/libsofthsm2.so", verified: false },
-    KnownModule { vendor: "OpenSC", path: "/usr/lib/x86_64-linux-gnu/opensc-pkcs11.so", verified: false },
+    KnownModule {
+        vendor: "SoftHSM2 (test)",
+        path: "/usr/lib/softhsm/libsofthsm2.so",
+        verified: true,
+    },
+    KnownModule {
+        vendor: "SoftHSM2 (test)",
+        path: "/usr/lib/x86_64-linux-gnu/softhsm/libsofthsm2.so",
+        verified: false,
+    },
+    KnownModule {
+        vendor: "OpenSC",
+        path: "/usr/lib/x86_64-linux-gnu/opensc-pkcs11.so",
+        verified: false,
+    },
 ];
 
 /// macOS roots scanned with the same patterns (vendor apps usually drop a dylib here).
-pub const MACOS_SCAN_DIRS: &[&str] = &["/usr/local/lib", "/opt/homebrew/lib", "/Library", "/Applications"];
+pub const MACOS_SCAN_DIRS: &[&str] = &[
+    "/usr/local/lib",
+    "/opt/homebrew/lib",
+    "/Library",
+    "/Applications",
+];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -111,7 +229,10 @@ fn is_vendor_dir(name: &str) -> bool {
 }
 
 fn has_module_extension(path: &Path) -> bool {
-    let ext = path.extension().and_then(|e| e.to_str()).map(|e| e.to_lowercase());
+    let ext = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(|e| e.to_lowercase());
     match std::env::consts::OS {
         "windows" => ext.as_deref() == Some("dll"),
         "macos" => matches!(ext.as_deref(), Some("dylib") | Some("so")),
@@ -128,7 +249,9 @@ pub fn is_pkcs11_module(path: &Path) -> bool {
     // Python core and only happens for files that matched the vendor name heuristics.
     unsafe {
         match libloading::Library::new(path) {
-            Ok(lib) => lib.get::<unsafe extern "C" fn()>(b"C_GetFunctionList\0").is_ok(),
+            Ok(lib) => lib
+                .get::<unsafe extern "C" fn()>(b"C_GetFunctionList\0")
+                .is_ok(),
             Err(_) => false,
         }
     }
@@ -136,11 +259,17 @@ pub fn is_pkcs11_module(path: &Path) -> bool {
 
 /// Port of `_iter_dlls`: recursive scan, deeper under vendor folders.
 fn scan_dir(base: &Path, depth: usize, in_vendor: bool, out: &mut Vec<PathBuf>) {
-    let max_depth = if in_vendor { MAX_SCAN_DEPTH_VENDOR } else { MAX_SCAN_DEPTH };
+    let max_depth = if in_vendor {
+        MAX_SCAN_DEPTH_VENDOR
+    } else {
+        MAX_SCAN_DEPTH
+    };
     if depth > max_depth {
         return;
     }
-    let Ok(entries) = std::fs::read_dir(base) else { return };
+    let Ok(entries) = std::fs::read_dir(base) else {
+        return;
+    };
     for entry in entries.flatten() {
         let path = entry.path();
         let name = entry.file_name().to_string_lossy().into_owned();
@@ -150,21 +279,37 @@ fn scan_dir(base: &Path, depth: usize, in_vendor: bool, out: &mut Vec<PathBuf>) 
             if depth == 0 || matches_heuristic(&name) || in_vendor {
                 scan_dir(&path, depth + 1, child_vendor, out);
             }
-        } else if (ft.is_file() || ft.is_symlink()) && has_module_extension(&path) && matches_heuristic(&name) {
+        } else if (ft.is_file() || ft.is_symlink())
+            && has_module_extension(&path)
+            && matches_heuristic(&name)
+        {
             out.push(path);
         }
     }
 }
 
 fn viettel_version(p: &Path) -> i64 {
-    let name = p.file_name().map(|n| n.to_string_lossy().to_lowercase()).unwrap_or_default();
+    let name = p
+        .file_name()
+        .map(|n| n.to_string_lossy().to_lowercase())
+        .unwrap_or_default();
     name.find("_v")
-        .and_then(|i| name[i + 2..].chars().take_while(|c| c.is_ascii_digit()).collect::<String>().parse().ok())
+        .and_then(|i| {
+            name[i + 2..]
+                .chars()
+                .take_while(|c| c.is_ascii_digit())
+                .collect::<String>()
+                .parse()
+                .ok()
+        })
         .unwrap_or(-1)
 }
 
 fn norm(p: &Path) -> String {
-    std::fs::canonicalize(p).unwrap_or_else(|_| p.to_path_buf()).to_string_lossy().to_lowercase()
+    std::fs::canonicalize(p)
+        .unwrap_or_else(|_| p.to_path_buf())
+        .to_string_lossy()
+        .to_lowercase()
 }
 
 /// Port of `_pick_pkcs11_dll` + `ordered_pkcs11_dll_candidates`: primary first, rest sorted by path.
@@ -177,10 +322,16 @@ pub fn order_candidates(mut found: Vec<PathBuf>) -> Vec<PathBuf> {
         .iter()
         .find_map(|pref| found.iter().position(|p| norm(p) == norm(Path::new(pref))));
     let primary_idx = preferred.or_else(|| {
-        let viettel: Vec<usize> =
-            (0..found.len()).filter(|i| norm(&found[*i]).contains("viettel")).collect();
+        let viettel: Vec<usize> = (0..found.len())
+            .filter(|i| norm(&found[*i]).contains("viettel"))
+            .collect();
         viettel.into_iter().max_by_key(|i| {
-            (viettel_version(&found[*i]), found[*i].file_name().map(|n| n.to_string_lossy().to_lowercase()))
+            (
+                viettel_version(&found[*i]),
+                found[*i]
+                    .file_name()
+                    .map(|n| n.to_string_lossy().to_lowercase()),
+            )
         })
     });
     let primary = found.remove(primary_idx.unwrap_or(0));
@@ -223,7 +374,10 @@ pub fn vendor_for(path: &Path) -> Option<String> {
         ("opensc", "OpenSC"),
         ("softhsm", "SoftHSM2 (test)"),
     ];
-    table.iter().find(|(k, _)| s.contains(k)).map(|(_, v)| v.to_string())
+    table
+        .iter()
+        .find(|(k, _)| s.contains(k))
+        .map(|(_, v)| v.to_string())
 }
 
 fn known_for_os() -> &'static [KnownModule] {
@@ -241,7 +395,11 @@ pub fn discover(user: Option<&Path>) -> Vec<ModuleCandidate> {
     let mut seen = HashSet::new();
     let mut push = |path: PathBuf, source: Source, out: &mut Vec<ModuleCandidate>| {
         if seen.insert(norm(&path)) && is_pkcs11_module(&path) {
-            out.push(ModuleCandidate { vendor: vendor_for(&path), path, source });
+            out.push(ModuleCandidate {
+                vendor: vendor_for(&path),
+                path,
+                source,
+            });
         }
     };
     if let Some(p) = user {
@@ -262,7 +420,10 @@ pub fn discover(user: Option<&Path>) -> Vec<ModuleCandidate> {
         scan_dir(Path::new(root), 0, false, &mut scanned);
     }
     for path in order_candidates(scanned) {
-        let src = if PREFERRED_VIETTEL_DLLS.iter().any(|p| norm(Path::new(p)) == norm(&path)) {
+        let src = if PREFERRED_VIETTEL_DLLS
+            .iter()
+            .any(|p| norm(Path::new(p)) == norm(&path))
+        {
             Source::PreferredViettel
         } else {
             Source::Scan
@@ -302,7 +463,10 @@ mod tests {
 
     #[test]
     fn no_viettel_falls_back_to_sorted() {
-        let ordered = order_candidates(vec![PathBuf::from("/x/zz-pkcs11.so"), PathBuf::from("/x/bkav.so")]);
+        let ordered = order_candidates(vec![
+            PathBuf::from("/x/zz-pkcs11.so"),
+            PathBuf::from("/x/bkav.so"),
+        ]);
         assert_eq!(ordered[0], PathBuf::from("/x/bkav.so"));
     }
 }

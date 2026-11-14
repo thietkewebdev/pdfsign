@@ -20,14 +20,20 @@ fn qpdf_check(bytes: &[u8], name: &str) {
     std::fs::write(&path, bytes).unwrap();
     if let Ok(out) = Command::new("qpdf").arg("--check").arg(&path).output() {
         let stdout = String::from_utf8_lossy(&out.stdout);
-        assert!(out.status.success(), "qpdf --check failed for {name}: {stdout}");
+        assert!(
+            out.status.success(),
+            "qpdf --check failed for {name}: {stdout}"
+        );
     }
 }
 
 fn sign_file(name: &str, opts: &SignOptions) -> Vec<u8> {
     let input = std::fs::read(fixtures().join(name)).unwrap();
     let out = sign_pdf(&input, opts, &mut signer(), None).unwrap();
-    assert!(out.starts_with(&input), "incremental update must keep original bytes");
+    assert!(
+        out.starts_with(&input),
+        "incremental update must keep original bytes"
+    );
     out
 }
 
@@ -48,7 +54,10 @@ fn signs_classic_xref_pdf() {
 
 #[test]
 fn signs_xref_stream_pdf() {
-    let opts = SignOptions { page: PageSpec::Number(1), ..Default::default() };
+    let opts = SignOptions {
+        page: PageSpec::Number(1),
+        ..Default::default()
+    };
     let out = sign_file("sample-xrefstream.pdf", &opts);
     let reports = verify_pdf(&out).unwrap();
     assert_eq!(reports.len(), 1);
@@ -62,15 +71,27 @@ fn signs_rotated_page_with_image() {
         let mut img = image::RgbaImage::new(64, 64);
         for (x, y, p) in img.enumerate_pixels_mut() {
             let d = ((x as i32 - 32).pow(2) + (y as i32 - 32).pow(2)) as f64;
-            *p = if d < 900.0 { image::Rgba([220, 38, 38, 255]) } else { image::Rgba([0, 0, 0, 0]) };
+            *p = if d < 900.0 {
+                image::Rgba([220, 38, 38, 255])
+            } else {
+                image::Rgba([0, 0, 0, 0])
+            };
         }
         let mut buf = std::io::Cursor::new(Vec::new());
         img.write_to(&mut buf, image::ImageFormat::Png).unwrap();
         buf.into_inner()
     };
     let opts = SignOptions {
-        rect: RectPct { x: 0.55, y: 0.05, w: 0.4, h: 0.12 },
-        appearance: AppearanceOptions { image: Some(png), ..Default::default() },
+        rect: RectPct {
+            x: 0.55,
+            y: 0.05,
+            w: 0.4,
+            h: 0.12,
+        },
+        appearance: AppearanceOptions {
+            image: Some(png),
+            ..Default::default()
+        },
         ..Default::default()
     };
     let out = sign_file("sample-rotated.pdf", &opts);
@@ -81,7 +102,15 @@ fn signs_rotated_page_with_image() {
 #[test]
 fn second_signature_keeps_first_valid() {
     let first = sign_file("sample.pdf", &SignOptions::default());
-    let opts = SignOptions { rect: RectPct { x: 0.05, y: 0.06, w: 0.32, h: 0.10 }, ..Default::default() };
+    let opts = SignOptions {
+        rect: RectPct {
+            x: 0.05,
+            y: 0.06,
+            w: 0.32,
+            h: 0.10,
+        },
+        ..Default::default()
+    };
     let second = sign_pdf(&first, &opts, &mut signer(), None).unwrap();
     let reports = verify_pdf(&second).unwrap();
     assert_eq!(reports.len(), 2);
@@ -95,7 +124,10 @@ fn second_signature_keeps_first_valid() {
 #[test]
 fn tampering_is_detected() {
     let mut out = sign_file("sample.pdf", &SignOptions::default());
-    let pos = out.windows(17).position(|w| w == b"Hop dong mau so 1").unwrap();
+    let pos = out
+        .windows(17)
+        .position(|w| w == b"Hop dong mau so 1")
+        .unwrap();
     out[pos] = b'X';
     let r = &verify_pdf(&out).unwrap()[0];
     assert!(!r.digest_ok);

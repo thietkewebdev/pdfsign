@@ -1,7 +1,9 @@
 //! Cryptographic self-check of PDF signatures (integrity + signature value + structure).
 //! This is not trust validation: chain building, revocation and AATL trust are out of scope.
 
-use crate::cades::{OID_CMS_ALGORITHM_PROTECTION, OID_SIGNATURE_TIME_STAMP_TOKEN, OID_SIGNING_CERTIFICATE_V2};
+use crate::cades::{
+    OID_CMS_ALGORITHM_PROTECTION, OID_SIGNATURE_TIME_STAMP_TOKEN, OID_SIGNING_CERTIFICATE_V2,
+};
 use crate::certinfo::summarize;
 use crate::error::{Error, Result};
 use cms::cert::CertificateChoices;
@@ -42,7 +44,7 @@ impl SignatureReport {
 pub fn verify_pdf(data: &[u8]) -> Result<Vec<SignatureReport>> {
     let doc = Document::load_mem(data)?;
     let mut reports = Vec::new();
-    for (_, obj) in doc.objects.iter() {
+    for obj in doc.objects.values() {
         let Ok(dict) = obj.as_dict() else { continue };
         if dict.get(b"FT").and_then(|o| o.as_name()).ok() != Some(b"Sig".as_slice()) {
             continue;
@@ -87,7 +89,11 @@ pub fn verify_pdf(data: &[u8]) -> Result<Vec<SignatureReport>> {
 
 fn decode_text(s: &[u8]) -> String {
     if s.starts_with(&[0xFE, 0xFF]) {
-        let u: Vec<u16> = s[2..].chunks(2).filter(|c| c.len() == 2).map(|c| u16::from_be_bytes([c[0], c[1]])).collect();
+        let u: Vec<u16> = s[2..]
+            .chunks(2)
+            .filter(|c| c.len() == 2)
+            .map(|c| u16::from_be_bytes([c[0], c[1]]))
+            .collect();
         String::from_utf16_lossy(&u)
     } else {
         String::from_utf8_lossy(s).into_owned()
@@ -100,11 +106,21 @@ fn check_one(data: &[u8], name: &str, sig: &lopdf::Dictionary) -> Result<Signatu
         .and_then(|o| o.as_name())
         .map(|n| String::from_utf8_lossy(n).into_owned())
         .unwrap_or_default();
-    let br: Vec<i64> = sig.get(b"ByteRange")?.as_array()?.iter().filter_map(|o| o.as_i64().ok()).collect();
+    let br: Vec<i64> = sig
+        .get(b"ByteRange")?
+        .as_array()?
+        .iter()
+        .filter_map(|o| o.as_i64().ok())
+        .collect();
     if br.len() != 4 || br.iter().any(|v| *v < 0) {
         return Err(Error::Verify("malformed ByteRange".into()));
     }
-    let (a, b, c, d) = (br[0] as usize, br[1] as usize, br[2] as usize, br[3] as usize);
+    let (a, b, c, d) = (
+        br[0] as usize,
+        br[1] as usize,
+        br[2] as usize,
+        br[3] as usize,
+    );
     if a + b > data.len() || c + d > data.len() || b > c {
         return Err(Error::Verify("ByteRange outside file".into()));
     }
@@ -120,16 +136,23 @@ fn check_one(data: &[u8], name: &str, sig: &lopdf::Dictionary) -> Result<Signatu
     let mut reader = SliceReader::new(&contents)?;
     let ci = ContentInfo::decode(&mut reader)?;
     let sd: SignedData = ci.content.decode_as()?;
-    let si = sd.signer_infos.0.iter().next().ok_or_else(|| Error::Verify("no SignerInfo".into()))?;
+    let si = sd
+        .signer_infos
+        .0
+        .iter()
+        .next()
+        .ok_or_else(|| Error::Verify("no SignerInfo".into()))?;
 
     let cert = sd
         .certificates
         .as_ref()
         .and_then(|cs| {
             cs.0.iter().find_map(|c| match (c, &si.sid) {
-                (CertificateChoices::Certificate(cert), SignerIdentifier::IssuerAndSerialNumber(ias))
-                    if cert.tbs_certificate.serial_number == ias.serial_number
-                        && cert.tbs_certificate.issuer == ias.issuer =>
+                (
+                    CertificateChoices::Certificate(cert),
+                    SignerIdentifier::IssuerAndSerialNumber(ias),
+                ) if cert.tbs_certificate.serial_number == ias.serial_number
+                    && cert.tbs_certificate.issuer == ias.issuer =>
                 {
                     Some(cert.clone())
                 }
@@ -138,7 +161,10 @@ fn check_one(data: &[u8], name: &str, sig: &lopdf::Dictionary) -> Result<Signatu
         })
         .ok_or_else(|| Error::Verify("signer certificate not embedded".into()))?;
 
-    let attrs = si.signed_attrs.as_ref().ok_or_else(|| Error::Verify("no signed attributes".into()))?;
+    let attrs = si
+        .signed_attrs
+        .as_ref()
+        .ok_or_else(|| Error::Verify("no signed attributes".into()))?;
     let md = attrs
         .iter()
         .find(|a| a.oid == ID_MESSAGE_DIGEST)
@@ -151,7 +177,13 @@ fn check_one(data: &[u8], name: &str, sig: &lopdf::Dictionary) -> Result<Signatu
     let attrs_digest = Sha256::digest(&attrs_der);
     let spki_der = cert.tbs_certificate.subject_public_key_info.to_der()?;
     let signature_ok = match RsaPublicKey::from_public_key_der(&spki_der) {
-        Ok(pk) => pk.verify(Pkcs1v15Sign::new::<Sha256>(), &attrs_digest, si.signature.as_bytes()).is_ok(),
+        Ok(pk) => pk
+            .verify(
+                Pkcs1v15Sign::new::<Sha256>(),
+                &attrs_digest,
+                si.signature.as_bytes(),
+            )
+            .is_ok(),
         Err(_) => false,
     };
 

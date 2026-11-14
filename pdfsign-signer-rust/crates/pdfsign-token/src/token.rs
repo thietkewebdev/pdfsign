@@ -13,8 +13,10 @@ use serde::Serialize;
 use std::path::{Path, PathBuf};
 
 /// DER prefix of DigestInfo{ sha256, NULL } (RFC 8017 section 9.2 note 1).
-const SHA256_DIGEST_INFO_PREFIX: [u8; 19] =
-    [0x30, 0x31, 0x30, 0x0d, 0x06, 0x09, 0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x01, 0x05, 0x00, 0x04, 0x20];
+const SHA256_DIGEST_INFO_PREFIX: [u8; 19] = [
+    0x30, 0x31, 0x30, 0x0d, 0x06, 0x09, 0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x01, 0x05,
+    0x00, 0x04, 0x20,
+];
 
 pub struct Module {
     ctx: Pkcs11,
@@ -31,6 +33,9 @@ pub struct SlotSummary {
     pub manufacturer: String,
     pub model: String,
     pub serial: String,
+    pub pin_count_low: bool,
+    pub pin_final_try: bool,
+    pub pin_locked: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -68,25 +73,32 @@ fn normalize_id(id: &[u8]) -> &[u8] {
 
 impl Module {
     pub fn load(path: &Path) -> Result<Self> {
-        let ctx = Pkcs11::new(path)
-            .map_err(|e| TokenError::new(ErrorCode::NoPkcs11Dll, format!("{}: {e}", path.display())))?;
+        let ctx = Pkcs11::new(path).map_err(|e| {
+            TokenError::new(ErrorCode::NoPkcs11Dll, format!("{}: {e}", path.display()))
+        })?;
         match ctx.initialize(CInitializeArgs::new(CInitializeFlags::OS_LOCKING_OK)) {
             Ok(()) | Err(CkError::Pkcs11(RvError::CryptokiAlreadyInitialized, _)) => {}
             Err(e) => return Err(e.into()),
         }
-        Ok(Self { ctx, path: path.to_path_buf() })
+        Ok(Self {
+            ctx,
+            path: path.to_path_buf(),
+        })
     }
 
     pub fn path(&self) -> &Path {
         &self.path
     }
 
-    /// Slots whose token answers C_GetTokenInfo. Uses all slots, not only "token present":
-    /// some drivers (e.g. Viettel) omit CKF_TOKEN_PRESENT (see cert_selector.py).
+    /// Slots whose token answers C_GetTokenInfo and is initialized. Uses all slots, not only
+    /// "token present": some drivers (e.g. Viettel) omit CKF_TOKEN_PRESENT (see cert_selector.py).
     pub fn token_slots(&self) -> Result<Vec<(Slot, SlotSummary)>> {
         let mut out = Vec::new();
         for slot in self.ctx.get_all_slots()? {
             if let Ok(info) = self.ctx.get_token_info(slot) {
+                if !info.token_initialized() {
+                    continue;
+                }
                 let index = out.len();
                 out.push((
                     slot,
@@ -97,6 +109,9 @@ impl Module {
                         manufacturer: info.manufacturer_id().trim().to_string(),
                         model: info.model().trim().to_string(),
                         serial: info.serial_number().trim().to_string(),
+                        pin_count_low: info.user_pin_count_low(),
+                        pin_final_try: info.user_pin_final_try(),
+                        pin_locked: info.user_pin_locked(),
                     },
                 ));
             }
@@ -104,19 +119,32 @@ impl Module {
         Ok(out)
     }
 
-    fn slot(&self, index: usize) -> Result<Slot> {
+    /// Slot by index; also returns its summary so callers can check the PIN-retry flags.
+    pub fn slot(&self, index: usize) -> Result<(Slot, SlotSummary)> {
         let slots = self.token_slots()?;
         if slots.is_empty() {
-            return Err(TokenError::new(ErrorCode::TokenNotFound, format!("no token via {}", self.path.display())));
+            return Err(TokenError::new(
+                ErrorCode::TokenNotFound,
+                format!("no token via {}", self.path.display()),
+            ));
         }
-        slots
-            .get(index)
-            .map(|(s, _)| *s)
-            .ok_or_else(|| TokenError::new(ErrorCode::TokenNotFound, format!("slot index {index} out of range")))
+        slots.into_iter().nth(index).ok_or_else(|| {
+            TokenError::new(
+                ErrorCode::TokenNotFound,
+                format!("slot index {index} out of range"),
+            )
+        })
     }
 
     fn open_session(&self, slot_index: usize, pin: Option<&AuthPin>) -> Result<Session> {
-        let session = self.ctx.open_ro_session(self.slot(slot_index)?)?;
+        let (slot, summary) = self.slot(slot_index)?;
+        if pin.is_some() && summary.pin_locked {
+            return Err(TokenError::new(
+                ErrorCode::PinLocked,
+                "token reports CKF_USER_PIN_LOCKED",
+            ));
+        }
+        let session = self.ctx.open_ro_session(slot)?;
         if let Some(pin) = pin {
             match session.login(UserType::User, Some(pin)) {
                 Ok(()) | Err(CkError::Pkcs11(RvError::UserAlreadyLoggedIn, _)) => {}
@@ -131,36 +159,69 @@ impl Module {
         let session = self.open_session(slot_index, pin)?;
         let certs = read_certs(&session)?;
         if certs.is_empty() {
-            return Err(TokenError::new(ErrorCode::NoCerts, "token has no X.509 certificate objects"));
+            return Err(TokenError::new(
+                ErrorCode::NoCerts,
+                "token has no X.509 certificate objects",
+            ));
         }
         Ok(certs)
     }
 
     /// Log in and bind the private key for `selector`. The session stays open inside the signer.
-    pub fn signer(&self, slot_index: usize, pin: &AuthPin, selector: &CertSelector) -> Result<TokenSigner> {
+    pub fn signer(
+        &self,
+        slot_index: usize,
+        pin: &AuthPin,
+        selector: &CertSelector,
+    ) -> Result<TokenSigner> {
         let session = self.open_session(slot_index, Some(pin))?;
         let certs = read_certs(&session)?;
         if certs.is_empty() {
-            return Err(TokenError::new(ErrorCode::NoCerts, "token has no X.509 certificate objects"));
+            return Err(TokenError::new(
+                ErrorCode::NoCerts,
+                "token has no X.509 certificate objects",
+            ));
         }
         let cert = match selector {
             CertSelector::Index(i) => certs.get(*i).cloned(),
-            CertSelector::Serial(s) => certs.iter().find(|c| c.summary.serial.eq_ignore_ascii_case(s)).cloned(),
+            CertSelector::Serial(s) => certs
+                .iter()
+                .find(|c| c.summary.serial.eq_ignore_ascii_case(s))
+                .cloned(),
         }
-        .ok_or_else(|| TokenError::new(ErrorCode::NoCerts, format!("certificate {selector:?} not found")))?;
+        .ok_or_else(|| {
+            TokenError::new(
+                ErrorCode::NoCerts,
+                format!("certificate {selector:?} not found"),
+            )
+        })?;
         if !cert.summary.is_rsa {
-            return Err(TokenError::new(ErrorCode::General, "only RSA certificates are supported in phase 1"));
+            return Err(TokenError::new(
+                ErrorCode::General,
+                "only RSA certificates are supported in phase 1",
+            ));
         }
         let now = chrono::Utc::now();
         if now > cert.summary.valid_to && std::env::var("PDFSIGN_ALLOW_EXPIRED").is_err() {
-            return Err(TokenError::new(ErrorCode::CertExpired, cert.summary.valid_to.to_rfc3339()));
+            return Err(TokenError::new(
+                ErrorCode::CertExpired,
+                cert.summary.valid_to.to_rfc3339(),
+            ));
         }
         if now < cert.summary.valid_from && std::env::var("PDFSIGN_ALLOW_EXPIRED").is_err() {
-            return Err(TokenError::new(ErrorCode::CertNotYetValid, cert.summary.valid_from.to_rfc3339()));
+            return Err(TokenError::new(
+                ErrorCode::CertNotYetValid,
+                cert.summary.valid_from.to_rfc3339(),
+            ));
         }
         let key = find_private_key(&session, &cert)?;
         let chain = build_chain(&cert, &certs);
-        Ok(TokenSigner { session, key, cert, chain })
+        Ok(TokenSigner {
+            session,
+            key,
+            cert,
+            chain,
+        })
     }
 }
 
@@ -168,19 +229,38 @@ fn read_certs(session: &Session) -> Result<Vec<TokenCert>> {
     let handles = session.find_objects(&[Attribute::Class(ObjectClass::CERTIFICATE)])?;
     let mut out = Vec::new();
     for h in handles {
-        let attrs = session.get_attributes(h, &[AttributeType::Value, AttributeType::Id, AttributeType::Label])?;
+        let attrs = session.get_attributes(
+            h,
+            &[
+                AttributeType::Value,
+                AttributeType::Id,
+                AttributeType::Label,
+            ],
+        )?;
         let (mut der, mut id, mut label) = (None, None, String::new());
         for a in attrs {
             match a {
                 Attribute::Value(v) => der = Some(v),
                 Attribute::Id(v) => id = Some(v),
-                Attribute::Label(v) => label = String::from_utf8_lossy(&v).trim_end_matches('\0').to_string(),
+                Attribute::Label(v) => {
+                    label = String::from_utf8_lossy(&v)
+                        .trim_end_matches('\0')
+                        .to_string()
+                }
                 _ => {}
             }
         }
         let Some(der) = der else { continue };
-        let Ok(summary) = summarize(&der) else { continue };
-        out.push(TokenCert { index: out.len(), der, id, label, summary });
+        let Ok(summary) = summarize(&der) else {
+            continue;
+        };
+        out.push(TokenCert {
+            index: out.len(),
+            der,
+            id,
+            label,
+            summary,
+        });
     }
     Ok(out)
 }
@@ -191,23 +271,49 @@ fn find_private_key(session: &Session, cert: &TokenCert) -> Result<ObjectHandle>
     let keys = session.find_objects(&[Attribute::Class(ObjectClass::PRIVATE_KEY)])?;
     let mut infos = Vec::new();
     for k in keys {
-        let attrs = session.get_attributes(k, &[AttributeType::Id, AttributeType::Label, AttributeType::KeyType])?;
+        let attrs = session.get_attributes(
+            k,
+            &[
+                AttributeType::Id,
+                AttributeType::Label,
+                AttributeType::KeyType,
+            ],
+        )?;
         let (mut id, mut label, mut kt) = (None, String::new(), None);
         for a in attrs {
             match a {
                 Attribute::Id(v) => id = Some(v),
-                Attribute::Label(v) => label = String::from_utf8_lossy(&v).trim_end_matches('\0').to_string(),
+                Attribute::Label(v) => {
+                    label = String::from_utf8_lossy(&v)
+                        .trim_end_matches('\0')
+                        .to_string()
+                }
                 Attribute::KeyType(t) => kt = Some(t),
                 _ => {}
             }
         }
         infos.push((k, id, label, kt));
     }
-    let rsa_only: Vec<_> = infos.iter().filter(|(_, _, _, kt)| kt.is_none() || *kt == Some(KeyType::RSA)).collect();
-    let pool = if rsa_only.is_empty() { infos.iter().collect::<Vec<_>>() } else { rsa_only };
+    let rsa_only: Vec<_> = infos
+        .iter()
+        .filter(|(_, _, _, kt)| kt.is_none() || *kt == Some(KeyType::RSA))
+        .collect();
+    let pool = if rsa_only.is_empty() {
+        infos.iter().collect::<Vec<_>>()
+    } else {
+        rsa_only
+    };
 
-    if let Some(cid) = cert.id.as_deref().map(normalize_id).filter(|c| !c.is_empty()) {
-        if let Some((k, ..)) = pool.iter().find(|(_, id, ..)| id.as_deref().map(normalize_id) == Some(cid)) {
+    if let Some(cid) = cert
+        .id
+        .as_deref()
+        .map(normalize_id)
+        .filter(|c| !c.is_empty())
+    {
+        if let Some((k, ..)) = pool
+            .iter()
+            .find(|(_, id, ..)| id.as_deref().map(normalize_id) == Some(cid))
+        {
             return Ok(*k);
         }
     }
@@ -222,14 +328,19 @@ fn find_private_key(session: &Session, cert: &TokenCert) -> Result<ObjectHandle>
     if let Some((k, ..)) = pool.get(cert.index) {
         return Ok(*k);
     }
-    Err(TokenError::new(ErrorCode::General, "no private key matches the selected certificate (CKA_ID/label)"))
+    Err(TokenError::new(
+        ErrorCode::General,
+        "no private key matches the selected certificate (CKA_ID/label)",
+    ))
 }
 
 /// CA certificates present on the token that chain up from the signer (issuer == subject).
 fn build_chain(signer: &TokenCert, all: &[TokenCert]) -> Vec<Vec<u8>> {
     use pdfsign_core::cades::parse_certificate;
     let mut chain = Vec::new();
-    let Ok(mut current) = parse_certificate(&signer.der) else { return chain };
+    let Ok(mut current) = parse_certificate(&signer.der) else {
+        return chain;
+    };
     for _ in 0..8 {
         let issuer = current.tbs_certificate.issuer.clone();
         if issuer == current.tbs_certificate.subject {
@@ -237,7 +348,8 @@ fn build_chain(signer: &TokenCert, all: &[TokenCert]) -> Vec<Vec<u8>> {
         }
         let next = all.iter().find_map(|c| {
             let parsed = parse_certificate(&c.der).ok()?;
-            (parsed.tbs_certificate.subject == issuer && !chain.contains(&c.der)).then(|| (c.der.clone(), parsed))
+            (parsed.tbs_certificate.subject == issuer && !chain.contains(&c.der))
+                .then(|| (c.der.clone(), parsed))
         });
         match next {
             Some((der, parsed)) => {
@@ -275,10 +387,12 @@ impl RawSigner for TokenSigner {
     fn sign_sha256_digest(&mut self, digest: &[u8; 32]) -> std::result::Result<Vec<u8>, String> {
         let mut digest_info = SHA256_DIGEST_INFO_PREFIX.to_vec();
         digest_info.extend_from_slice(digest);
-        self.session.sign(&Mechanism::RsaPkcs, self.key, &digest_info).map_err(|e| {
-            let te: TokenError = e.into();
-            format!("{}: {}", te.code.as_str(), te.detail)
-        })
+        self.session
+            .sign(&Mechanism::RsaPkcs, self.key, &digest_info)
+            .map_err(|e| {
+                let te: TokenError = e.into();
+                format!("{}: {}", te.code.as_str(), te.detail)
+            })
     }
 }
 

@@ -15,14 +15,22 @@ pub struct SoftSigner {
 
 impl SoftSigner {
     pub fn from_pem(key_pem: &str, cert_pem_or_der: &[u8], chain: Vec<Vec<u8>>) -> Result<Self> {
-        let key = RsaPrivateKey::from_pkcs8_pem(key_pem).map_err(|e| Error::Signer(format!("private key: {e}")))?;
-        Ok(Self { key, cert_der: cert_to_der(cert_pem_or_der)?, chain })
+        let key = RsaPrivateKey::from_pkcs8_pem(key_pem)
+            .map_err(|e| Error::Signer(format!("private key: {e}")))?;
+        Ok(Self {
+            key,
+            cert_der: cert_to_der(cert_pem_or_der)?,
+            chain,
+        })
     }
 }
 
 /// Accept a PEM ("-----BEGIN CERTIFICATE-----") or raw DER certificate.
 pub fn cert_to_der(data: &[u8]) -> Result<Vec<u8>> {
-    Ok(certs_from_pem_or_der(data)?.into_iter().next().ok_or_else(|| Error::Certificate("no certificate".into()))?)
+    certs_from_pem_or_der(data)?
+        .into_iter()
+        .next()
+        .ok_or_else(|| Error::Certificate("no certificate".into()))
 }
 
 pub fn certs_from_pem_or_der(data: &[u8]) -> Result<Vec<Vec<u8>>> {
@@ -32,9 +40,14 @@ pub fn certs_from_pem_or_der(data: &[u8]) -> Result<Vec<Vec<u8>>> {
     }
     let mut out = Vec::new();
     for block in text.split("-----BEGIN CERTIFICATE-----").skip(1) {
-        let body = block.split("-----END CERTIFICATE-----").next().unwrap_or("");
+        let body = block
+            .split("-----END CERTIFICATE-----")
+            .next()
+            .unwrap_or("");
         let b64: String = body.chars().filter(|c| !c.is_whitespace()).collect();
-        out.push(base64_decode(&b64).ok_or_else(|| Error::Certificate("invalid PEM base64".into()))?);
+        out.push(
+            base64_decode(&b64).ok_or_else(|| Error::Certificate("invalid PEM base64".into()))?,
+        );
     }
     Ok(out)
 }
@@ -78,6 +91,8 @@ impl RawSigner for SoftSigner {
     }
 
     fn sign_sha256_digest(&mut self, digest: &[u8; 32]) -> std::result::Result<Vec<u8>, String> {
-        self.key.sign(Pkcs1v15Sign::new::<sha2::Sha256>(), digest).map_err(|e| e.to_string())
+        self.key
+            .sign(Pkcs1v15Sign::new::<sha2::Sha256>(), digest)
+            .map_err(|e| e.to_string())
     }
 }

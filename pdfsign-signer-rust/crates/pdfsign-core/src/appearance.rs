@@ -43,7 +43,10 @@ pub struct ObjAlloc {
 
 impl ObjAlloc {
     pub fn new(next_id: u32) -> Self {
-        Self { next_id, objects: Vec::new() }
+        Self {
+            next_id,
+            objects: Vec::new(),
+        }
     }
 
     pub fn reserve(&mut self) -> ObjectId {
@@ -81,7 +84,11 @@ impl<'a> TextFont<'a> {
 
     fn width(&self, text: &str, size: f64) -> f64 {
         text.chars()
-            .map(|c| self.face.glyph_hor_advance(ttf_parser::GlyphId(self.gid(c))).unwrap_or(0) as f64)
+            .map(|c| {
+                self.face
+                    .glyph_hor_advance(ttf_parser::GlyphId(self.gid(c)))
+                    .unwrap_or(0) as f64
+            })
             .sum::<f64>()
             * size
             / self.upem
@@ -178,7 +185,11 @@ pub fn build_appearance(
 
         let text_x = PADDING + img_area_w + PADDING;
         let max_w = (width - text_x - PADDING).max(20.0);
-        let signer_text = if signer.is_empty() { "—".to_string() } else { signer.clone() };
+        let signer_text = if signer.is_empty() {
+            "—".to_string()
+        } else {
+            signer.clone()
+        };
         let (mut size, mut s_lines, mut t_lines) = (6.0, Vec::new(), Vec::new());
         for fs in (6..=14).rev() {
             let fs = fs as f64;
@@ -192,17 +203,30 @@ pub fn build_appearance(
             }
         }
         let leading = size * LINE_HEIGHT;
-        let total = (s_lines.len() + t_lines.len()) as f64 * leading + if t_lines.is_empty() { 0.0 } else { 2.0 };
+        let total = (s_lines.len() + t_lines.len()) as f64 * leading
+            + if t_lines.is_empty() { 0.0 } else { 2.0 };
         let mut y = (height + total) / 2.0;
         for line in s_lines {
-            runs.push(TextRun { text: line, x: text_x, y: y - size, size, color: SEAL_RED });
+            runs.push(TextRun {
+                text: line,
+                x: text_x,
+                y: y - size,
+                size,
+                color: SEAL_RED,
+            });
             y -= leading;
         }
         if !t_lines.is_empty() {
             y -= 2.0;
         }
         for line in t_lines {
-            runs.push(TextRun { text: line, x: text_x, y: y - size, size, color: GRAY });
+            runs.push(TextRun {
+                text: line,
+                x: text_x,
+                y: y - size,
+                size,
+                color: GRAY,
+            });
             y -= leading;
         }
     } else {
@@ -235,7 +259,13 @@ pub fn build_appearance(
             fmt_real(height - 2.0 * PADDING)
         ));
         let (cx, cy, r) = (PADDING + icon / 2.0, height / 2.0, icon / 2.0 - 2.0);
-        ops.push(format!("q {} {} {} rg {} f Q", RED.0, RED.1, RED.2, circle_path(cx, cy, r)));
+        ops.push(format!(
+            "q {} {} {} rg {} f Q",
+            RED.0,
+            RED.1,
+            RED.2,
+            circle_path(cx, cy, r)
+        ));
         ops.push(format!(
             "q 1 1 1 RG 2 w 1 J 1 j {} {} m {} {} l {} {} l S Q",
             fmt_real(cx - 0.40 * r),
@@ -250,11 +280,23 @@ pub fn build_appearance(
         let block_h = (s_lines.len() + t_lines.len()) as f64 * leading;
         let mut y = (PADDING + size).max((height + block_h) / 2.0 - size);
         for line in s_lines {
-            runs.push(TextRun { text: line, x: text_x, y, size, color: RED });
+            runs.push(TextRun {
+                text: line,
+                x: text_x,
+                y,
+                size,
+                color: RED,
+            });
             y -= leading;
         }
         for line in t_lines {
-            runs.push(TextRun { text: line, x: text_x, y, size, color: GRAY });
+            runs.push(TextRun {
+                text: line,
+                x: text_x,
+                y,
+                size,
+                color: GRAY,
+            });
             y -= leading;
         }
     }
@@ -269,7 +311,10 @@ pub fn build_appearance(
                 let gid = font.gid(c);
                 let new_gid = remapper.remap(gid);
                 to_unicode.entry(new_gid).or_insert(c);
-                let adv = font.face.glyph_hor_advance(ttf_parser::GlyphId(gid)).unwrap_or(0) as f64;
+                let adv = font
+                    .face
+                    .glyph_hor_advance(ttf_parser::GlyphId(gid))
+                    .unwrap_or(0) as f64;
                 widths.insert(new_gid, adv * 1000.0 / font.upem);
                 hexs.push_str(&format!("{new_gid:04X}"));
             }
@@ -296,7 +341,12 @@ pub fn build_appearance(
     dict.set("Subtype", Object::Name(b"Form".to_vec()));
     dict.set(
         "BBox",
-        Object::Array(vec![0.into(), 0.into(), Object::Real(width as f32), Object::Real(height as f32)]),
+        Object::Array(vec![
+            0.into(),
+            0.into(),
+            Object::Real(width as f32),
+            Object::Real(height as f32),
+        ]),
     );
     // Counter-rotate so the stamp reads upright on pages with /Rotate.
     let matrix: Option<[i64; 4]> = match rotation.rem_euclid(360) {
@@ -308,7 +358,12 @@ pub fn build_appearance(
     if let Some(m) = matrix {
         dict.set(
             "Matrix",
-            Object::Array(m.iter().map(|v| Object::Integer(*v)).chain([0.into(), 0.into()]).collect()),
+            Object::Array(
+                m.iter()
+                    .map(|v| Object::Integer(*v))
+                    .chain([0.into(), 0.into()])
+                    .collect(),
+            ),
         );
     }
     dict.set("Resources", Object::Dictionary(resources));
@@ -320,11 +375,32 @@ fn circle_path(cx: f64, cy: f64, r: f64) -> String {
     let f = fmt_real;
     format!(
         "{} {} m {} {} {} {} {} {} c {} {} {} {} {} {} c {} {} {} {} {} {} c {} {} {} {} {} {} c h",
-        f(cx + r), f(cy),
-        f(cx + r), f(cy + k), f(cx + k), f(cy + r), f(cx), f(cy + r),
-        f(cx - k), f(cy + r), f(cx - r), f(cy + k), f(cx - r), f(cy),
-        f(cx - r), f(cy - k), f(cx - k), f(cy - r), f(cx), f(cy - r),
-        f(cx + k), f(cy - r), f(cx + r), f(cy - k), f(cx + r), f(cy),
+        f(cx + r),
+        f(cy),
+        f(cx + r),
+        f(cy + k),
+        f(cx + k),
+        f(cy + r),
+        f(cx),
+        f(cy + r),
+        f(cx - k),
+        f(cy + r),
+        f(cx - r),
+        f(cy + k),
+        f(cx - r),
+        f(cy),
+        f(cx - r),
+        f(cy - k),
+        f(cx - k),
+        f(cy - r),
+        f(cx),
+        f(cy - r),
+        f(cx + k),
+        f(cy - r),
+        f(cx + r),
+        f(cy - k),
+        f(cx + r),
+        f(cy),
     )
 }
 
@@ -376,7 +452,8 @@ fn embed_type0_font(
     to_unicode: &BTreeMap<u16, char>,
     widths: &BTreeMap<u16, f64>,
 ) -> Result<ObjectId> {
-    let subset = subsetter::subset(font_data, 0, remapper).map_err(|e| Error::Font(format!("{e:?}")))?;
+    let subset =
+        subsetter::subset(font_data, 0, remapper).map_err(|e| Error::Font(format!("{e:?}")))?;
     let ps_name = font
         .face
         .names()
@@ -385,8 +462,12 @@ fn embed_type0_font(
         .and_then(|n| n.to_string())
         .unwrap_or_else(|| "EmbeddedFont".into());
     let tag: String = {
-        let h = to_unicode.keys().fold(0u64, |acc, g| acc.wrapping_mul(31).wrapping_add(*g as u64 + 7));
-        (0..6).map(|i| (b'A' + ((h >> (i * 5)) % 26) as u8) as char).collect()
+        let h = to_unicode.keys().fold(0u64, |acc, g| {
+            acc.wrapping_mul(31).wrapping_add(*g as u64 + 7)
+        });
+        (0..6)
+            .map(|i| (b'A' + ((h >> (i * 5)) % 26) as u8) as char)
+            .collect()
     };
     let base_font = format!("{tag}+{ps_name}");
     let scale = 1000.0 / font.upem;
@@ -410,8 +491,14 @@ fn embed_type0_font(
         ),
     );
     fd.set("ItalicAngle", Object::Integer(0));
-    fd.set("Ascent", Object::Integer((font.face.ascender() as f64 * scale).round() as i64));
-    fd.set("Descent", Object::Integer((font.face.descender() as f64 * scale).round() as i64));
+    fd.set(
+        "Ascent",
+        Object::Integer((font.face.ascender() as f64 * scale).round() as i64),
+    );
+    fd.set(
+        "Descent",
+        Object::Integer((font.face.descender() as f64 * scale).round() as i64),
+    );
     fd.set(
         "CapHeight",
         Object::Integer((font.face.capital_height().unwrap_or(700) as f64 * scale).round() as i64),
@@ -440,14 +527,20 @@ fn embed_type0_font(
     cid.set("CIDToGIDMap", Object::Name(b"Identity".to_vec()));
     let cid_id = alloc.add(Object::Dictionary(cid));
 
-    let tu_id = alloc.add(Object::Stream(flate_stream(Dictionary::new(), &to_unicode_cmap(to_unicode))));
+    let tu_id = alloc.add(Object::Stream(flate_stream(
+        Dictionary::new(),
+        &to_unicode_cmap(to_unicode),
+    )));
 
     let mut t0 = Dictionary::new();
     t0.set("Type", Object::Name(b"Font".to_vec()));
     t0.set("Subtype", Object::Name(b"Type0".to_vec()));
     t0.set("BaseFont", Object::Name(base_font.into_bytes()));
     t0.set("Encoding", Object::Name(b"Identity-H".to_vec()));
-    t0.set("DescendantFonts", Object::Array(vec![Object::Reference(cid_id)]));
+    t0.set(
+        "DescendantFonts",
+        Object::Array(vec![Object::Reference(cid_id)]),
+    );
     t0.set("ToUnicode", Object::Reference(tu_id));
     Ok(alloc.add(Object::Dictionary(t0)))
 }
@@ -464,7 +557,11 @@ fn to_unicode_cmap(map: &BTreeMap<u16, char>) -> Vec<u8> {
         s.push_str(&format!("{} beginbfchar\n", chunk.len()));
         for (gid, c) in chunk {
             let mut buf = [0u16; 2];
-            let units: String = c.encode_utf16(&mut buf).iter().map(|u| format!("{u:04X}")).collect();
+            let units: String = c
+                .encode_utf16(&mut buf)
+                .iter()
+                .map(|u| format!("{u:04X}"))
+                .collect();
             s.push_str(&format!("<{gid:04X}> <{units}>\n"));
         }
         s.push_str("endbfchar\n");
@@ -492,8 +589,16 @@ mod tests {
     #[test]
     fn builds_appearance_objects() {
         let mut alloc = ObjAlloc::new(100);
-        let id = build_appearance(&mut alloc, 200.0, 60.0, 0, "Nguyễn Văn A", "14/11/2026 18:00:00", &Default::default())
-            .unwrap();
+        let id = build_appearance(
+            &mut alloc,
+            200.0,
+            60.0,
+            0,
+            "Nguyễn Văn A",
+            "14/11/2026 18:00:00",
+            &Default::default(),
+        )
+        .unwrap();
         assert!(alloc.objects.iter().any(|(oid, _)| *oid == id));
         assert!(alloc.objects.len() >= 6);
     }
