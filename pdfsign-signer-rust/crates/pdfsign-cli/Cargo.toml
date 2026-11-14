@@ -1,0 +1,28 @@
+[package]
+name = "pdfsign-cli"
+description = "PDFSign desktop signer CLI (offline PAdES signing with PKCS#11 tokens)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "pdfsign"
+path = "src/main.rs"
+
+[dependencies]
+pdfsign-core.workspace = true
+pdfsign-token.workspace = true
+anyhow.workspace = true
+clap.workspace = true
+rpassword.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+chrono.workspace = true
+
+[features]
+default = ["tsa"]
+tsa = ["pdfsign-core/tsa"]

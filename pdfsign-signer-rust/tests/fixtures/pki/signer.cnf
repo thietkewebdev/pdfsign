@@ -1,0 +1,16 @@
+[req]
+distinguished_name = dn
+prompt = no
+utf8 = yes
+string_mask = utf8only
+[dn]
+C = VN
+L = Hà Nội
+O = CÔNG TY TNHH THỬ NGHIỆM PDFSIGN
+CN = Nguyễn Văn Thử
+[v3_signer]
+basicConstraints = critical, CA:false
+keyUsage = critical, digitalSignature, nonRepudiation
+extendedKeyUsage = clientAuth, emailProtection
+subjectKeyIdentifier = hash
+authorityKeyIdentifier = keyid

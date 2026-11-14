@@ -1,0 +1,13 @@
+[req]
+distinguished_name = dn
+prompt = no
+utf8 = yes
+string_mask = utf8only
+[dn]
+C = VN
+O = PDFSign Test CA (KHONG TIN CAY)
+CN = PDFSign Test Root CA
+[v3_ca]
+basicConstraints = critical, CA:true
+keyUsage = critical, keyCertSign, cRLSign
+subjectKeyIdentifier = hash
