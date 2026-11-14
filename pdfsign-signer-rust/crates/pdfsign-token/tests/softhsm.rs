@@ -80,18 +80,41 @@ fn softhsm_list_and_sign() {
         ])
         .arg(pki.join("signer.cert.der"))
         .args(["--type", "cert", "--id", "0a", "--label", "k"]));
+    run(Command::new("pkcs11-tool")
+        .arg("--module")
+        .arg(module)
+        .args([
+            "--token-label",
+            "RT",
+            "--login",
+            "--pin",
+            "1111",
+            "--write-object",
+        ])
+        .arg(pki.join("ca.cert.der"))
+        .args(["--type", "cert", "--id", "02", "--label", "ca"]));
 
     let m = Module::load(module).unwrap();
     let slots = m.token_slots().unwrap();
     assert_eq!(slots.len(), 1);
     assert_eq!(slots[0].1.label, "RT");
 
+    // Index order must not depend on C_FindObjects order: end-entity first, CA last,
+    // identical with and without login.
     let certs = m.list_certs(0, None).unwrap();
-    assert_eq!(certs.len(), 1);
+    assert_eq!(certs.len(), 2);
     assert_eq!(
         certs[0].summary.subject_cn.as_deref(),
         Some("Nguyễn Văn Thử")
     );
+    assert!(certs[1].summary.is_ca);
+    let logged_in = m
+        .list_certs(0, Some(&pin_from_string("1111".into())))
+        .unwrap();
+    assert_eq!(logged_in[0].summary.serial, certs[0].summary.serial);
+
+    let ca = m.signer(0, &pin_from_string("1111".into()), &CertSelector::Index(1));
+    assert_eq!(ca.err().map(|e| e.code), Some(ErrorCode::NoCerts));
 
     // Key CKA_ID 0a00 vs cert CKA_ID 0a: matched by trailing-NUL normalization like the Python core.
     let bad = m.signer(0, &pin_from_string("0000".into()), &CertSelector::Index(0));

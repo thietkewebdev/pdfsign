@@ -195,6 +195,12 @@ impl Module {
                 format!("certificate {selector:?} not found"),
             )
         })?;
+        if cert.summary.is_ca {
+            return Err(TokenError::new(
+                ErrorCode::NoCerts,
+                "selected certificate is a CA certificate, not a signing certificate",
+            ));
+        }
         if !cert.summary.is_rsa {
             return Err(TokenError::new(
                 ErrorCode::General,
@@ -255,18 +261,42 @@ fn read_certs(session: &Session) -> Result<Vec<TokenCert>> {
             continue;
         };
         out.push(TokenCert {
-            index: out.len(),
+            index: 0,
             der,
             id,
             label,
             summary,
         });
     }
+    // C_FindObjects order is not stable across sessions (SoftHSM2 changes it after login), so
+    // indices must come from a deterministic sort: end-entity certs first, then by expiry/serial.
+    out.sort_by(|a, b| {
+        (
+            a.summary.is_ca,
+            std::cmp::Reverse(a.summary.valid_to),
+            &a.summary.serial,
+        )
+            .cmp(&(
+                b.summary.is_ca,
+                std::cmp::Reverse(b.summary.valid_to),
+                &b.summary.serial,
+            ))
+    });
+    for (i, c) in out.iter_mut().enumerate() {
+        c.index = i;
+    }
     Ok(out)
 }
 
-/// Port of `_private_key_objects_for_cert` / `_find_matching_key` in pades_signer.py:
-/// CKA_ID (trailing NULs ignored), then label, then the only key, then same index as the cert.
+fn trim_zeros(v: &[u8]) -> &[u8] {
+    let start = v.iter().position(|b| *b != 0).unwrap_or(v.len());
+    &v[start..]
+}
+
+/// Pick the private key for `cert`. First by RSA modulus (CKA_MODULUS == certificate modulus),
+/// then the rules of `_private_key_objects_for_cert` / `_find_matching_key` in pades_signer.py
+/// (CKA_ID ignoring trailing NULs, label, only key, same index), but never a key whose modulus
+/// is known to differ: that would produce a signature that does not match the embedded cert.
 fn find_private_key(session: &Session, cert: &TokenCert) -> Result<ObjectHandle> {
     let keys = session.find_objects(&[Attribute::Class(ObjectClass::PRIVATE_KEY)])?;
     let mut infos = Vec::new();
@@ -292,17 +322,29 @@ fn find_private_key(session: &Session, cert: &TokenCert) -> Result<ObjectHandle>
                 _ => {}
             }
         }
-        infos.push((k, id, label, kt));
+        let modulus = session
+            .get_attributes(k, &[AttributeType::Modulus])
+            .ok()
+            .and_then(|attrs| {
+                attrs.into_iter().find_map(|a| match a {
+                    Attribute::Modulus(m) => Some(trim_zeros(&m).to_vec()),
+                    _ => None,
+                })
+            })
+            .filter(|m| !m.is_empty());
+        infos.push((k, id, label, kt, modulus));
     }
-    let rsa_only: Vec<_> = infos
+    let cert_modulus = cert.summary.rsa_modulus.as_deref().map(trim_zeros);
+    if let Some(cm) = cert_modulus {
+        if let Some((k, ..)) = infos.iter().find(|(.., m)| m.as_deref() == Some(cm)) {
+            return Ok(*k);
+        }
+    }
+    let pool: Vec<_> = infos
         .iter()
-        .filter(|(_, _, _, kt)| kt.is_none() || *kt == Some(KeyType::RSA))
+        .filter(|(_, _, _, kt, _)| kt.is_none() || *kt == Some(KeyType::RSA))
+        .filter(|(.., m)| m.is_none() || cert_modulus.is_none())
         .collect();
-    let pool = if rsa_only.is_empty() {
-        infos.iter().collect::<Vec<_>>()
-    } else {
-        rsa_only
-    };
 
     if let Some(cid) = cert
         .id
@@ -318,7 +360,7 @@ fn find_private_key(session: &Session, cert: &TokenCert) -> Result<ObjectHandle>
         }
     }
     if !cert.label.is_empty() {
-        if let Some((k, ..)) = pool.iter().find(|(_, _, l, _)| *l == cert.label) {
+        if let Some((k, ..)) = pool.iter().find(|(_, _, l, ..)| *l == cert.label) {
             return Ok(*k);
         }
     }
@@ -330,7 +372,7 @@ fn find_private_key(session: &Session, cert: &TokenCert) -> Result<ObjectHandle>
     }
     Err(TokenError::new(
         ErrorCode::General,
-        "no private key matches the selected certificate (CKA_ID/label)",
+        "no private key matches the selected certificate (modulus/CKA_ID/label)",
     ))
 }
 

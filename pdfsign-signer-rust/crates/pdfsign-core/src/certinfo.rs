@@ -10,6 +10,7 @@ use x509_cert::name::Name;
 
 const OID_CN: ObjectIdentifier = ObjectIdentifier::new_unwrap("2.5.4.3");
 const OID_O: ObjectIdentifier = ObjectIdentifier::new_unwrap("2.5.4.10");
+const OID_BASIC_CONSTRAINTS: ObjectIdentifier = ObjectIdentifier::new_unwrap("2.5.29.19");
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CertSummary {
@@ -21,6 +22,10 @@ pub struct CertSummary {
     pub valid_from: DateTime<Utc>,
     pub valid_to: DateTime<Utc>,
     pub is_rsa: bool,
+    /// basicConstraints cA=TRUE: a CA certificate, never a signing certificate.
+    pub is_ca: bool,
+    /// RSA modulus (big-endian, no leading zeros), used to pair the cert with its private key.
+    pub rsa_modulus: Option<Vec<u8>>,
 }
 
 impl CertSummary {
@@ -58,7 +63,27 @@ pub fn summarize(cert_der: &[u8]) -> Result<CertSummary> {
         valid_from: to_utc(&tbs.validity.not_before),
         valid_to: to_utc(&tbs.validity.not_after),
         is_rsa: tbs.subject_public_key_info.algorithm.oid == crate::cades::OID_RSA_ENCRYPTION,
+        is_ca: is_ca(&cert),
+        rsa_modulus: rsa_modulus(&cert),
     })
+}
+
+fn is_ca(cert: &x509_cert::Certificate) -> bool {
+    use der::Decode;
+    use x509_cert::ext::pkix::BasicConstraints;
+    cert.tbs_certificate.extensions.iter().flatten().any(|ext| {
+        ext.extn_id == OID_BASIC_CONSTRAINTS
+            && BasicConstraints::from_der(ext.extn_value.as_bytes()).is_ok_and(|bc| bc.ca)
+    })
+}
+
+fn rsa_modulus(cert: &x509_cert::Certificate) -> Option<Vec<u8>> {
+    use der::Encode;
+    use rsa::pkcs8::DecodePublicKey;
+    use rsa::traits::PublicKeyParts;
+    let spki = cert.tbs_certificate.subject_public_key_info.to_der().ok()?;
+    let key = rsa::RsaPublicKey::from_public_key_der(&spki).ok()?;
+    Some(key.n().to_bytes_be())
 }
 
 pub fn name_attr(name: &Name, oid: ObjectIdentifier) -> Option<String> {

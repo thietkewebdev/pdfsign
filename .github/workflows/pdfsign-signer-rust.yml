@@ -30,9 +30,18 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: pdfsign-signer-rust
+          workspaces: |
+            pdfsign-signer-rust
+            pdfsign-signer-rust/apps/pdfsign-gui
       - run: cargo test --workspace --locked
       - run: cargo build --release --locked -p pdfsign-cli
+      - name: Build GUI skeleton (Tauri)
+        run: cargo build --release --locked --manifest-path apps/pdfsign-gui/Cargo.toml
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pdfsign-gui-windows-x64
+          path: pdfsign-signer-rust/apps/pdfsign-gui/target/release/pdfsign-gui.exe
+          if-no-files-found: error
       - run: ./target/release/pdfsign.exe --version
       - run: ./target/release/pdfsign.exe list-tokens
       - uses: actions/upload-artifact@v4
@@ -50,7 +59,9 @@ jobs:
           targets: aarch64-apple-darwin,x86_64-apple-darwin
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: pdfsign-signer-rust
+          workspaces: |
+            pdfsign-signer-rust
+            pdfsign-signer-rust/apps/pdfsign-gui
       - run: cargo test --workspace --locked
       - run: |
           cargo build --release --locked -p pdfsign-cli --target aarch64-apple-darwin
@@ -64,6 +75,13 @@ jobs:
         run: |
           brew install softhsm opensc qpdf
           PDFSIGN_BIN="$PWD/dist/pdfsign" ./scripts/e2e-softhsm.sh target/e2e
+      - name: Build GUI skeleton (Tauri, arm64)
+        run: cargo build --release --locked --manifest-path apps/pdfsign-gui/Cargo.toml
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pdfsign-gui-macos-arm64
+          path: pdfsign-signer-rust/apps/pdfsign-gui/target/release/pdfsign-gui
+          if-no-files-found: error
       - uses: actions/upload-artifact@v4
         with:
           name: pdfsign-macos-universal

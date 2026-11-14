@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PDFSign Signer</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <aside class="panel">
+      <h1>PDFSign Signer <span class="badge">Rust preview</span></h1>
+
+      <section>
+        <h2>1. Tài liệu</h2>
+        <button id="pick-pdf" class="primary">Chọn file PDF…</button>
+        <p id="pdf-name" class="muted">Chưa chọn file.</p>
+        <div class="pager">
+          <button id="prev-page" disabled>‹</button>
+          <span id="page-label">-</span>
+          <button id="next-page" disabled>›</button>
+        </div>
+        <p class="muted">Kéo chuột trên trang để vẽ khung chữ ký, hoặc bấm một lần để đặt khung mặc định.</p>
+        <p id="rect-label" class="mono">Khung: chưa đặt</p>
+      </section>
+
+      <section>
+        <h2>2. Token</h2>
+        <button id="scan-tokens">Dò token</button>
+        <select id="token-select" disabled></select>
+        <button id="load-certs" disabled>Đọc chứng thư</button>
+        <select id="cert-select" disabled></select>
+      </section>
+
+      <section>
+        <h2>3. Ký</h2>
+        <label for="pin">Mã PIN</label>
+        <input id="pin" type="password" autocomplete="off" placeholder="PIN token" />
+        <label for="tsa">TSA (tuỳ chọn, PAdES B-T)</label>
+        <input id="tsa" type="text" placeholder="http://timestamp.digicert.com" />
+        <button id="sign" class="primary" disabled>Ký số</button>
+      </section>
+
+      <p id="status" class="status" role="status"></p>
+    </aside>
+
+    <main class="viewer">
+      <div id="page-wrap" class="page-wrap">
+        <canvas id="page-canvas"></canvas>
+        <div id="sig-box" class="sig-box" hidden><span>Chữ ký</span></div>
+      </div>
+      <p id="empty" class="empty">Chọn một file PDF để bắt đầu.</p>
+    </main>
+
+    <script type="module" src="main.js"></script>
+  </body>
+</html>
