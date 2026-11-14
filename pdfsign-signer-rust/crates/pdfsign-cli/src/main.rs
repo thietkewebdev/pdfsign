@@ -278,11 +278,14 @@ fn cmd_sign(a: SignArgs) -> Result<()> {
     };
 
     let signed = sign_pdf(&input, &opts, signer.as_mut(), tsa_ref)?;
-    std::fs::write(&a.output, &signed).with_context(|| format!("writing {}", a.output.display()))?;
-    let report = verify_pdf(&signed)?.pop().ok_or_else(|| anyhow!("signature not found after signing"))?;
+    let report = verify_pdf(&signed)?
+        .into_iter()
+        .find(|r| r.covers_whole_file)
+        .ok_or_else(|| anyhow!("new signature not found after signing"))?;
     if !report.is_intact() {
         bail!("self-check failed after signing: {report:?}");
     }
+    std::fs::write(&a.output, &signed).with_context(|| format!("writing {}", a.output.display()))?;
     let summary = pdfsign_core::summarize(&signer.certificate_der())?;
     let level = if report.has_timestamp { "PAdES-B-T" } else { "PAdES-B-B" };
     if a.json {
@@ -330,6 +333,7 @@ fn cmd_verify(file: &Path, as_json: bool) -> Result<bool> {
                     "signingCertificateV2": r.has_signing_certificate_v2,
                     "cmsAlgorithmProtection": r.has_algorithm_protection,
                     "timestamp": r.has_timestamp, "signedAttributes": r.signed_attribute_oids,
+                    "error": r.error,
                 })
             })
             .collect();
@@ -339,6 +343,10 @@ fn cmd_verify(file: &Path, as_json: bool) -> Result<bool> {
             println!("Không có chữ ký trong file.");
         }
         for r in &reports {
+            if let Some(err) = &r.error {
+                println!("{}: {} | không đọc được CMS: {err}", r.field_name, r.sub_filter);
+                continue;
+            }
             println!(
                 "{}: {} | {} | digest {} | chữ ký {} | phủ toàn file {} | TSA {}",
                 r.field_name,

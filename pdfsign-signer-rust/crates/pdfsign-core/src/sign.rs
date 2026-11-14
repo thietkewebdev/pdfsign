@@ -250,16 +250,19 @@ fn page_geometry(doc: &Document, page_id: ObjectId) -> PageGeometry {
     }
 }
 
-/// Map rectPct (displayed space) to an unrotated user-space box, like `_box_from_pct` in pades_signer.py.
+/// Map rectPct (displayed space) to an unrotated user-space box.
 /// Returns (llx, lly, urx, ury, displayed_width, displayed_height).
+///
+/// /Rotate turns the page clockwise for display, so for 90 the displayed bottom-left is the
+/// user-space bottom-right. `_box_from_pct` in pades_signer.py has the 90/270 cases swapped.
 pub fn box_from_pct(g: PageGeometry, r: RectPct) -> (f64, f64, f64, f64, f64, f64) {
     let (dw, dh) = if g.rotation == 90 || g.rotation == 270 { (g.height, g.width) } else { (g.width, g.height) };
     let (dx1, dy1) = (r.x * dw, r.y * dh);
     let (dx2, dy2) = ((r.x + r.w) * dw, (r.y + r.h) * dh);
     let to_user = |px: f64, py: f64| match g.rotation {
-        90 => (py, g.height - px),
+        90 => (g.width - py, px),
         180 => (g.width - px, g.height - py),
-        270 => (g.width - py, px),
+        270 => (py, g.height - px),
         _ => (px, py),
     };
     let (ux1, uy1) = to_user(dx1, dy1);
@@ -551,12 +554,20 @@ mod tests {
 
     #[test]
     fn rect_pct_rotation_mapping() {
-        let g = PageGeometry { x0: 0.0, y0: 0.0, width: 600.0, height: 800.0, rotation: 90 };
+        // Displayed bottom-left corner box on a portrait page shown as landscape.
         let r = RectPct { x: 0.0, y: 0.0, w: 0.5, h: 0.25 };
-        let (llx, lly, urx, ury, dw, dh) = box_from_pct(g, r);
+        let g90 = PageGeometry { x0: 0.0, y0: 0.0, width: 600.0, height: 800.0, rotation: 90 };
+        let (llx, lly, urx, ury, dw, dh) = box_from_pct(g90, r);
         assert_eq!((dw, dh), (400.0, 150.0));
-        assert_eq!((urx - llx, ury - lly), (150.0, 400.0));
+        // Rotate 90 (clockwise): displayed bottom-left = user-space bottom-right.
+        assert_eq!((llx, lly, urx, ury), (450.0, 0.0, 600.0, 400.0));
+        // Rotate 270: displayed bottom-left = user-space top-left.
+        let g270 = PageGeometry { rotation: 270, ..g90 };
+        let (llx, lly, urx, ury, _, _) = box_from_pct(g270, r);
         assert_eq!((llx, lly, urx, ury), (0.0, 400.0, 150.0, 800.0));
+        let g180 = PageGeometry { rotation: 180, ..g90 };
+        let (llx, lly, urx, ury, _, _) = box_from_pct(g180, r);
+        assert_eq!((llx, lly, urx, ury), (300.0, 600.0, 600.0, 800.0));
     }
 
     #[test]

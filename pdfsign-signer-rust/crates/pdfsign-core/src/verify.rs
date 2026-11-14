@@ -29,6 +29,8 @@ pub struct SignatureReport {
     pub has_algorithm_protection: bool,
     pub has_timestamp: bool,
     pub signed_attribute_oids: Vec<String>,
+    /// Set when the signature could not be parsed (e.g. non-DER CMS from another signer).
+    pub error: Option<String>,
 }
 
 impl SignatureReport {
@@ -55,7 +57,29 @@ pub fn verify_pdf(data: &[u8]) -> Result<Vec<SignatureReport>> {
             Object::Dictionary(d) => d,
             _ => continue,
         };
-        reports.push(check_one(data, &name, sig)?);
+        let report = check_one(data, &name, sig).unwrap_or_else(|e| SignatureReport {
+            field_name: name.clone(),
+            sub_filter: sig
+                .get(b"SubFilter")
+                .and_then(|o| o.as_name())
+                .map(|n| String::from_utf8_lossy(n).into_owned())
+                .unwrap_or_default(),
+            signer_cn: None,
+            byte_range: sig
+                .get(b"ByteRange")
+                .and_then(|o| o.as_array())
+                .map(|a| a.iter().filter_map(|o| o.as_i64().ok()).collect())
+                .unwrap_or_default(),
+            covers_whole_file: false,
+            digest_ok: false,
+            signature_ok: false,
+            has_signing_certificate_v2: false,
+            has_algorithm_protection: false,
+            has_timestamp: false,
+            signed_attribute_oids: Vec::new(),
+            error: Some(e.to_string()),
+        });
+        reports.push(report);
     }
     reports.sort_by_key(|r| r.byte_range.get(1).copied().unwrap_or(0));
     Ok(reports)
@@ -147,5 +171,6 @@ fn check_one(data: &[u8], name: &str, sig: &lopdf::Dictionary) -> Result<Signatu
             .as_ref()
             .is_some_and(|u| u.iter().any(|a| a.oid == OID_SIGNATURE_TIME_STAMP_TOKEN)),
         signed_attribute_oids: attrs.iter().map(|a| a.oid.to_string()).collect(),
+        error: None,
     })
 }
