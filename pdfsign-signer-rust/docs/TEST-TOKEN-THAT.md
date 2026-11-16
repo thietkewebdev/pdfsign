@@ -16,7 +16,7 @@ Lưu ý an toàn:
    Bản chưa ký số nên SmartScreen báo "Windows protected your PC": bấm **More info** rồi **Run anyway**.
    Hoặc dùng `PDFSign_0.2.0_x64_en-US.msi` (có thể cần quyền admin).
 3. Mở **PDFSign** từ Start menu. Nếu báo thiếu WebView2: cài "Microsoft Edge WebView2 Runtime" rồi mở lại.
-4. CLI đi kèm: `%LOCALAPPDATA%\PDFSign\pdfsign.exe` (bản NSIS). Dùng để lấy log chi tiết khi có lỗi.
+4. CLI đi kèm: `%LOCALAPPDATA%\PDFSign\pdfsign-cli.exe` (bản NSIS). Dùng để lấy log chi tiết khi có lỗi.
 
 ## 1. Driver token
 
@@ -61,13 +61,14 @@ Một số token chỉ có `CKM_SHA256_RSA_PKCS`. Ứng dụng tự chuyển cơ
 
 ```powershell
 cd $env:LOCALAPPDATA\PDFSign
-.\pdfsign.exe -v sign test.pdf --out t1.pdf --pin-prompt
+.\pdfsign-cli.exe -v sign test.pdf --out t1.pdf --pin-prompt
 $env:PDFSIGN_PKCS11_MECHANISM = "sha256-rsa-pkcs"
-.\pdfsign.exe -v sign test.pdf --out t2.pdf --pin-prompt
+.\pdfsign-cli.exe -v sign test.pdf --out t2.pdf --pin-prompt
 Remove-Item Env:PDFSIGN_PKCS11_MECHANISM
-.\pdfsign.exe verify t1.pdf
-.\pdfsign.exe verify t2.pdf
+.\pdfsign-cli.exe verify t1.pdf
+.\pdfsign-cli.exe verify t2.pdf
 ```
+
 
 Dòng log `token signer ready mechanism=...` cho biết cơ chế đã dùng. Ghi lại nếu một trong hai lỗi.
 

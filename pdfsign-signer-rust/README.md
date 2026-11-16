@@ -49,7 +49,7 @@ CI (`.github/workflows/pdfsign-signer-rust.yml`, runs only on changes under `pdf
 
 The installers are not Authenticode-signed yet. SmartScreen shows "Windows protected your PC": click
 "More info" then "Run anyway". WebView2 is preinstalled on Windows 10/11; otherwise the setup downloads it.
-The CLI is installed next to the app (`%LOCALAPPDATA%\PDFSign\pdfsign.exe` for the NSIS per-user install).
+The GUI installs as `PDFSign.exe`. The CLI ships beside it as `pdfsign-cli.exe` (`%LOCALAPPDATA%\PDFSign\pdfsign-cli.exe` for the NSIS per-user install). Windows cannot place both `PDFSign.exe` and `pdfsign.exe` in the same folder (case-insensitive), so the CLI uses the `pdfsign-cli` name.
 
 Build locally on Windows: `cargo build --release -p pdfsign-cli`, then in `apps/pdfsign-gui`
 `npx @tauri-apps/cli@2 build --bundles nsis,msi`.

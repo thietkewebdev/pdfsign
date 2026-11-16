@@ -1,7 +1,7 @@
 {
   "bundle": {
     "resources": {
-      "../../target/release/pdfsign.exe": "pdfsign.exe"
+      "../../target/release/pdfsign.exe": "pdfsign-cli.exe"
     }
   }
 }
