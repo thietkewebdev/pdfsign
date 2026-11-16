@@ -102,7 +102,9 @@ export class Viewer {
 
   async render() {
     if (!this.doc) return;
+    const renderGen = (this._renderGen = (this._renderGen || 0) + 1);
     const page = await this.doc.getPage(this.pageNum);
+    if (renderGen !== this._renderGen) return;
     const base = page.getViewport({ scale: 1 });
     this.pageSize = { w: base.width, h: base.height };
     const avail = Math.max(this.container.clientWidth - 48, 280);
@@ -129,6 +131,7 @@ export class Viewer {
       viewport: vp,
       transform: [devicePixelRatio, 0, 0, devicePixelRatio, 0, 0],
     }).promise;
+    if (renderGen !== this._renderGen) return;
     this.bindOverlay();
     this.drawBoxes();
     this.markThumb();

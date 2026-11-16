@@ -28,7 +28,7 @@ Hướng chủ đạo: **Linear shell + Notion surface + DocuSign workspace** (p
 └────────┴──────────────────────────────────────────────┘
 ```
 
-- Sidebar cố định ~220px, nền gần đen ấm (`#111114`), mục active có nền nhẹ + accent trái.
+- Sidebar cố định ~220px, nền navy (`#0f172a`), mục active có nền nhẹ + viền sáng bo góc; logo ô vuông đỏ + dấu ✓ trắng.
 - Header mỏng 52px, tách trắng, hairline dưới.
 - **Ký số**: cột trái ~320px (file / ô / token / tuỳ chọn) + viewer lớn; stepper 4 bước trên header.
 - **Xác minh / Cài đặt**: một cột nội dung max-width ~880px căn giữa hoặc full với padding 24.
@@ -44,15 +44,15 @@ Hướng chủ đạo: **Linear shell + Notion surface + DocuSign workspace** (p
 | `--ink` | `#111114` | Chữ chính |
 | `--muted` | `#71717a` | Nhãn, meta |
 | `--line` | `#e4e4e7` | Viền hairline |
-| `--accent` | `#2563eb` | Primary (xanh tin cậy, gần Notion/Linear action) |
-| `--accent-soft` | `#eff6ff` | Hover/secondary |
+| `--accent` | `#e11d48` | Primary brand đỏ (nút, stepper, focus, ô chữ ký) |
+| `--accent-soft` | `#fff1f2` | Hover/secondary |
 | `--ok` / soft | `#15803d` / `#ecfdf5` | Hợp lệ |
 | `--warn` / soft | `#b45309` / `#fffbeb` | Cần lưu ý |
 | `--bad` / soft | `#b91c1c` / `#fef2f2` | Không hợp lệ |
-| `--sidebar` | `#111114` | Nav |
+| `--sidebar` | `#0f172a` | Nav |
 | `--sidebar-text` | `#a1a1aa` | Nav inactive |
 
-Dark theme (tùy chọn, `data-theme="dark"`): đảo nền `#09090b` / surface `#18181b`, giữ accent xanh.
+Dark theme (tùy chọn, `data-theme="dark"`): đảo nền tối, giữ accent đỏ brand. Badge invalid dùng burgundy (`#7f1d1d`) + dấu ✕ để tách khỏi brand crimson.
 
 ## Typography
 

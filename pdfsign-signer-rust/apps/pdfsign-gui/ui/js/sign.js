@@ -1,6 +1,7 @@
 import { $, invoke, listen, dialog, opener, toast, errText, fileName, renderPdfToDataUrl } from "./api.js";
 import { Viewer } from "./viewer.js";
 import { state } from "./state.js";
+import { refreshSelect } from "./select.js";
 
 const files = []; // { path, pages }
 let active = -1;
@@ -39,6 +40,10 @@ function selectedCertName() {
   return c ? c.displayName : null;
 }
 
+function redrawBoxes() {
+  if (viewer?.doc && viewer.boxes?.length) viewer.drawBoxes();
+}
+
 function updateStepper() {
   if (files.length) signStep = Math.max(signStep, 1);
   if (viewer?.boxes?.length) signStep = Math.max(signStep, 2);
@@ -49,6 +54,16 @@ function updateStepper() {
     s.classList.toggle("active", n === Math.min(signStep, 4));
     s.classList.toggle("done", n < signStep);
   });
+  // Keep stamp overlays painted while the left panel scrolls through steps.
+  redrawBoxes();
+}
+
+export function setSignStep(n) {
+  signStep = Math.max(1, Math.min(4, n));
+  updateStepper();
+  const target = document.querySelector(`[data-sign-step="${signStep}"]`);
+  if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
+  redrawBoxes();
 }
 
 function renderFiles() {
@@ -203,10 +218,13 @@ export async function scanTokens() {
     );
     $("cert-select").innerHTML = "<option value=''>—</option>";
     $("cert-select").disabled = true;
+    refreshSelect(sel);
+    refreshSelect($("cert-select"));
     updateSignEnabled();
     return;
   }
   setStatus(`Tìm thấy ${sel.options.length} token.`, "ok");
+  refreshSelect(sel);
   await loadCerts();
   updateStepper();
 }
@@ -237,8 +255,10 @@ async function loadCerts() {
     if (firstOk) firstOk.selected = true;
   }
   sel.disabled = !state.certs.length;
+  refreshSelect(sel);
   previewCache.clear();
-  viewer.drawBoxes();
+  // Preserve boxes across token/cert refresh (step 3 must still show them).
+  redrawBoxes();
   updateSignEnabled();
   updateStepper();
 }
@@ -366,8 +386,9 @@ export function refreshTemplates() {
     if (t.id === keep) opt.selected = true;
     sel.append(opt);
   }
+  refreshSelect(sel);
   previewCache.clear();
-  if (viewer) viewer.drawBoxes();
+  redrawBoxes();
 }
 
 export function refreshTsas() {
@@ -384,6 +405,8 @@ export function refreshTsas() {
   $("suffix").value = state.settings.outputSuffix;
   $("location").value = $("location").value || state.settings.location || "";
   $("out-dir").value = state.settings.outputDir || "";
+  refreshSelect(sel);
+  refreshSelect($("level-select"));
   syncTsaEnabled();
 }
 
@@ -488,11 +511,7 @@ export function initSign() {
     if (e.target === $("pin-modal")) closePinModal();
   });
   document.querySelectorAll("#sign-stepper .step").forEach((s) => {
-    s.onclick = () => {
-      const n = Number(s.dataset.step);
-      const target = document.querySelector(`[data-sign-step="${n}"]`);
-      if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
-    };
+    s.onclick = () => setSignStep(Number(s.dataset.step));
   });
   listen("sign-progress", (ev) => {
     const { done, total, current } = ev.payload;
@@ -523,6 +542,15 @@ export function initSign() {
   }).observe($("viewer"));
 
   // Expose for keyboard shortcuts / demo
-  window.__pdfsignSign = { addFiles, openPinModal, doSign, files, getViewer: () => viewer };
+  window.__pdfsignSign = {
+    addFiles,
+    openPinModal,
+    doSign,
+    files,
+    getViewer: () => viewer,
+    setSignStep,
+    redrawBoxes,
+    scanTokens,
+  };
   updateStepper();
 }

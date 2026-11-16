@@ -12,9 +12,9 @@ Lưu ý an toàn:
 ## 0. Cài đặt
 
 1. Vào PR, tab Checks, workflow `pdfsign-signer-rust`, tải artifact `pdfsign-windows-installers`.
-2. Chạy `PDFSign_0.2.0_x64-setup.exe` (cài cho user hiện tại, không cần quyền admin).
+2. Chạy `PDFSign_0.2.1_x64-setup.exe` (cài cho user hiện tại, không cần quyền admin).
    Bản chưa ký số nên SmartScreen báo "Windows protected your PC": bấm **More info** rồi **Run anyway**.
-   Hoặc dùng `PDFSign_0.2.0_x64_en-US.msi` (có thể cần quyền admin).
+   Hoặc dùng `PDFSign_0.2.1_x64_en-US.msi` (có thể cần quyền admin).
 3. Mở **PDFSign** từ Start menu. Nếu báo thiếu WebView2: cài "Microsoft Edge WebView2 Runtime" rồi mở lại.
 4. CLI đi kèm: `%LOCALAPPDATA%\PDFSign\pdfsign-cli.exe` (bản NSIS). Dùng để lấy log chi tiết khi có lỗi.
 

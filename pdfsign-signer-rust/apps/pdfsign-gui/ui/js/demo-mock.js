@@ -205,18 +205,41 @@
       const sign = window.__pdfsignSign;
       if (scene === "empty") {
         show?.("sign");
+        document.getElementById("clear-files")?.click();
+        sign?.setSignStep?.(1);
         return;
       }
-      if (scene === "files" || scene === "box" || scene === "pin" || scene === "progress" || scene === "results") {
+      if (
+        scene === "files" ||
+        scene === "box" ||
+        scene === "token" ||
+        scene === "pin" ||
+        scene === "progress" ||
+        scene === "results"
+      ) {
         show?.("sign");
         await sign?.addFiles?.(["C:/Docs/hop-dong.pdf"]);
+        await sign?.scanTokens?.().catch(() => {});
         const v = sign?.getViewer?.();
-        if (v && (scene === "box" || scene === "pin" || scene === "progress" || scene === "results")) {
-          v.boxes = [{ id: 1, page: v.pageNum || 1, x: 0.55, y: 0.08, w: 0.35, h: 0.1 }];
+        const needBox = scene === "box" || scene === "token" || scene === "pin" || scene === "progress" || scene === "results";
+        if (v && needBox) {
+          const page = v.numPages || v.pageNum || 1;
+          // Place box mid-page so it stays obvious on the preview in every step.
+          v.boxes = [{ id: 1, page, x: 0.52, y: 0.42, w: 0.4, h: 0.12 }];
           v.selected = 1;
+          await v.goto(page);
+          // Wait a frame so overlay exists after render, then paint boxes.
+          await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
           v.drawBoxes();
           v.onChange?.(v.boxes);
         }
+        if (scene === "files") sign?.setSignStep?.(1);
+        if (scene === "box") sign?.setSignStep?.(2);
+        if (scene === "token") sign?.setSignStep?.(3);
+        if (scene === "pin" || scene === "progress" || scene === "results") sign?.setSignStep?.(4);
+        // Always re-paint after step scroll/token refresh.
+        await new Promise((r) => requestAnimationFrame(r));
+        sign?.redrawBoxes?.();
         if (scene === "pin") sign?.openPinModal?.();
         if (scene === "progress") {
           document.getElementById("progress").hidden = false;

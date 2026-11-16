@@ -3,14 +3,14 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>PDFSign</title>
+    <title>PDFSign - Ký số PDF</title>
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
     <nav class="nav" aria-label="Chính">
       <div class="brand">
         <span class="brand-mark" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18"/><path d="m8 7 4-4 4 4"/><path d="M5 12h14"/><path d="M7 17h10"/></svg>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg>
         </span>
         <span class="name">PDFSign</span>
       </div>
@@ -30,7 +30,7 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"/><circle cx="12" cy="12" r="3"/></svg>
         <span class="label">Cài đặt</span>
       </button>
-      <div class="nav-foot"><strong>PDFSign</strong> · v0.2.0<br />Offline · Windows</div>
+      <div class="nav-foot"><strong>PDFSign</strong> · v0.2.1<br />Offline · Windows</div>
     </nav>
 
     <div class="app-shell">
@@ -68,7 +68,7 @@
           <div class="group" data-sign-step="2">
             <h2 class="group-title">Ô chữ ký</h2>
             <ul id="box-list" class="box-list"></ul>
-            <label class="check field"><input id="last-page-rule" type="checkbox" checked /> Trang cuối áp dụng mọi file</label>
+            <label class="check" for="last-page-rule"><input id="last-page-rule" type="checkbox" checked /> Trang cuối áp dụng mọi file</label>
           </div>
 
           <div class="group" data-sign-step="3">
@@ -197,8 +197,8 @@
                   </select>
                 </label>
               </div>
-              <label class="check field"><input id="tpl-border" type="checkbox" /> Viền khung</label>
-              <label class="check field"><input id="tpl-icon" type="checkbox" /> Biểu tượng ✓</label>
+              <label class="check" for="tpl-border"><input id="tpl-border" type="checkbox" /> Viền khung</label>
+              <label class="check" for="tpl-icon"><input id="tpl-icon" type="checkbox" /> Biểu tượng ✓</label>
               <div class="img-slot">
                 <span>Con dấu</span><img id="tpl-seal-img" alt="" />
                 <div class="row"><button id="tpl-seal-pick" class="ghost" type="button">Chọn…</button><button id="tpl-seal-clear" class="ghost" type="button">Bỏ</button></div>

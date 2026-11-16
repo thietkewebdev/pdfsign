@@ -1,5 +1,6 @@
 import { $, invoke, errText, toast } from "./api.js";
 import { state } from "./state.js";
+import { initCustomSelects } from "./select.js";
 import { initSign, refreshTemplates, refreshTsas, scanTokens } from "./sign.js";
 import { initTemplates, showTemplates } from "./templates.js";
 import { initVerify, verifyPath } from "./verify.js";
@@ -26,6 +27,7 @@ async function boot() {
   state.settings = await invoke("get_settings");
   state.templates = await invoke("list_templates");
   document.querySelectorAll(".tab").forEach((t) => (t.onclick = () => showView(t.dataset.view)));
+  initCustomSelects();
   initSign();
   initTemplates();
   initVerify();
