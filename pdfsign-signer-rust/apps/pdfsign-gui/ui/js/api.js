@@ -13,6 +13,7 @@ export const $ = (id) => document.getElementById(id);
 export function toast(text, ms = 3500) {
   const el = $("toast");
   el.textContent = text;
+  el.className = "toast";
   el.hidden = false;
   clearTimeout(toast.t);
   toast.t = setTimeout(() => (el.hidden = true), ms);

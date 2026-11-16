@@ -59,7 +59,7 @@ jobs:
           name: pdfsign-windows-x64
           path: |
             pdfsign-signer-rust/target/release/pdfsign.exe
-            pdfsign-signer-rust/apps/pdfsign-gui/target/release/pdfsign-gui.exe
+            pdfsign-signer-rust/apps/pdfsign-gui/target/release/PDFSign.exe
           if-no-files-found: error
 
   linux:

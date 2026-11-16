@@ -6,6 +6,7 @@ const files = []; // { path, pages }
 let active = -1;
 let viewer;
 const previewCache = new Map();
+let signStep = 1;
 
 function setStatus(text, kind = "") {
   const el = $("sign-status");
@@ -38,22 +39,37 @@ function selectedCertName() {
   return c ? c.displayName : null;
 }
 
+function updateStepper() {
+  if (files.length) signStep = Math.max(signStep, 1);
+  if (viewer?.boxes?.length) signStep = Math.max(signStep, 2);
+  if ($("token-select").value && $("cert-select").value) signStep = Math.max(signStep, 3);
+  if ($("results").children.length) signStep = 4;
+  document.querySelectorAll("#sign-stepper .step").forEach((s) => {
+    const n = Number(s.dataset.step);
+    s.classList.toggle("active", n === Math.min(signStep, 4));
+    s.classList.toggle("done", n < signStep);
+  });
+}
+
 function renderFiles() {
   const ul = $("file-list");
   ul.innerHTML = "";
   if (!files.length) {
-    ul.innerHTML = '<li class="muted">Chưa có file. Chọn một hoặc nhiều file để ký hàng loạt.</li>';
+    ul.innerHTML = "";
   }
   files.forEach((f, i) => {
     const li = document.createElement("li");
     if (i === active) li.className = "active";
-    const name = document.createElement("span");
+    const meta = document.createElement("div");
+    meta.className = "meta";
+    const name = document.createElement("b");
     name.textContent = fileName(f.path);
     name.title = f.path;
-    name.onclick = () => showFile(i);
     const pages = document.createElement("span");
     pages.className = "muted";
-    pages.textContent = f.pages ? `${f.pages} tr.` : "";
+    pages.textContent = f.pages ? `${f.pages} trang` : "";
+    meta.append(name, pages);
+    meta.onclick = () => showFile(i);
     const x = document.createElement("button");
     x.className = "x";
     x.textContent = "×";
@@ -65,17 +81,29 @@ function renderFiles() {
       if (active >= 0) showFile(active);
       else resetViewer();
       updateSignEnabled();
+      updateStepper();
     };
-    li.append(name, pages, x);
+    li.append(meta, x);
     ul.append(li);
   });
   $("sign-btn").textContent = files.length > 1 ? `Ký ${files.length} file` : "Ký số";
+  updateStepper();
 }
 
 function resetViewer() {
-  $("viewer").innerHTML = '<p class="empty">Thêm file PDF để xem trước và đặt vị trí chữ ký.</p>';
+  $("viewer").innerHTML = `
+    <div class="empty-state">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg>
+      <strong>Chọn file PDF để bắt đầu</strong>
+      <span>Kéo thả hoặc bấm Thêm file</span>
+    </div>`;
   $("viewer-file").textContent = "Chưa mở tài liệu";
-  $("page-label").textContent = "-";
+  $("page-label").textContent = "—";
+  const rail = $("thumb-rail");
+  if (rail) {
+    rail.hidden = true;
+    rail.innerHTML = "";
+  }
 }
 
 async function showFile(i) {
@@ -87,13 +115,19 @@ async function showFile(i) {
   viewer.boxes = keep;
   viewer.drawBoxes();
   $("viewer-file").textContent = fileName(files[i].path);
+  signStep = Math.max(signStep, 2);
+  updateStepper();
 }
 
-async function addFiles() {
-  const picked = await dialog.open({ multiple: true, filters: [{ name: "PDF", extensions: ["pdf"] }] });
-  if (!picked) return;
-  const list = Array.isArray(picked) ? picked : [picked];
+async function addFiles(paths) {
+  let list = paths;
+  if (!list) {
+    const picked = await dialog.open({ multiple: true, filters: [{ name: "PDF", extensions: ["pdf"] }] });
+    if (!picked) return;
+    list = Array.isArray(picked) ? picked : [picked];
+  }
   for (const path of list) {
+    if (!String(path).toLowerCase().endsWith(".pdf")) continue;
     if (files.some((f) => f.path === path)) continue;
     const pages = await invoke("page_count", { path }).catch(() => 0);
     files.push({ path, pages });
@@ -101,6 +135,7 @@ async function addFiles() {
   renderFiles();
   if (active < 0 && files.length) await showFile(0);
   updateSignEnabled();
+  updateStepper();
 }
 
 function renderBoxes(boxes) {
@@ -109,7 +144,8 @@ function renderBoxes(boxes) {
   boxes.forEach((b, i) => {
     const li = document.createElement("li");
     const lastRule = $("last-page-rule").checked && viewer.numPages && b.page === viewer.numPages;
-    li.innerHTML = `<span>Chữ ký ${i + 1}: trang ${b.page}${lastRule ? " (trang cuối)" : ""}</span>`;
+    const span = document.createElement("span");
+    span.textContent = `Ô ${i + 1} · trang ${b.page}${lastRule ? " (cuối)" : ""}`;
     const go = document.createElement("button");
     go.className = "x";
     go.textContent = "↗";
@@ -119,11 +155,16 @@ function renderBoxes(boxes) {
     x.className = "x";
     x.textContent = "×";
     x.onclick = () => viewer.removeBox(b.id);
-    li.append(go, x);
+    li.append(span, go, x);
     ul.append(li);
   });
-  if (!boxes.length) ul.innerHTML = '<li class="muted">Chưa có ô chữ ký (sẽ ký ẩn nếu để trống).</li>';
+  if (!boxes.length) {
+    const li = document.createElement("li");
+    li.innerHTML = '<span class="muted">Kéo trên trang để đặt ô</span>';
+    ul.append(li);
+  }
   updateSignEnabled();
+  updateStepper();
 }
 
 function updateSignEnabled() {
@@ -132,7 +173,7 @@ function updateSignEnabled() {
 
 export async function scanTokens() {
   $("scan-tokens").disabled = true;
-  setStatus("Đang dò driver PKCS#11 và token…");
+  setStatus("Đang dò token…");
   try {
     state.modules = await invoke("list_tokens", { extraModule: state.extraModule || null });
   } finally {
@@ -144,7 +185,7 @@ export async function scanTokens() {
     for (const s of m.slots) {
       const opt = document.createElement("option");
       opt.value = JSON.stringify({ module: m.path, slot: s.index });
-      opt.textContent = `${s.label || "Token"} · ${m.vendor || fileName(m.path)}${s.pinLocked ? " · PIN BỊ KHÓA" : s.pinFinalTry ? " · còn 1 lần nhập PIN" : ""}`;
+      opt.textContent = `${s.label || "Token"} · ${m.vendor || fileName(m.path)}${s.pinLocked ? " · PIN BỊ KHÓA" : s.pinFinalTry ? " · còn 1 lần PIN" : ""}`;
       if (state.settings.lastModule === m.path && state.settings.lastSlot === s.index) opt.selected = true;
       sel.append(opt);
     }
@@ -156,17 +197,18 @@ export async function scanTokens() {
     const drivers = state.modules.length;
     setStatus(
       drivers
-        ? `Tìm thấy ${drivers} driver nhưng chưa thấy token. Hãy cắm token rồi bấm Dò token.`
-        : "Không tìm thấy driver PKCS#11. Cài phần mềm token của nhà cung cấp hoặc bấm Chọn driver….",
+        ? `Có ${drivers} driver nhưng chưa thấy token.`
+        : "Không tìm thấy driver PKCS#11.",
       "err",
     );
-    $("cert-select").innerHTML = "<option value=''>-</option>";
+    $("cert-select").innerHTML = "<option value=''>—</option>";
     $("cert-select").disabled = true;
     updateSignEnabled();
     return;
   }
   setStatus(`Tìm thấy ${sel.options.length} token.`, "ok");
   await loadCerts();
+  updateStepper();
 }
 
 async function loadCerts() {
@@ -185,8 +227,8 @@ async function loadCerts() {
     const opt = document.createElement("option");
     opt.value = c.serial;
     opt.disabled = !c.validNow || c.isCa;
-    const note = c.isCa ? " (CA, không dùng để ký)" : c.validNow ? "" : " (hết hiệu lực)";
-    opt.textContent = `${c.displayName} · hết hạn ${c.validTo}${note}`;
+    const note = c.isCa ? " (CA)" : c.validNow ? "" : " (hết hạn)";
+    opt.textContent = `${c.displayName} · ${c.validTo}${note}`;
     if (c.serial === state.settings.lastCertSerial && !opt.disabled) opt.selected = true;
     sel.append(opt);
   }
@@ -198,6 +240,7 @@ async function loadCerts() {
   previewCache.clear();
   viewer.drawBoxes();
   updateSignEnabled();
+  updateStepper();
 }
 
 function buildJob() {
@@ -223,11 +266,22 @@ function buildJob() {
   };
 }
 
-async function doSign() {
-  const pinEl = $("pin");
-  if (!pinEl.value) {
+function openPinModal() {
+  const modal = $("pin-modal");
+  const pin = $("pin");
+  pin.value = "";
+  modal.hidden = false;
+  setTimeout(() => pin.focus(), 50);
+}
+
+function closePinModal() {
+  $("pin-modal").hidden = true;
+  $("pin").value = "";
+}
+
+async function doSign(pin) {
+  if (!pin) {
     setStatus("Vui lòng nhập mã PIN.", "err");
-    pinEl.focus();
     return;
   }
   const { module, slot } = JSON.parse($("token-select").value);
@@ -237,24 +291,27 @@ async function doSign() {
     module,
     slot,
     certSerial: $("cert-select").value,
-    pin: pinEl.value,
+    pin,
   };
-  pinEl.value = "";
   $("sign-btn").disabled = true;
   $("results").innerHTML = "";
   $("progress").hidden = false;
+  signStep = 4;
+  updateStepper();
   setStatus("Đang ký…");
   try {
     const results = await invoke("sign_job", { req });
     const ok = results.filter((r) => r.ok).length;
     setStatus(
-      ok === results.length ? `Đã ký thành công ${ok}/${results.length} file.` : `Ký thành công ${ok}/${results.length} file.`,
+      ok === results.length ? `Đã ký ${ok}/${results.length} file.` : `Ký thành công ${ok}/${results.length} file.`,
       ok === results.length ? "ok" : "err",
     );
     renderResults(results);
     state.settings = await invoke("get_settings");
+    toast(ok === results.length ? "Ký thành công" : "Có file lỗi", 3500);
   } catch (e) {
     setStatus(`${e.code ? e.code + ": " : ""}${errText(e)}`, "err");
+    toast(errText(e), 5000);
   } finally {
     $("progress").hidden = true;
     updateSignEnabled();
@@ -283,15 +340,12 @@ function renderResults(results) {
       const actions = document.createElement("span");
       actions.className = "actions";
       const open = document.createElement("button");
-      open.className = "x";
       open.textContent = "Mở";
       open.onclick = () => opener.openPath(r.output);
       const reveal = document.createElement("button");
-      reveal.className = "x";
       reveal.textContent = "Thư mục";
       reveal.onclick = () => opener.revealItemInDir(r.output);
       const check = document.createElement("button");
-      check.className = "x";
       check.textContent = "Xác minh";
       check.onclick = () => window.dispatchEvent(new CustomEvent("verify-file", { detail: r.output }));
       actions.append(open, reveal, check);
@@ -322,7 +376,7 @@ export function refreshTsas() {
   for (const t of state.settings.tsas.filter((x) => x.enabled)) {
     const opt = document.createElement("option");
     opt.value = t.url;
-    opt.textContent = `${t.name} (${t.url})`;
+    opt.textContent = `${t.name}`;
     if (t.url === state.settings.tsaUrl) opt.selected = true;
     sel.append(opt);
   }
@@ -337,28 +391,57 @@ function syncTsaEnabled() {
   $("tsa-select").disabled = $("level-select").value === "B-B";
 }
 
+function bindDropzone(el, onFiles) {
+  if (!el) return;
+  el.addEventListener("click", () => onFiles());
+  el.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      onFiles();
+    }
+  });
+  el.addEventListener("dragover", (e) => {
+    e.preventDefault();
+    el.classList.add("dragover");
+  });
+  el.addEventListener("dragleave", () => el.classList.remove("dragover"));
+  el.addEventListener("drop", (e) => {
+    e.preventDefault();
+    el.classList.remove("dragover");
+    // Browser demo / HTML5 paths unavailable; fall back to picker.
+    onFiles();
+  });
+}
+
 export function initSign() {
   viewer = new Viewer($("viewer"), {
     onChange: renderBoxes,
     onPage: (n, total) => {
-      $("page-label").textContent = `Trang ${n}/${total}`;
+      $("page-label").textContent = `${n} / ${total}`;
       $("prev-page").disabled = n <= 1;
       $("next-page").disabled = n >= total;
     },
     boxLabel: (b, i) => `Chữ ký ${i + 1}`,
     boxImage,
+    thumbRail: $("thumb-rail"),
   });
   renderBoxes([]);
+  bindDropzone($("drop-files"), () => addFiles().catch((e) => setStatus(errText(e), "err")));
   $("add-files").onclick = () => addFiles().catch((e) => setStatus(errText(e), "err"));
   $("clear-files").onclick = () => {
     files.length = 0;
     active = -1;
+    signStep = 1;
     renderFiles();
     resetViewer();
     viewer.clearBoxes();
+    updateStepper();
   };
   $("prev-page").onclick = () => viewer.goto(viewer.pageNum - 1);
   $("next-page").onclick = () => viewer.goto(viewer.pageNum + 1);
+  $("zoom-in").onclick = () => viewer.zoomBy(0.15);
+  $("zoom-out").onclick = () => viewer.zoomBy(-0.15);
+  $("zoom-fit").onclick = () => viewer.fitToWidth();
   $("scan-tokens").onclick = () => scanTokens().catch((e) => setStatus(errText(e), "err"));
   $("pick-module").onclick = async () => {
     const p = await dialog.open({ multiple: false, filters: [{ name: "PKCS#11", extensions: ["dll", "so", "dylib"] }] });
@@ -371,6 +454,7 @@ export function initSign() {
     previewCache.clear();
     viewer.drawBoxes();
     updateSignEnabled();
+    updateStepper();
   };
   $("template-select").onchange = () => {
     previewCache.clear();
@@ -382,16 +466,52 @@ export function initSign() {
     const d = await dialog.open({ directory: true });
     if (d) $("out-dir").value = d;
   };
-  $("sign-btn").onclick = doSign;
-  $("pin").onkeydown = (e) => {
-    if (e.key === "Enter" && !$("sign-btn").disabled) doSign();
+  $("sign-btn").onclick = () => {
+    if ($("sign-btn").disabled) return;
+    openPinModal();
   };
+  $("pin-cancel").onclick = closePinModal;
+  $("pin-confirm").onclick = () => {
+    const pin = $("pin").value;
+    closePinModal();
+    doSign(pin);
+  };
+  $("pin").onkeydown = (e) => {
+    if (e.key === "Enter") {
+      const pin = $("pin").value;
+      closePinModal();
+      doSign(pin);
+    }
+    if (e.key === "Escape") closePinModal();
+  };
+  $("pin-modal").addEventListener("click", (e) => {
+    if (e.target === $("pin-modal")) closePinModal();
+  });
+  document.querySelectorAll("#sign-stepper .step").forEach((s) => {
+    s.onclick = () => {
+      const n = Number(s.dataset.step);
+      const target = document.querySelector(`[data-sign-step="${n}"]`);
+      if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
+    };
+  });
   listen("sign-progress", (ev) => {
     const { done, total, current } = ev.payload;
     $("progress").querySelector(".bar").style.width = `${(done / Math.max(total, 1)) * 100}%`;
     $("progress").querySelector("span").textContent =
       done < total ? `Đang ký ${done + 1}/${total}: ${fileName(current)}` : `Hoàn tất ${total}/${total}`;
   });
+  // Tauri file drop (paths)
+  try {
+    const webview = window.__TAURI__?.webview?.getCurrentWebview?.();
+    webview?.onDragDropEvent?.((event) => {
+      const payload = event.payload;
+      if (payload?.type === "drop" && payload.paths?.length) {
+        addFiles(payload.paths).catch((e) => setStatus(errText(e), "err"));
+      }
+    });
+  } catch (_) {
+    /* browser demo */
+  }
   let resizeTimer;
   let lastWidth = 0;
   new ResizeObserver(() => {
@@ -401,4 +521,8 @@ export function initSign() {
     clearTimeout(resizeTimer);
     resizeTimer = setTimeout(() => viewer.render(), 150);
   }).observe($("viewer"));
+
+  // Expose for keyboard shortcuts / demo
+  window.__pdfsignSign = { addFiles, openPinModal, doSign, files, getViewer: () => viewer };
+  updateStepper();
 }

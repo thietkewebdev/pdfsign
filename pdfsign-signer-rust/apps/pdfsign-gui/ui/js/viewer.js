@@ -10,8 +10,9 @@ let nextId = 1;
  * *displayed* page (pdf.js applies /Rotate), bottom-left origin. The core maps them to user space.
  */
 export class Viewer {
-  constructor(container, { onChange, onPage, boxLabel, boxImage }) {
+  constructor(container, { onChange, onPage, boxLabel, boxImage, thumbRail } = {}) {
     this.container = container;
+    this.thumbRail = thumbRail || null;
     this.onChange = onChange || (() => {});
     this.onPage = onPage || (() => {});
     this.boxLabel = boxLabel || ((b, i) => `Chữ ký ${i + 1}`);
@@ -21,12 +22,16 @@ export class Viewer {
     this.boxes = [];
     this.selected = null;
     this.pageSize = { w: 595, h: 842 };
+    this.zoom = 1;
+    this.fitWidth = true;
   }
 
   async load(bytes) {
     if (this.doc) this.doc.destroy();
     this.doc = await pdfjsLib.getDocument({ data: new Uint8Array(bytes) }).promise;
     this.pageNum = this.doc.numPages;
+    this.fitWidth = true;
+    await this.renderThumbs();
     await this.render();
   }
 
@@ -40,12 +45,70 @@ export class Viewer {
     await this.render();
   }
 
+  setZoom(factor) {
+    this.fitWidth = false;
+    this.zoom = Math.min(Math.max(factor, 0.5), 2.5);
+    return this.render();
+  }
+
+  zoomBy(delta) {
+    return this.setZoom((this.fitWidth ? 1 : this.zoom) + delta);
+  }
+
+  fitToWidth() {
+    this.fitWidth = true;
+    return this.render();
+  }
+
+  async renderThumbs() {
+    const rail = this.thumbRail;
+    if (!rail || !this.doc) return;
+    rail.hidden = false;
+    rail.innerHTML = "";
+    const n = this.doc.numPages;
+    for (let i = 1; i <= n; i++) {
+      const page = await this.doc.getPage(i);
+      const base = page.getViewport({ scale: 1 });
+      const scale = 72 / base.width;
+      const vp = page.getViewport({ scale });
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.dataset.page = String(i);
+      if (i === this.pageNum) btn.className = "active";
+      const canvas = document.createElement("canvas");
+      canvas.width = vp.width * devicePixelRatio;
+      canvas.height = vp.height * devicePixelRatio;
+      canvas.style.width = "100%";
+      const label = document.createElement("span");
+      label.className = "pg";
+      label.textContent = String(i);
+      btn.append(canvas, label);
+      btn.onclick = () => this.goto(i);
+      rail.append(btn);
+      page.render({
+        canvasContext: canvas.getContext("2d"),
+        viewport: vp,
+        transform: [devicePixelRatio, 0, 0, devicePixelRatio, 0, 0],
+      });
+    }
+  }
+
+  markThumb() {
+    if (!this.thumbRail) return;
+    this.thumbRail.querySelectorAll("button").forEach((b) => {
+      b.classList.toggle("active", Number(b.dataset.page) === this.pageNum);
+    });
+  }
+
   async render() {
+    if (!this.doc) return;
     const page = await this.doc.getPage(this.pageNum);
     const base = page.getViewport({ scale: 1 });
     this.pageSize = { w: base.width, h: base.height };
-    const avail = Math.max(this.container.clientWidth - 48, 300);
-    const scale = Math.min(avail / base.width, 1.6);
+    const avail = Math.max(this.container.clientWidth - 48, 280);
+    const fitScale = Math.min(avail / base.width, 1.8);
+    const scale = this.fitWidth ? fitScale : fitScale * this.zoom;
+    if (this.fitWidth) this.zoom = 1;
     const vp = page.getViewport({ scale });
     this.container.innerHTML = "";
     const wrap = document.createElement("div");
@@ -68,10 +131,10 @@ export class Viewer {
     }).promise;
     this.bindOverlay();
     this.drawBoxes();
+    this.markThumb();
     this.onPage(this.pageNum, this.doc.numPages);
   }
 
-  /** Box size in PDF points (for stamp previews). */
   pointsOf(b) {
     return { w: b.w * this.pageSize.w, h: b.h * this.pageSize.h };
   }

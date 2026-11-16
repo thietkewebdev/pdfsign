@@ -7,219 +7,296 @@
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
-    <nav class="nav">
-      <div class="brand"><span class="logo">✓</span> PDFSign</div>
-      <button class="tab active" data-view="sign">Ký số</button>
-      <button class="tab" data-view="templates">Mẫu chữ ký</button>
-      <button class="tab" data-view="verify">Xác minh</button>
-      <button class="tab" data-view="settings">Cài đặt</button>
-      <div class="nav-foot">Phiên bản 0.1.0<br />Ký offline, không gửi tài liệu lên mạng</div>
+    <nav class="nav" aria-label="Chính">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18"/><path d="m8 7 4-4 4 4"/><path d="M5 12h14"/><path d="M7 17h10"/></svg>
+        </span>
+        <span class="name">PDFSign</span>
+      </div>
+      <button class="tab active" data-view="sign" title="Ký số (1)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838a.5.5 0 0 1-.62-.62l.838-2.872a2 2 0 0 1 .506-.854z"/></svg>
+        <span class="label">Ký số</span>
+      </button>
+      <button class="tab" data-view="templates" title="Mẫu chữ ký (2)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M15 3v4a2 2 0 0 0 2 2h4"/><path d="M8 13h8"/><path d="M8 17h5"/></svg>
+        <span class="label">Mẫu chữ ký</span>
+      </button>
+      <button class="tab" data-view="verify" title="Xác minh (3)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg>
+        <span class="label">Xác minh</span>
+      </button>
+      <button class="tab" data-view="settings" title="Cài đặt (4)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"/><circle cx="12" cy="12" r="3"/></svg>
+        <span class="label">Cài đặt</span>
+      </button>
+      <div class="nav-foot"><strong>PDFSign</strong> · v0.2.0<br />Offline · Windows</div>
     </nav>
 
-    <!-- KÝ SỐ -->
-    <section id="view-sign" class="view active">
-      <aside class="panel">
-        <div class="group">
-          <h2>1. Tài liệu</h2>
-          <div class="row">
-            <button id="add-files" class="primary">Thêm file PDF…</button>
-            <button id="clear-files" class="ghost">Xoá hết</button>
-          </div>
-          <ul id="file-list" class="file-list"><li class="muted">Chưa có file. Chọn một hoặc nhiều file để ký hàng loạt.</li></ul>
+    <div class="app-shell">
+      <header class="topbar">
+        <h1 class="topbar-title" id="page-title">Ký số</h1>
+        <div class="stepper" id="sign-stepper" hidden>
+          <button type="button" class="step active" data-step="1"><span class="n">1</span><span class="lbl">File</span></button>
+          <span class="step-sep"></span>
+          <button type="button" class="step" data-step="2"><span class="n">2</span><span class="lbl">Vị trí</span></button>
+          <span class="step-sep"></span>
+          <button type="button" class="step" data-step="3"><span class="n">3</span><span class="lbl">Token</span></button>
+          <span class="step-sep"></span>
+          <button type="button" class="step" data-step="4"><span class="n">4</span><span class="lbl">Ký</span></button>
         </div>
+        <div class="topbar-actions" id="topbar-actions"></div>
+      </header>
 
-        <div class="group">
-          <h2>2. Vị trí chữ ký</h2>
-          <p class="muted">Kéo chuột trên trang để vẽ ô chữ ký. Kéo ô để di chuyển, kéo góc để đổi kích thước. Có thể đặt nhiều ô: mỗi ô là một chữ ký riêng.</p>
-          <ul id="box-list" class="box-list"></ul>
-          <label class="check"><input id="last-page-rule" type="checkbox" checked /> Ô ở trang cuối áp dụng cho trang cuối của mọi file</label>
-        </div>
-
-        <div class="group">
-          <h2>3. Token và chứng thư</h2>
-          <div class="row">
-            <button id="scan-tokens">Dò token</button>
-            <button id="pick-module" class="ghost" title="Chọn file driver PKCS#11 (.dll)">Chọn driver…</button>
-          </div>
-          <select id="token-select" disabled><option>Chưa dò token</option></select>
-          <select id="cert-select" disabled><option>Chưa đọc chứng thư</option></select>
-        </div>
-
-        <div class="group">
-          <h2>4. Tuỳ chọn ký</h2>
-          <div class="grid2">
-            <label>Mẫu chữ ký<select id="template-select"></select></label>
-            <label>Mức PAdES
-              <select id="level-select">
-                <option value="B-B">B-B (cơ bản)</option>
-                <option value="B-T">B-T (có dấu thời gian)</option>
-                <option value="B-LT">B-LT (xác minh lâu dài)</option>
-                <option value="B-LTA">B-LTA (lưu trữ dài hạn)</option>
-              </select>
-            </label>
-          </div>
-          <label>Máy chủ dấu thời gian (TSA)<select id="tsa-select"></select></label>
-          <div class="grid2">
-            <label>Lý do<input id="reason" type="text" placeholder="VD: Phê duyệt" /></label>
-            <label>Nơi ký<input id="location" type="text" placeholder="VD: Hà Nội" /></label>
-          </div>
-          <div class="grid2">
-            <label>Thư mục lưu
-              <div class="row tight">
-                <input id="out-dir" type="text" placeholder="Cùng thư mục file gốc" readonly />
-                <button id="pick-out-dir" class="ghost">…</button>
-              </div>
-            </label>
-            <label>Hậu tố tên file<input id="suffix" type="text" /></label>
-          </div>
-        </div>
-
-        <div class="group">
-          <h2>5. Ký</h2>
-          <label>Mã PIN token<input id="pin" type="password" autocomplete="off" placeholder="PIN (không bao giờ được lưu)" /></label>
-          <button id="sign-btn" class="primary big" disabled>Ký số</button>
-          <div id="progress" class="progress" hidden><div class="bar"></div><span></span></div>
-          <p id="sign-status" class="status"></p>
-          <ul id="results" class="results"></ul>
-        </div>
-      </aside>
-      <main class="viewer-wrap">
-        <div class="viewer-toolbar">
-          <span id="viewer-file" class="muted">Chưa mở tài liệu</span>
-          <div class="pager">
-            <button id="prev-page" disabled>‹</button>
-            <span id="page-label">-</span>
-            <button id="next-page" disabled>›</button>
-          </div>
-        </div>
-        <div id="viewer" class="viewer"><p class="empty">Thêm file PDF để xem trước và đặt vị trí chữ ký.</p></div>
-      </main>
-    </section>
-
-    <!-- MẪU CHỮ KÝ -->
-    <section id="view-templates" class="view">
-      <aside class="panel narrow">
-        <div class="group">
-          <h2>Mẫu đã lưu</h2>
-          <ul id="tpl-list" class="tpl-list"></ul>
-          <button id="tpl-new" class="primary">+ Mẫu mới</button>
-        </div>
-      </aside>
-      <main class="editor">
-        <div class="editor-grid">
-          <div class="group">
-            <h2>Thông tin mẫu</h2>
-            <label>Tên mẫu<input id="tpl-name" type="text" /></label>
-            <label>Các dòng chữ (mỗi dòng một dòng)
-              <textarea id="tpl-lines" rows="5"></textarea>
-            </label>
-            <p class="muted small">Biến: <code>{name}</code> tên tổ chức hoặc người ký, <code>{cn}</code> người ký, <code>{org}</code> tổ chức, <code>{date}</code> thời gian, <code>{reason}</code> lý do, <code>{location}</code> nơi ký, <code>{issuer}</code> CA, <code>{serial}</code> số serial. Dòng có biến rỗng sẽ được ẩn.</p>
-            <div class="grid2">
-              <label>Bố cục
-                <select id="tpl-layout">
-                  <option value="imageLeft">Ảnh bên trái, chữ bên phải</option>
-                  <option value="imageTop">Ảnh phía trên, chữ bên dưới</option>
-                  <option value="imageBackground">Ảnh làm nền</option>
-                  <option value="textOnly">Chỉ chữ</option>
-                </select>
-              </label>
-              <label>Căn chữ
-                <select id="tpl-align"><option value="left">Trái</option><option value="center">Giữa</option></select>
-              </label>
+      <!-- KÝ SỐ -->
+      <section id="view-sign" class="view active">
+        <aside class="panel">
+          <div class="group" data-sign-step="1">
+            <h2 class="group-title">Tài liệu</h2>
+            <div id="drop-files" class="dropzone compact" tabindex="0" role="button">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M12 18v-6"/><path d="m9 15 3-3 3 3"/></svg>
+              <strong>Kéo PDF vào đây</strong>
+              <span>hoặc bấm để chọn · <kbd class="kbd">Ctrl+O</kbd></span>
             </div>
-            <div class="grid2">
-              <label>Màu chính<input id="tpl-accent" type="color" /></label>
-              <label>Màu chữ phụ<input id="tpl-text" type="color" /></label>
-            </div>
-            <div class="grid2">
-              <label>Cỡ chữ (để trống = tự động)<input id="tpl-font" type="number" min="4" max="40" step="0.5" /></label>
-              <label>Định dạng ngày
-                <select id="tpl-date">
-                  <option value="%d/%m/%Y %H:%M:%S">14/11/2026 19:05:09</option>
-                  <option value="%d/%m/%Y %H:%M">14/11/2026 19:05</option>
-                  <option value="%d/%m/%Y">14/11/2026</option>
-                  <option value="Ngày %d tháng %m năm %Y">Ngày 14 tháng 11 năm 2026</option>
-                </select>
-              </label>
-            </div>
-            <label class="check"><input id="tpl-border" type="checkbox" /> Viền khung</label>
-            <label class="check"><input id="tpl-icon" type="checkbox" /> Biểu tượng dấu tích (khi không có ảnh)</label>
-          </div>
-          <div class="group">
-            <h2>Hình ảnh</h2>
-            <div class="img-slot">
-              <span>Con dấu</span><img id="tpl-seal-img" alt="" />
-              <div class="row"><button id="tpl-seal-pick" class="ghost">Chọn ảnh…</button><button id="tpl-seal-clear" class="ghost">Bỏ</button></div>
-            </div>
-            <div class="img-slot">
-              <span>Chữ ký tay</span><img id="tpl-sig-img" alt="" />
-              <div class="row"><button id="tpl-sig-pick" class="ghost">Chọn ảnh…</button><button id="tpl-sig-clear" class="ghost">Bỏ</button></div>
-            </div>
-            <h2>Xem trước</h2>
-            <div class="preview-box"><canvas id="tpl-preview"></canvas></div>
             <div class="row">
-              <button id="tpl-save" class="primary">Lưu mẫu</button>
-              <button id="tpl-delete" class="danger">Xoá mẫu</button>
+              <button id="add-files" class="primary" type="button">Thêm file</button>
+              <button id="clear-files" class="ghost" type="button">Xoá hết</button>
             </div>
-            <p id="tpl-status" class="status"></p>
+            <ul id="file-list" class="file-list"></ul>
           </div>
-        </div>
-      </main>
-    </section>
 
-    <!-- XÁC MINH -->
-    <section id="view-verify" class="view">
-      <main class="verify">
-        <div class="row">
-          <button id="verify-open" class="primary">Mở file PDF đã ký…</button>
-          <span id="verify-file" class="muted"></span>
-        </div>
-        <div id="verify-summary" class="summary" hidden></div>
-        <div id="verify-list" class="cards"></div>
-      </main>
-    </section>
+          <div class="group" data-sign-step="2">
+            <h2 class="group-title">Ô chữ ký</h2>
+            <ul id="box-list" class="box-list"></ul>
+            <label class="check field"><input id="last-page-rule" type="checkbox" checked /> Trang cuối áp dụng mọi file</label>
+          </div>
 
-    <!-- CÀI ĐẶT -->
-    <section id="view-settings" class="view">
-      <main class="settings">
-        <div class="group">
-          <h2>Máy chủ dấu thời gian (TSA)</h2>
-          <table class="table">
-            <thead><tr><th>Bật</th><th>Tên</th><th>URL</th><th>Mặc định</th><th></th></tr></thead>
-            <tbody id="tsa-rows"></tbody>
-          </table>
-          <button id="tsa-add" class="ghost">+ Thêm TSA</button>
-        </div>
-        <div class="group">
-          <h2>Mặc định khi ký</h2>
-          <div class="grid3">
-            <label>Mức PAdES
-              <select id="set-level"><option>B-B</option><option>B-T</option><option>B-LT</option><option>B-LTA</option></select>
+          <div class="group" data-sign-step="3">
+            <h2 class="group-title">Token</h2>
+            <div class="row">
+              <button id="scan-tokens" type="button">Dò token</button>
+              <button id="pick-module" class="ghost" type="button" title="Chọn driver PKCS#11">Driver…</button>
+            </div>
+            <label class="field">Token
+              <select id="token-select" disabled><option value="">Chưa dò</option></select>
             </label>
-            <label>Hậu tố tên file<input id="set-suffix" type="text" /></label>
-            <label>Nơi ký mặc định<input id="set-location" type="text" /></label>
+            <label class="field">Chứng thư
+              <select id="cert-select" disabled><option value="">—</option></select>
+            </label>
           </div>
+
+          <div class="group" data-sign-step="3">
+            <h2 class="group-title">Tuỳ chọn</h2>
+            <div class="grid2">
+              <label class="field">Mẫu
+                <select id="template-select"></select>
+              </label>
+              <label class="field">Mức ký
+                <select id="level-select">
+                  <option value="B-B">B-B</option>
+                  <option value="B-T">B-T</option>
+                  <option value="B-LT">B-LT</option>
+                  <option value="B-LTA">B-LTA</option>
+                </select>
+              </label>
+            </div>
+            <label class="field">TSA
+              <select id="tsa-select"></select>
+            </label>
+            <div class="grid2">
+              <label class="field">Lý do<input id="reason" type="text" placeholder="Phê duyệt" /></label>
+              <label class="field">Nơi ký<input id="location" type="text" placeholder="Hà Nội" /></label>
+            </div>
+            <div class="grid2">
+              <label class="field">Thư mục lưu
+                <div class="row tight">
+                  <input id="out-dir" type="text" placeholder="Cùng thư mục gốc" readonly />
+                  <button id="pick-out-dir" class="ghost" type="button">…</button>
+                </div>
+              </label>
+              <label class="field">Hậu tố<input id="suffix" type="text" /></label>
+            </div>
+          </div>
+
+          <div class="group" data-sign-step="4">
+            <h2 class="group-title">Ký</h2>
+            <button id="sign-btn" class="primary big" type="button" disabled>Ký số</button>
+            <div id="progress" class="progress" hidden><div class="bar"></div><span></span></div>
+            <p id="sign-status" class="status"></p>
+            <ul id="results" class="results"></ul>
+          </div>
+        </aside>
+
+        <main class="viewer-wrap">
+          <div class="viewer-toolbar">
+            <span id="viewer-file" class="file-name muted">Chưa mở tài liệu</span>
+            <div class="pager">
+              <button id="prev-page" class="icon-btn" type="button" disabled title="Trang trước">‹</button>
+              <span id="page-label">—</span>
+              <button id="next-page" class="icon-btn" type="button" disabled title="Trang sau">›</button>
+            </div>
+            <div class="zoom-ctrl">
+              <button id="zoom-out" class="icon-btn" type="button" title="Thu nhỏ">−</button>
+              <button id="zoom-fit" class="ghost" type="button" title="Vừa chiều rộng">Vừa rộng</button>
+              <button id="zoom-in" class="icon-btn" type="button" title="Phóng to">+</button>
+            </div>
+          </div>
+          <div class="viewer-body">
+            <div id="thumb-rail" class="thumb-rail" hidden></div>
+            <div id="viewer" class="viewer">
+              <div class="empty-state">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg>
+                <strong>Chọn file PDF để bắt đầu</strong>
+                <span>Kéo thả hoặc bấm Thêm file</span>
+              </div>
+            </div>
+          </div>
+        </main>
+      </section>
+
+      <!-- MẪU CHỮ KÝ -->
+      <section id="view-templates" class="view">
+        <aside class="panel narrow">
+          <div class="group">
+            <h2 class="group-title">Đã lưu</h2>
+            <ul id="tpl-list" class="tpl-list"></ul>
+            <button id="tpl-new" class="primary" type="button">+ Mẫu mới</button>
+          </div>
+        </aside>
+        <main class="editor">
+          <div class="editor-grid">
+            <div class="group" style="border:0;padding:0">
+              <h2 class="group-title">Thông tin</h2>
+              <label class="field">Tên mẫu<input id="tpl-name" type="text" /></label>
+              <label class="field">Dòng chữ<textarea id="tpl-lines" rows="5" placeholder="{cn}&#10;{org}&#10;{date}"></textarea></label>
+              <div class="grid2">
+                <label class="field">Bố cục
+                  <select id="tpl-layout">
+                    <option value="imageLeft">Ảnh trái</option>
+                    <option value="imageTop">Ảnh trên</option>
+                    <option value="imageBackground">Ảnh nền</option>
+                    <option value="textOnly">Chỉ chữ</option>
+                  </select>
+                </label>
+                <label class="field">Căn
+                  <select id="tpl-align"><option value="left">Trái</option><option value="center">Giữa</option></select>
+                </label>
+              </div>
+              <div class="grid2">
+                <label class="field">Màu chính<input id="tpl-accent" type="color" /></label>
+                <label class="field">Màu chữ<input id="tpl-text" type="color" /></label>
+              </div>
+              <div class="grid2">
+                <label class="field">Cỡ chữ<input id="tpl-font" type="number" min="4" max="40" step="0.5" placeholder="Tự động" /></label>
+                <label class="field">Ngày
+                  <select id="tpl-date">
+                    <option value="%d/%m/%Y %H:%M:%S">14/11/2026 19:05:09</option>
+                    <option value="%d/%m/%Y %H:%M">14/11/2026 19:05</option>
+                    <option value="%d/%m/%Y">14/11/2026</option>
+                    <option value="Ngày %d tháng %m năm %Y">Ngày 14 tháng 11 năm 2026</option>
+                  </select>
+                </label>
+              </div>
+              <label class="check field"><input id="tpl-border" type="checkbox" /> Viền khung</label>
+              <label class="check field"><input id="tpl-icon" type="checkbox" /> Biểu tượng ✓</label>
+              <div class="img-slot">
+                <span>Con dấu</span><img id="tpl-seal-img" alt="" />
+                <div class="row"><button id="tpl-seal-pick" class="ghost" type="button">Chọn…</button><button id="tpl-seal-clear" class="ghost" type="button">Bỏ</button></div>
+              </div>
+              <div class="img-slot">
+                <span>Chữ ký tay</span><img id="tpl-sig-img" alt="" />
+                <div class="row"><button id="tpl-sig-pick" class="ghost" type="button">Chọn…</button><button id="tpl-sig-clear" class="ghost" type="button">Bỏ</button></div>
+              </div>
+              <div class="row">
+                <button id="tpl-save" class="primary" type="button">Lưu mẫu</button>
+                <button id="tpl-delete" class="danger" type="button">Xoá</button>
+              </div>
+              <p id="tpl-status" class="status"></p>
+            </div>
+            <div>
+              <h2 class="group-title">Xem trước</h2>
+              <div class="preview-box"><canvas id="tpl-preview"></canvas></div>
+            </div>
+          </div>
+        </main>
+      </section>
+
+      <!-- XÁC MINH -->
+      <section id="view-verify" class="view">
+        <main class="verify">
+          <div id="verify-drop" class="dropzone large" tabindex="0" role="button">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg>
+            <strong>Thả PDF đã ký để xác minh</strong>
+            <span>hoặc bấm để mở file</span>
+          </div>
+          <div class="row" style="display:none" id="verify-toolbar">
+            <button id="verify-open" class="primary" type="button">Mở file khác…</button>
+            <span id="verify-file" class="muted"></span>
+          </div>
+          <div id="verify-summary" class="summary" hidden></div>
+          <div id="verify-list" class="cards"></div>
+        </main>
+      </section>
+
+      <!-- CÀI ĐẶT -->
+      <section id="view-settings" class="view">
+        <main class="settings">
+          <div class="page-card">
+            <h2 class="group-title">Máy chủ dấu thời gian</h2>
+            <table class="table">
+              <thead><tr><th>Bật</th><th>Tên</th><th>URL</th><th>Mặc định</th><th></th></tr></thead>
+              <tbody id="tsa-rows"></tbody>
+            </table>
+            <button id="tsa-add" class="ghost" type="button">+ Thêm TSA</button>
+          </div>
+          <div class="page-card">
+            <h2 class="group-title">Mặc định khi ký</h2>
+            <div class="grid3">
+              <label class="field">Mức PAdES
+                <select id="set-level"><option>B-B</option><option>B-T</option><option>B-LT</option><option>B-LTA</option></select>
+              </label>
+              <label class="field">Hậu tố<input id="set-suffix" type="text" /></label>
+              <label class="field">Nơi ký<input id="set-location" type="text" /></label>
+            </div>
+          </div>
+          <div class="page-card">
+            <h2 class="group-title">CA gốc tin cậy</h2>
+            <ul id="anchor-list" class="file-list"></ul>
+            <button id="anchor-add" class="ghost" type="button">+ Thêm CA (.cer/.crt/.pem)</button>
+          </div>
+          <div class="page-card">
+            <h2 class="group-title">Token đã nhớ</h2>
+            <p id="remembered" class="muted"></p>
+            <button id="forget-token" class="ghost" type="button">Quên token đã nhớ</button>
+          </div>
+          <div class="row">
+            <button id="settings-save" class="primary" type="button">Lưu cài đặt</button>
+            <span id="settings-status" class="status"></span>
+          </div>
+          <p class="muted" style="font-size:12px">Cấu hình: <code id="config-path"></code></p>
+        </main>
+      </section>
+    </div>
+
+    <!-- PIN modal -->
+    <div id="pin-modal" class="modal-backdrop" hidden>
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="pin-title">
+        <h2 id="pin-title">Nhập mã PIN</h2>
+        <label class="field">Mã PIN token
+          <input id="pin" type="password" autocomplete="off" placeholder="••••••" />
+        </label>
+        <div class="modal-actions">
+          <button id="pin-cancel" class="ghost" type="button">Huỷ</button>
+          <button id="pin-confirm" class="primary" type="button">Ký</button>
         </div>
-        <div class="group">
-          <h2>CA gốc tin cậy (dùng khi xác minh)</h2>
-          <ul id="anchor-list" class="file-list"></ul>
-          <button id="anchor-add" class="ghost">+ Thêm chứng thư CA gốc (.cer/.crt/.pem)…</button>
-        </div>
-        <div class="group">
-          <h2>Token đã nhớ</h2>
-          <p id="remembered" class="muted"></p>
-          <button id="forget-token" class="ghost">Quên token/chứng thư đã nhớ</button>
-          <p class="muted small">Ứng dụng chỉ nhớ đường dẫn driver và số serial chứng thư. Mã PIN không bao giờ được lưu.</p>
-        </div>
-        <div class="row">
-          <button id="settings-save" class="primary">Lưu cài đặt</button>
-          <span id="settings-status" class="status"></span>
-        </div>
-        <p class="muted small">Thư mục cấu hình: <code id="config-path"></code></p>
-      </main>
-    </section>
+      </div>
+    </div>
+
+    <!-- Hidden pin field kept for compatibility if needed -->
+    <input id="pin-legacy" type="hidden" />
 
     <div id="toast" class="toast" hidden></div>
+    <script src="js/demo-mock.js"></script>
     <script type="module" src="js/main.js"></script>
   </body>
 </html>

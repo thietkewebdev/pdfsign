@@ -5,7 +5,8 @@ Windows x64 first. Production apps `pdfsignpro-signer-wpf/` and `pdfsignpro-clou
 
 Docs (Vietnamese): [`docs/ANALYSIS.md`](docs/ANALYSIS.md) (how the WPF + pyHanko signer works),
 [`docs/COMPARE.md`](docs/COMPARE.md) (signature diff vs the WPF output),
-[`docs/TEST-TOKEN-THAT.md`](docs/TEST-TOKEN-THAT.md) (Windows test checklist with real tokens).
+[`docs/TEST-TOKEN-THAT.md`](docs/TEST-TOKEN-THAT.md) (Windows test checklist with real tokens),
+[`docs/UI-DESIGN.md`](docs/UI-DESIGN.md) (GUI design brief v0.2).
 
 ## Features (offline mode)
 
@@ -42,8 +43,8 @@ CI (`.github/workflows/pdfsign-signer-rust.yml`, runs only on changes under `pdf
 
 | Artifact | Contents |
 |---|---|
-| `pdfsign-windows-installers` | `PDFSign_0.1.0_x64-setup.exe` (NSIS, per-user, no admin), `PDFSign_0.1.0_x64_en-US.msi` |
-| `pdfsign-windows-x64` | `pdfsign.exe` (CLI), `pdfsign-gui.exe` (portable GUI) |
+| `pdfsign-windows-installers` | `PDFSign_0.2.0_x64-setup.exe` (NSIS, per-user, no admin), `PDFSign_0.2.0_x64_en-US.msi` |
+| `pdfsign-windows-x64` | `pdfsign.exe` (CLI), `PDFSign.exe` (portable GUI) |
 | `pdfsign-linux-x64` | Linux CLI |
 
 The installers are not Authenticode-signed yet. SmartScreen shows "Windows protected your PC": click
