@@ -206,8 +206,11 @@ export default function LandingPage({
     .filter(Boolean)
     .join(" · ");
 
+  const consultHref = facts.hotlineTel
+    ? `tel:${facts.hotlineTel}`
+    : `mailto:${HOME.company.email}`;
   const faqLead = facts.hotline
-    ? `Chưa thấy câu trả lời? Gọi ${facts.hotline} hoặc nhắn Zalo, chúng tôi trả lời trong giờ hành chính.`
+    ? HOME.faq.leadWithHotline.replace("{hotline}", facts.hotline)
     : HOME.faq.leadMissingHotline;
 
   return (
@@ -517,7 +520,7 @@ export default function LandingPage({
                   ))}
                 </ul>
                 {t.id === "enterprise" ? (
-                  <a className="btn btn-ghost" href={facts.hotline ? `tel:${facts.hotline}` : "mailto:info@pdfsign.vn"}>
+                  <a className="btn btn-ghost" href={consultHref}>
                     {t.cta}
                   </a>
                 ) : t.id === "free" ? (
@@ -562,12 +565,14 @@ export default function LandingPage({
               <button type="button" className="btn btn-on-brand" onClick={openUpload}>
                 {HOME.ctaBand.primary}
               </button>
-              <a
-                className="btn btn-on-brand-ghost"
-                href={facts.hotline ? `tel:${facts.hotline}` : "mailto:info@pdfsign.vn"}
-              >
+              <a className="btn btn-on-brand-ghost" href={consultHref}>
                 {HOME.ctaBand.secondary}
               </a>
+              {facts.zaloUrl && (
+                <a className="btn btn-on-brand-ghost" href={facts.zaloUrl} target="_blank" rel="noreferrer">
+                  Zalo {facts.hotline}
+                </a>
+              )}
             </div>
           </div>
         </div>

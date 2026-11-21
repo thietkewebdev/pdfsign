@@ -34,10 +34,15 @@ export type HomeFacts = {
   proYearlySavingsPercent: number | null;
   /** Pro monthly file allowance label, e.g. "200" */
   proFileCount: string | null;
+  /** Display hotline, e.g. "0984.056.777" */
   hotline: string | null;
+  /** Digits-only for tel:, e.g. "0984056777" */
+  hotlineTel: string | null;
+  zaloUrl: string | null;
   address: string | null;
 };
 
+/** From live pdfsign.vn + pdfsignpro-cloud/src/lib/company-legal.ts */
 export const HOME_FACTS: HomeFacts = {
   fileRetentionDays: null,
   dataLocation: null,
@@ -48,14 +53,18 @@ export const HOME_FACTS: HomeFacts = {
   proYearlyPrice: null,
   proYearlySavingsPercent: null,
   proFileCount: null,
-  hotline: null,
-  address: null,
+  hotline: "0984.056.777",
+  hotlineTel: "0984056777",
+  zaloUrl: "https://zalo.me/0984056777",
+  address:
+    "L17-11, Tầng 17, Tòa nhà Vincom Center, 72 Lê Thánh Tôn, Phường Sài Gòn, Thành phố Hồ Chí Minh, Việt Nam",
 };
 
 export const HOME = {
   company: {
-    name: "Công ty CP Giải pháp Công nghệ số DIGITECH Việt Nam",
+    name: "CÔNG TY CỔ PHẦN GIẢI PHÁP CÔNG NGHỆ SỐ DIGITECH VIỆT NAM",
     taxId: "0317056837",
+    // Confirmed in pdfsignpro-cloud/src/lib/company-legal.ts (COMPANY_EMAIL)
     email: "info@pdfsign.vn",
   },
   nav: [
@@ -234,6 +243,9 @@ export const HOME = {
     eyebrow: "Hỏi đáp",
     title: "Câu hỏi thường gặp",
     leadMissingHotline: "Chưa thấy câu trả lời? Nhắn email info@pdfsign.vn trong giờ hành chính.",
+    /** Used when hotline is set; {hotline} replaced at render */
+    leadWithHotline:
+      "Chưa thấy câu trả lời? Gọi {hotline} hoặc nhắn Zalo, chúng tôi trả lời trong giờ hành chính.",
     items: [
       {
         q: "File ký trên PDFSign có giá trị pháp lý không?",
@@ -280,6 +292,7 @@ export const HOME = {
       { href: "/verify", label: "Xác minh file" },
       { href: "/#faq", label: "Câu hỏi thường gặp" },
       { href: "mailto:info@pdfsign.vn", label: "Liên hệ" },
+      { href: "https://zalo.me/0984056777", label: "Zalo 0984.056.777" },
     ],
     legal: [
       { href: "#", label: "Điều khoản sử dụng" },
