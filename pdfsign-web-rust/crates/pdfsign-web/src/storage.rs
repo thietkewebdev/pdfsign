@@ -29,6 +29,10 @@ impl LocalStorage {
         self.root.join(key)
     }
 
+    pub fn abs_path(&self, key: &str) -> PathBuf {
+        self.abs(key)
+    }
+
     pub async fn upload(&self, key: &str, bytes: &[u8]) -> AppResult<()> {
         let path = self.abs(key);
         if let Some(parent) = path.parent() {
@@ -52,8 +56,8 @@ impl LocalStorage {
         Path::new(&self.abs(key)).exists()
     }
 
-    /// Time-limited-ish public URL for local driver (path under /api/storage/).
+    /// Local driver URL under /api/v1/storage/.
     pub fn public_file_url(&self, key: &str) -> String {
-        format!("{}/api/storage/{}", self.public_url, key)
+        format!("{}/api/v1/storage/{}", self.public_url, key)
     }
 }

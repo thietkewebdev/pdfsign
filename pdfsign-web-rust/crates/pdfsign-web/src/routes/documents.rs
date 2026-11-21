@@ -176,7 +176,7 @@ pub async fn get_one(
         .unwrap_or((1, 0));
 
     let file_url = format!(
-        "{}/api/documents/{}/file",
+        "{}/api/v1/documents/{}/file",
         state.cfg.public_url.trim_end_matches('/'),
         doc.public_id
     );

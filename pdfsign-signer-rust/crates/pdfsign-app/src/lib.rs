@@ -1,9 +1,7 @@
 //! Application layer of the PDFSign desktop signer, shared by the Tauri GUI and the CLI.
 //!
-//! Offline mode builds a [`jobs::SignJob`] from the UI. The later web mode (`pdfsignpro://`
-//! deep link + local bridge on 127.0.0.1:17886, see docs/ANALYSIS.md) plugs in through
-//! [`remote::RemoteJobSource`]: it turns a claimed cloud job into the same `SignJob`, and uploads
-//! the result. Nothing in this crate talks to the network except TSA/OCSP/CRL/AIA fetching.
+//! Offline mode builds a [`jobs::SignJob`] from the UI. Web mode uses [`remote::CloudJobSource`]
+//! (`pdfsign://v1/sign?t=<launch_jwt>` → handshake → sign → idempotent complete).
 
 pub mod jobs;
 pub mod remote;

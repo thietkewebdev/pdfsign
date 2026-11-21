@@ -1,12 +1,13 @@
+use crate::auth::AuthUser;
 use crate::crypto::{
-    deep_link, generate_claim_code, generate_id, generate_job_token, hash_claim_code, hash_job_token,
-    verify_claim_code, verify_job_token,
+    deep_link, file_download_sig, generate_id, generate_jti, issue_access_jwt, issue_launch_jwt,
+    verify_file_download_sig,
 };
 use crate::error::{AppError, AppResult};
 use crate::placement::Placement;
 use crate::services::verify_complete::{maybe_upgrade, verify_signed_pdf};
 use crate::state::AppState;
-use axum::extract::{Multipart, Path, State};
+use axum::extract::{Multipart, Path, Query, State};
 use axum::http::{HeaderMap, StatusCode};
 use axum::Json;
 use chrono::{Duration, Utc};
@@ -19,7 +20,6 @@ use sqlx::FromRow;
 pub struct CreateJobBody {
     pub document_id: String,
     pub template_id: Option<String>,
-    pub seal_image: Option<String>,
     pub placement: Value,
 }
 
@@ -28,147 +28,129 @@ struct JobRow {
     id: String,
     document_id: String,
     document_version_id: String,
-    job_token_hash: String,
-    job_token: Option<String>,
-    claim_code_hash: Option<String>,
     status: String,
     placement_json: String,
+    template_id: Option<String>,
     seal_image_key: Option<String>,
+    launch_jti: String,
+    launch_used_at: Option<chrono::DateTime<chrono::Utc>>,
+    idempotency_key: String,
+    complete_response_json: Option<String>,
     output_version_id: Option<String>,
     completed_at: Option<chrono::DateTime<chrono::Utc>>,
-    claimed_at: Option<chrono::DateTime<chrono::Utc>>,
     expires_at: chrono::DateTime<chrono::Utc>,
-}
-
-fn job_token_from(headers: &HeaderMap) -> AppResult<String> {
-    headers
-        .get("x-job-token")
-        .and_then(|v| v.to_str().ok())
-        .map(|s| s.to_string())
-        .ok_or_else(|| {
-            AppError::coded(
-                StatusCode::UNAUTHORIZED,
-                "MISSING_JOB_TOKEN",
-                "Missing x-job-token header",
-            )
-        })
 }
 
 pub async fn create(
     State(state): State<AppState>,
+    user: AuthUser,
     Json(body): Json<CreateJobBody>,
 ) -> AppResult<Json<Value>> {
     let placement = Placement::normalize(&body.placement)?;
-    let mut placement_val = placement.to_json();
-    if let Some(t) = &body.template_id {
-        if let Some(obj) = placement_val.as_object_mut() {
-            obj.insert("templateId".into(), json!(t));
-        }
-    }
-
     let doc: Option<(String, String)> = sqlx::query_as(
-        r#"SELECT id, public_id FROM documents WHERE id = $1 OR public_id = $1"#,
+        r#"SELECT id, public_id FROM documents
+           WHERE (id = $1 OR public_id = $1) AND (user_id = $2 OR user_id IS NULL)"#,
     )
     .bind(&body.document_id)
+    .bind(&user.0.id)
     .fetch_optional(&state.db)
     .await?;
-    let (doc_id, public_id) = doc.ok_or_else(|| AppError::not_found("Document not found"))?;
+    let (doc_id, _public_id) = doc.ok_or_else(|| AppError::not_found("Document not found"))?;
 
-    let ver: Option<(String, i32)> = sqlx::query_as(
-        r#"SELECT id, version FROM document_versions
-           WHERE document_id = $1 ORDER BY version DESC LIMIT 1"#,
+    let ver: Option<(String,)> = sqlx::query_as(
+        r#"SELECT id FROM document_versions WHERE document_id = $1
+           ORDER BY version DESC LIMIT 1"#,
     )
     .bind(&doc_id)
     .fetch_optional(&state.db)
     .await?;
-    let (ver_id, _) = ver.ok_or_else(|| AppError::not_found("No version found for document"))?;
+    let ver_id = ver.ok_or_else(|| AppError::not_found("No version"))?.0;
 
-    let job_token = generate_job_token();
-    let job_token_hash = hash_job_token(&job_token);
-    let claim_code = generate_claim_code();
-    let claim_code_hash = hash_claim_code(&claim_code);
     let job_id = generate_id("job_");
+    let jti = generate_jti();
+    let idem = generate_id("idem_");
     let expires_at = Utc::now() + Duration::minutes(state.cfg.job_expires_minutes);
-
-    let mut seal_image_key: Option<String> = None;
-    if body.template_id.as_deref() == Some("seal") {
-        if let Some(data_url) = &body.seal_image {
-            if let Some((meta, b64)) = data_url.split_once(',') {
-                if meta.contains("image/") {
-                    use base64::Engine;
-                    if let Ok(buf) = base64::engine::general_purpose::STANDARD.decode(b64) {
-                        if buf.len() <= 2 * 1024 * 1024 {
-                            let key = format!("documents/{public_id}/seal_{job_id}.png");
-                            state.storage.upload(&key, &buf).await?;
-                            seal_image_key = Some(key);
-                        }
-                    }
-                }
-            }
-        }
-    }
+    let api = state.cfg.api_base();
+    let launch = issue_launch_jwt(
+        &state.cfg.jwt_secret,
+        &job_id,
+        &api,
+        &jti,
+        state.cfg.launch_ttl_minutes,
+    )?;
+    let link = deep_link(&launch);
 
     sqlx::query(
         r#"INSERT INTO signing_jobs (
-             id, document_version_id, document_id, job_token_hash, job_token,
-             claim_code_hash, status, placement_json, seal_image_key, expires_at
-           ) VALUES ($1,$2,$3,$4,$5,$6,'CREATED',$7,$8,$9)"#,
+             id, document_version_id, document_id, status, placement_json, template_id,
+             launch_jti, idempotency_key, expires_at
+           ) VALUES ($1,$2,$3,'READY',$4,$5,$6,$7,$8)"#,
     )
     .bind(&job_id)
     .bind(&ver_id)
     .bind(&doc_id)
-    .bind(&job_token_hash)
-    .bind(&job_token)
-    .bind(&claim_code_hash)
-    .bind(placement_val.to_string())
-    .bind(&seal_image_key)
+    .bind(placement.to_json().to_string())
+    .bind(body.template_id.as_deref())
+    .bind(&jti)
+    .bind(&idem)
     .bind(expires_at)
     .execute(&state.db)
     .await?;
 
-    let link = deep_link(
-        &job_id,
-        &claim_code,
-        &state.cfg.public_host,
-        body.template_id.as_deref(),
-    );
-
     Ok(Json(json!({
         "jobId": job_id,
         "deepLink": link,
+        "protocol": 1,
         "placement": placement,
         "documentId": doc_id,
         "expiresAt": expires_at.to_rfc3339_opts(chrono::SecondsFormat::Millis, true),
-        // Dev helper (not in prod cloud response): claim code for CLI e2e without deep-link decode.
-        "claimCode": claim_code,
+        "idempotencyKey": idem,
     })))
 }
 
-pub async fn claim(
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HandshakeBody {
+    pub launch_token: String,
+}
+
+pub async fn handshake(
     State(state): State<AppState>,
-    Path(job_id): Path<String>,
-    Json(body): Json<Value>,
+    Json(body): Json<HandshakeBody>,
 ) -> AppResult<Json<Value>> {
-    let code = body
-        .get("code")
-        .and_then(|v| v.as_str())
-        .ok_or_else(|| {
-            AppError::coded(StatusCode::BAD_REQUEST, "INVALID_REQUEST", "Invalid request")
-        })?;
+    let claims = crate::crypto::decode_launch_jwt(&state.cfg.jwt_secret, &body.launch_token)?;
+    if claims.api.trim_end_matches('/') != state.cfg.api_base() {
+        // Allow host aliases in dev: still require same job binding via jti.
+        tracing::debug!(claim_api = %claims.api, local = %state.cfg.api_base(), "api base mismatch (allowed)");
+    }
 
     let job = sqlx::query_as::<_, JobRow>("SELECT * FROM signing_jobs WHERE id = $1")
-        .bind(&job_id)
+        .bind(&claims.job)
         .fetch_optional(&state.db)
         .await?
         .ok_or_else(|| {
             AppError::coded(StatusCode::NOT_FOUND, "JOB_NOT_FOUND", "Job not found")
         })?;
 
-    if job.status != "CREATED" {
+    if job.launch_jti != claims.jti {
+        return Err(AppError::coded(
+            StatusCode::UNAUTHORIZED,
+            "INVALID_TOKEN",
+            "Launch jti mismatch",
+        ));
+    }
+    if job.launch_used_at.is_some() {
+        return Err(AppError::coded(
+            StatusCode::CONFLICT,
+            "LAUNCH_USED",
+            "Launch token already used",
+        ));
+    }
+    if job.status != "READY" {
         return Err(AppError::coded(
             StatusCode::BAD_REQUEST,
-            "JOB_NOT_AVAILABLE",
-            "Job is not available for signing",
+            "JOB_NOT_READY",
+            "Job is not ready for signing",
         ));
     }
     if Utc::now() > job.expires_at {
@@ -178,79 +160,73 @@ pub async fn claim(
             "Job has expired",
         ));
     }
-    if job.claimed_at.is_some() {
-        return Err(AppError::coded(
-            StatusCode::CONFLICT,
-            "CLAIM_ALREADY_USED",
-            "Claim code has already been used",
-        ));
-    }
-    let Some(hash) = job.claim_code_hash.as_deref() else {
-        return Err(AppError::coded(
-            StatusCode::BAD_REQUEST,
-            "CLAIM_NOT_SUPPORTED",
-            "Job was created before claim flow",
-        ));
-    };
-    if !verify_claim_code(code, hash) {
-        return Err(AppError::coded(
-            StatusCode::UNAUTHORIZED,
-            "INVALID_CLAIM_CODE",
-            "Invalid claim code",
-        ));
-    }
-    let Some(token) = job.job_token.clone() else {
-        return Err(AppError::coded(
-            StatusCode::BAD_REQUEST,
-            "CLAIM_NOT_SUPPORTED",
-            "Job was created before claim flow",
-        ));
-    };
 
-    sqlx::query("UPDATE signing_jobs SET claimed_at = NOW() WHERE id = $1")
-        .bind(&job_id)
+    sqlx::query("UPDATE signing_jobs SET launch_used_at = NOW() WHERE id = $1 AND launch_used_at IS NULL")
+        .bind(&job.id)
         .execute(&state.db)
         .await?;
 
+    let remaining = (job.expires_at - Utc::now()).num_minutes().max(1);
+    let (access, exp) = issue_access_jwt(&state.cfg.jwt_secret, &job.id, remaining)?;
+
     Ok(Json(json!({
-        "jobToken": token,
-        "apiBaseUrl": state.cfg.public_url.trim_end_matches('/'),
+        "accessToken": access,
+        "tokenType": "Bearer",
+        "expiresAt": chrono::DateTime::from_timestamp(exp, 0)
+            .unwrap_or_else(Utc::now)
+            .to_rfc3339_opts(chrono::SecondsFormat::Millis, true),
+        "jobId": job.id,
+        "apiBase": state.cfg.api_base(),
+        "protocol": 1,
     })))
 }
 
-pub async fn get_job(
-    State(state): State<AppState>,
-    Path(job_id): Path<String>,
-    headers: HeaderMap,
-) -> AppResult<Json<Value>> {
-    let token = job_token_from(&headers)?;
+fn bearer(headers: &HeaderMap) -> AppResult<String> {
+    let raw = headers
+        .get(axum::http::header::AUTHORIZATION)
+        .and_then(|v| v.to_str().ok())
+        .ok_or_else(|| {
+            AppError::coded(StatusCode::UNAUTHORIZED, "INVALID_TOKEN", "Missing Authorization")
+        })?;
+    let token = raw
+        .strip_prefix("Bearer ")
+        .or_else(|| raw.strip_prefix("bearer "))
+        .ok_or_else(|| {
+            AppError::coded(StatusCode::UNAUTHORIZED, "INVALID_TOKEN", "Expected Bearer token")
+        })?;
+    Ok(token.to_string())
+}
+
+async fn load_job_for_access(state: &AppState, headers: &HeaderMap) -> AppResult<JobRow> {
+    let token = bearer(headers)?;
+    let claims = crate::crypto::decode_access_jwt(&state.cfg.jwt_secret, &token)?;
     let job = sqlx::query_as::<_, JobRow>("SELECT * FROM signing_jobs WHERE id = $1")
-        .bind(&job_id)
+        .bind(&claims.job)
         .fetch_optional(&state.db)
         .await?
         .ok_or_else(|| {
             AppError::coded(StatusCode::NOT_FOUND, "JOB_NOT_FOUND", "Job not found")
         })?;
-
-    if !verify_job_token(&token, &job.job_token_hash) {
-        return Err(AppError::coded(
-            StatusCode::UNAUTHORIZED,
-            "INVALID_JOB_TOKEN",
-            "Invalid token",
-        ));
-    }
-    if job.status != "CREATED" {
-        return Err(AppError::coded(
-            StatusCode::BAD_REQUEST,
-            "JOB_NOT_AVAILABLE",
-            "Job is not available for signing",
-        ));
-    }
-    if Utc::now() > job.expires_at {
+    if Utc::now() > job.expires_at && job.status == "READY" {
         return Err(AppError::coded(
             StatusCode::GONE,
             "JOB_EXPIRED",
             "Job has expired",
+        ));
+    }
+    Ok(job)
+}
+
+pub async fn signer_job(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> AppResult<Json<Value>> {
+    let job = load_job_for_access(&state, &headers).await?;
+    if job.status != "READY" {
+        return Err(AppError::coded(
+            StatusCode::BAD_REQUEST,
+            "JOB_NOT_READY",
+            "Job is not ready for signing",
         ));
     }
 
@@ -270,95 +246,100 @@ pub async fn get_job(
     let placement: Value = serde_json::from_str(&job.placement_json).unwrap_or(json!({}));
     let placement = Placement::normalize(&placement)?.to_json();
 
-    let input_pdf_url = state.storage.public_file_url(&storage_key);
+    let exp = Utc::now().timestamp() + 3600;
+    let sig = file_download_sig(&state.cfg.jwt_secret, &job.id, exp);
+    let download_url = format!(
+        "{}/api/v1/signer/file?job={}&exp={exp}&k={sig}",
+        state.cfg.api_base(),
+        job.id
+    );
     let seal_image_url = job
         .seal_image_key
         .as_ref()
         .map(|k| state.storage.public_file_url(k));
 
     Ok(Json(json!({
+        "jobId": job.id,
+        "status": "ready",
         "document": { "title": title, "publicId": public_id },
-        "inputPdfUrl": input_pdf_url,
-        "sealImageUrl": seal_image_url,
         "placement": placement,
-        "status": job.status,
+        "downloadUrl": download_url,
+        "storageKeyHint": storage_key,
+        "sealImageUrl": seal_image_url,
+        "templateId": job.template_id,
+        "idempotencyKey": job.idempotency_key,
+        "expiresAt": job.expires_at.to_rfc3339_opts(chrono::SecondsFormat::Millis, true),
     })))
 }
 
-pub async fn status(
+#[derive(Deserialize)]
+pub struct FileQuery {
+    pub job: String,
+    pub exp: i64,
+    pub k: String,
+}
+
+pub async fn signer_file(
     State(state): State<AppState>,
-    Path(job_id): Path<String>,
-) -> AppResult<Json<Value>> {
-    let job = sqlx::query_as::<_, JobRow>("SELECT * FROM signing_jobs WHERE id = $1")
-        .bind(&job_id)
-        .fetch_optional(&state.db)
-        .await?
-        .ok_or_else(|| {
-            AppError::coded(StatusCode::NOT_FOUND, "JOB_NOT_FOUND", "Job not found")
-        })?;
-
-    let mut status = job.status.clone();
-    if status == "CREATED" && Utc::now() > job.expires_at {
-        status = "EXPIRED".into();
-        let _ = sqlx::query("UPDATE signing_jobs SET status = 'EXPIRED' WHERE id = $1")
-            .bind(&job_id)
-            .execute(&state.db)
-            .await;
+    Query(q): Query<FileQuery>,
+) -> AppResult<impl axum::response::IntoResponse> {
+    if !verify_file_download_sig(&state.cfg.jwt_secret, &q.job, q.exp, &q.k) {
+        return Err(AppError::coded(
+            StatusCode::UNAUTHORIZED,
+            "INVALID_TOKEN",
+            "Invalid or expired download signature",
+        ));
     }
-
-    let mut signed_download_url = None;
-    let mut output_version = None;
-    if status == "COMPLETED" {
-        if let Some(oid) = &job.output_version_id {
-            let ov: Option<(i32, String)> =
-                sqlx::query_as("SELECT version, storage_key FROM document_versions WHERE id = $1")
-                    .bind(oid)
-                    .fetch_optional(&state.db)
-                    .await?;
-            if let Some((version, key)) = ov {
-                signed_download_url = Some(state.storage.public_file_url(&key));
-                output_version = Some(json!({ "version": version, "storageKey": key }));
-            }
-        }
-    }
-
-    Ok(Json(json!({
-        "status": status,
-        "expiresAt": job.expires_at.to_rfc3339_opts(chrono::SecondsFormat::Millis, true),
-        "completedAt": job.completed_at.map(|t| t.to_rfc3339_opts(chrono::SecondsFormat::Millis, true)),
-        "outputVersionId": job.output_version_id,
-        "outputVersion": output_version,
-        "signedDownloadUrl": signed_download_url,
-    })))
+    let key: Option<(String,)> = sqlx::query_as(
+        r#"SELECT v.storage_key FROM signing_jobs j
+           JOIN document_versions v ON v.id = j.document_version_id
+           WHERE j.id = $1"#,
+    )
+    .bind(&q.job)
+    .fetch_optional(&state.db)
+    .await?;
+    let key = key.ok_or_else(|| AppError::not_found("File not found"))?.0;
+    let bytes = state.storage.read(&key).await?;
+    Ok((
+        [(
+            axum::http::header::CONTENT_TYPE,
+            "application/pdf",
+        )],
+        bytes,
+    ))
 }
 
 pub async fn complete(
     State(state): State<AppState>,
-    Path(job_id): Path<String>,
     headers: HeaderMap,
     mut multipart: Multipart,
 ) -> AppResult<Json<Value>> {
-    let token = job_token_from(&headers)?;
-    let job = sqlx::query_as::<_, JobRow>("SELECT * FROM signing_jobs WHERE id = $1")
-        .bind(&job_id)
-        .fetch_optional(&state.db)
-        .await?
-        .ok_or_else(|| {
-            AppError::coded(StatusCode::NOT_FOUND, "JOB_NOT_FOUND", "Job not found")
-        })?;
+    let job = load_job_for_access(&state, &headers).await?;
 
-    if !verify_job_token(&token, &job.job_token_hash) {
-        return Err(AppError::coded(
-            StatusCode::UNAUTHORIZED,
-            "INVALID_JOB_TOKEN",
-            "Invalid token",
-        ));
-    }
-    if job.status != "CREATED" {
+    let idem_header = headers
+        .get("idempotency-key")
+        .or_else(|| headers.get("Idempotency-Key"))
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("");
+    if !idem_header.is_empty() && idem_header != job.idempotency_key {
         return Err(AppError::coded(
             StatusCode::BAD_REQUEST,
-            "JOB_NOT_AVAILABLE",
-            "Job is not available for signing",
+            "IDEMPOTENCY_MISMATCH",
+            "Idempotency-Key does not match job",
+        ));
+    }
+
+    if job.status == "COMPLETED" {
+        if let Some(raw) = &job.complete_response_json {
+            let v: Value = serde_json::from_str(raw).unwrap_or(json!({}));
+            return Ok(Json(v));
+        }
+    }
+    if job.status != "READY" {
+        return Err(AppError::coded(
+            StatusCode::BAD_REQUEST,
+            "JOB_NOT_READY",
+            "Job is not ready for signing",
         ));
     }
     if Utc::now() > job.expires_at {
@@ -371,62 +352,38 @@ pub async fn complete(
 
     let mut file_bytes: Option<Vec<u8>> = None;
     let mut cert_meta_raw: Option<String> = None;
-    while let Some(field) = multipart
-        .next_field()
-        .await
-        .map_err(|e| {
-            AppError::coded(
-                StatusCode::BAD_REQUEST,
-                "INVALID_MULTIPART_BODY",
-                e.to_string(),
-            )
-        })?
-    {
+    while let Some(field) = multipart.next_field().await.map_err(|e| {
+        AppError::coded(StatusCode::BAD_REQUEST, "INVALID_MULTIPART", e.to_string())
+    })? {
         let name = field.name().unwrap_or("").to_string();
         if name == "file" || name == "signedPdf" {
-            let ct = field.content_type().map(|s| s.to_string());
             let data = field.bytes().await.map_err(|e| {
-                AppError::coded(
-                    StatusCode::BAD_REQUEST,
-                    "INVALID_MULTIPART_BODY",
-                    e.to_string(),
-                )
+                AppError::coded(StatusCode::BAD_REQUEST, "INVALID_MULTIPART", e.to_string())
             })?;
-            if ct.as_deref().is_some_and(|c| c != "application/pdf") {
-                // still accept if bytes look like PDF
-            }
             if data.len() > state.cfg.max_signed_pdf_bytes {
                 return Err(AppError::coded(
                     StatusCode::PAYLOAD_TOO_LARGE,
                     "FILE_TOO_LARGE",
-                    "Signed PDF exceeds server limit (25MB)",
+                    "Signed PDF exceeds 25MB",
                 ));
             }
-            file_bytes = Some(data.to_vec());
+            file_bytes.replace(data.to_vec());
         } else if name == "certMeta" {
             cert_meta_raw = Some(field.text().await.unwrap_or_default());
         }
     }
-
     let bytes = file_bytes.ok_or_else(|| {
-        AppError::coded(
-            StatusCode::BAD_REQUEST,
-            "INVALID_MULTIPART_BODY",
-            "Missing or invalid file (signed PDF)",
-        )
+        AppError::coded(StatusCode::BAD_REQUEST, "INVALID_MULTIPART", "Missing signed PDF")
     })?;
 
     let cert_meta: Option<Value> = match cert_meta_raw.as_deref() {
-        Some(s) if !s.trim().is_empty() => {
-            let v: Value = serde_json::from_str(s).map_err(|_| {
-                AppError::coded(
-                    StatusCode::BAD_REQUEST,
-                    "INVALID_CERT_META",
-                    "certMeta must be valid JSON",
-                )
-            })?;
-            Some(v)
-        }
+        Some(s) if !s.trim().is_empty() => Some(serde_json::from_str(s).map_err(|_| {
+            AppError::coded(
+                StatusCode::BAD_REQUEST,
+                "INVALID_CERT_META",
+                "certMeta must be JSON",
+            )
+        })?),
         _ => None,
     };
 
@@ -442,21 +399,18 @@ pub async fn complete(
         .bind(&job.document_id)
         .fetch_one(&state.db)
         .await?;
-
-    let cur_ver: i32 = sqlx::query_scalar(
-        "SELECT version FROM document_versions WHERE id = $1",
-    )
-    .bind(&job.document_version_id)
-    .fetch_one(&state.db)
-    .await?;
+    let cur_ver: i32 =
+        sqlx::query_scalar("SELECT version FROM document_versions WHERE id = $1")
+            .bind(&job.document_version_id)
+            .fetch_one(&state.db)
+            .await?;
     let next_version = cur_ver + 1;
     let storage_key = format!("documents/{public_id}/v{next_version}.pdf");
     state.storage.upload(&storage_key, &pdf).await?;
-
     let out_id = generate_id("ver_");
     sqlx::query(
         r#"INSERT INTO document_versions (id, document_id, version, storage_key, storage_driver, size_bytes)
-           VALUES ($1, $2, $3, $4, 'local', $5)"#,
+           VALUES ($1,$2,$3,$4,'local',$5)"#,
     )
     .bind(&out_id)
     .bind(&job.document_id)
@@ -466,28 +420,83 @@ pub async fn complete(
     .execute(&state.db)
     .await?;
 
+    let app = state.cfg.api_base();
+    let response = json!({
+        "signedPublicUrl": format!("{app}/d/{public_id}"),
+        "signedDownloadUrl": state.storage.public_file_url(&storage_key),
+        "publicId": public_id,
+        "versionNumber": next_version,
+        "verify": verified.report_json,
+        "idempotent": false,
+    });
+
     sqlx::query(
         r#"UPDATE signing_jobs SET
              status = 'COMPLETED',
              output_version_id = $2,
              cert_meta_json = $3,
              verify_report_json = $4,
+             complete_response_json = $5,
              completed_at = NOW()
            WHERE id = $1"#,
     )
-    .bind(&job_id)
+    .bind(&job.id)
     .bind(&out_id)
     .bind(cert_meta.as_ref().map(|v| v.to_string()))
     .bind(verified.report_json.to_string())
+    .bind(response.to_string())
     .execute(&state.db)
     .await?;
 
-    let app = state.cfg.public_url.trim_end_matches('/');
+    Ok(Json(response))
+}
+
+pub async fn status(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Path(job_id): Path<String>,
+) -> AppResult<Json<Value>> {
+    let job = sqlx::query_as::<_, JobRow>(
+        r#"SELECT j.* FROM signing_jobs j
+           JOIN documents d ON d.id = j.document_id
+           WHERE j.id = $1 AND d.user_id = $2"#,
+    )
+    .bind(&job_id)
+    .bind(&user.0.id)
+    .fetch_optional(&state.db)
+    .await?
+    .ok_or_else(|| {
+        AppError::coded(StatusCode::NOT_FOUND, "JOB_NOT_FOUND", "Job not found")
+    })?;
+
+    let mut status = job.status.clone();
+    if status == "READY" && Utc::now() > job.expires_at {
+        status = "EXPIRED".into();
+        let _ = sqlx::query("UPDATE signing_jobs SET status = 'EXPIRED' WHERE id = $1")
+            .bind(&job_id)
+            .execute(&state.db)
+            .await;
+    }
+
+    let mut signed_download_url = None;
+    if status == "COMPLETED" {
+        if let Some(oid) = &job.output_version_id {
+            let key: Option<(String,)> =
+                sqlx::query_as("SELECT storage_key FROM document_versions WHERE id = $1")
+                    .bind(oid)
+                    .fetch_optional(&state.db)
+                    .await?;
+            if let Some((k,)) = key {
+                signed_download_url = Some(state.storage.public_file_url(&k));
+            }
+        }
+    }
+
     Ok(Json(json!({
-        "signedPublicUrl": format!("{app}/d/{public_id}"),
-        "signedDownloadUrl": state.storage.public_file_url(&storage_key),
-        "publicId": public_id,
-        "versionNumber": next_version,
-        "verify": verified.report_json,
+        "status": status,
+        "expiresAt": job.expires_at.to_rfc3339_opts(chrono::SecondsFormat::Millis, true),
+        "completedAt": job.completed_at.map(|t| t.to_rfc3339_opts(chrono::SecondsFormat::Millis, true)),
+        "signedDownloadUrl": signed_download_url,
+        "protocol": 1,
     })))
 }

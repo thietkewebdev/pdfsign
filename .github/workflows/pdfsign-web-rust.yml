@@ -68,10 +68,10 @@ jobs:
           WEB_DIST=web/dist ./target/release/pdfsign-web > /tmp/pdfsign-web.log 2>&1 &
           echo $! > /tmp/pdfsign-web.pid
           for i in $(seq 1 60); do
-            curl -fsS "$APP_URL/api/health" && break
+            curl -fsS "$APP_URL/api/v1/health" && break
             sleep 0.5
           done
-          curl -fsS "$APP_URL/api/health"
+          curl -fsS "$APP_URL/api/v1/health"
       - name: SoftHSM job e2e
         env:
           PDFSIGN_BIN: pdfsign-signer-rust/target/debug/pdfsign

@@ -1,6 +1,7 @@
 use anyhow::{anyhow, bail, Context, Result};
 use clap::{Args, Parser, Subcommand};
 use pdfsign_app::jobs::{run_job, OutputSpec, Placement, SignJob};
+use pdfsign_app::remote::run_remote_job;
 use pdfsign_app::settings::config_dir;
 use pdfsign_app::templates::TemplateStore;
 use pdfsign_app::verify_view::verify_file;
@@ -63,6 +64,35 @@ enum Command {
         #[arg(long)]
         json: bool,
     },
+    /// Sign a cloud job from a `pdfsign://v1/sign?t=...` deep link (protocol v1).
+    WebSign(Box<WebSignArgs>),
+}
+
+#[derive(Args)]
+struct WebSignArgs {
+    /// Deep link from the web app (`pdfsign://v1/sign?t=...`).
+    #[arg(long = "deep-link")]
+    deep_link: String,
+    #[command(flatten)]
+    token: TokenArgs,
+    #[command(flatten)]
+    pin: PinArgs,
+    #[arg(long, default_value = "0")]
+    cert: CertSelector,
+    #[arg(long, default_value = "B-B")]
+    level: PadesLevel,
+    #[arg(long)]
+    tsa: Option<String>,
+    #[arg(long, default_value = "default")]
+    template: String,
+    #[arg(long, requires = "soft_cert", conflicts_with_all = ["module", "pin_prompt", "pin_stdin"])]
+    soft_key: Option<PathBuf>,
+    #[arg(long)]
+    soft_cert: Option<PathBuf>,
+    #[arg(long)]
+    soft_chain: Option<PathBuf>,
+    #[arg(long)]
+    json: bool,
 }
 
 #[derive(Args, Clone)]
@@ -325,6 +355,52 @@ fn cmd_list_certs(token: &TokenArgs, pin: &PinArgs, as_json: bool) -> Result<()>
     Ok(())
 }
 
+fn cmd_web_sign(a: WebSignArgs) -> Result<()> {
+    let store = TemplateStore::new(&config_dir());
+    let template = store
+        .get(&a.template)
+        .ok_or_else(|| anyhow!("template {} not found", a.template))?;
+    let appearance = store.appearance(&template)?;
+    let tsa = a.tsa.as_ref().map(|u| HttpTimestamper::new(u.clone()));
+    let http = UreqHttp::default();
+
+    let mut signer: Box<dyn RawSigner> = if let Some(key) = &a.soft_key {
+        let cert = std::fs::read(
+            a.soft_cert
+                .as_ref()
+                .ok_or_else(|| anyhow!("--soft-cert required"))?,
+        )?;
+        let chain = match &a.soft_chain {
+            Some(p) => certs_from_pem_or_der(&std::fs::read(p)?)?,
+            None => Vec::new(),
+        };
+        Box::new(SoftSigner::from_pem(
+            &std::fs::read_to_string(key)?,
+            &cert,
+            chain,
+        )?)
+    } else {
+        let module = open_module(&a.token)?;
+        let pin = read_pin(&a.pin, true)?.expect("PIN required");
+        Box::new(module.signer(a.token.slot, &pin, &a.cert)?)
+    };
+
+    let url = run_remote_job(
+        &a.deep_link,
+        &appearance,
+        signer.as_mut(),
+        a.level,
+        tsa.as_ref().map(|t| t as &dyn Timestamper),
+        Some(&http),
+    )?;
+    if a.json {
+        println!("{}", serde_json::to_string_pretty(&json!({ "ok": true, "signedDownloadUrl": url }))?);
+    } else {
+        println!("OK web-sign -> {url}");
+    }
+    Ok(())
+}
+
 fn cmd_sign(a: SignArgs) -> Result<()> {
     if a.output.is_some() && a.inputs.len() > 1 {
         bail!("--out only works with one input; use --out-dir for batch signing");
@@ -541,6 +617,7 @@ fn main() -> ExitCode {
         Command::ListTokens { module, json } => cmd_list_tokens(module.as_deref(), json),
         Command::ListCerts { token, pin, json } => cmd_list_certs(&token, &pin, json),
         Command::Sign(args) => cmd_sign(*args),
+        Command::WebSign(args) => cmd_web_sign(*args),
         Command::Templates { json } => cmd_templates(json),
         Command::Verify { file, trust, json } => match cmd_verify(&file, &trust, json) {
             Ok(true) => Ok(()),

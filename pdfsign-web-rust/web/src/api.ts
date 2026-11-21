@@ -6,7 +6,7 @@ export async function api<T = unknown>(
   if (init.body && !(init.body instanceof FormData) && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
-  const res = await fetch(`/api${path}`, {
+  const res = await fetch(`/api/v1${path}`, {
     ...init,
     headers,
     credentials: "include",
