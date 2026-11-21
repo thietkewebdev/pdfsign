@@ -1,0 +1,113 @@
+name: pdfsign-signer-rust
+
+on:
+  push:
+    paths:
+      - "pdfsign-signer-rust/**"
+      - ".github/workflows/pdfsign-signer-rust.yml"
+  pull_request:
+    paths:
+      - "pdfsign-signer-rust/**"
+      - ".github/workflows/pdfsign-signer-rust.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: pdfsign-signer-rust-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: pdfsign-signer-rust
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            pdfsign-signer-rust
+            pdfsign-signer-rust/apps/pdfsign-gui
+      - run: cargo test --workspace --locked
+      - run: cargo build --release --locked -p pdfsign-cli
+      - run: ./target/release/pdfsign.exe --version
+      - run: ./target/release/pdfsign.exe list-tokens
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Build Windows installers (NSIS + MSI)
+        working-directory: pdfsign-signer-rust/apps/pdfsign-gui
+        run: npx --yes @tauri-apps/cli@2 build --bundles nsis,msi
+      - name: List installers
+        shell: bash
+        working-directory: pdfsign-signer-rust/apps/pdfsign-gui/target/release/bundle
+        run: ls -la nsis msi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pdfsign-windows-installers
+          path: |
+            pdfsign-signer-rust/apps/pdfsign-gui/target/release/bundle/nsis/*.exe
+            pdfsign-signer-rust/apps/pdfsign-gui/target/release/bundle/msi/*.msi
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pdfsign-windows-x64
+          path: |
+            pdfsign-signer-rust/target/release/pdfsign.exe
+            pdfsign-signer-rust/apps/pdfsign-gui/target/release/PDFSign.exe
+          if-no-files-found: error
+
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: pdfsign-signer-rust
+      - name: Install SoftHSM2, OpenSC, poppler, qpdf, pyHanko
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y softhsm2 opensc poppler-utils qpdf
+          pipx install pyhanko-cli
+          pipx inject pyhanko-cli 'pyHanko[pkcs11,opentype]'
+          python3 -m venv /tmp/ltv && /tmp/ltv/bin/pip install -q 'pyHanko==0.29.0'
+      - run: cargo fmt --all --check
+      - run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      - name: Start local PKI services (TSA, OCSP, CRL, AIA)
+        run: |
+          python3 scripts/pki_services.py > /tmp/pki.log 2>&1 &
+          for i in $(seq 1 30); do curl -s -m 1 -o /dev/null http://127.0.0.1:18080/ca.crl && break; sleep 0.5; done
+      - run: PDFSIGN_PKI_SERVICES=1 cargo test --workspace --locked
+      - run: cargo build --release --locked -p pdfsign-cli
+      - name: SoftHSM2 end-to-end (single, batch, multi, B-T, B-LT, B-LTA; pyHanko + pdfsig)
+        run: LTV_PYTHON=/tmp/ltv/bin/python PDFSIGN_BIN="$PWD/target/release/pdfsign" ./scripts/e2e-softhsm.sh target/e2e
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pdfsign-linux-x64
+          path: pdfsign-signer-rust/target/release/pdfsign
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-results-linux
+          path: pdfsign-signer-rust/target/e2e
+
+  # Kept because it is cheap: CLI build + unit tests only (Windows is the release target).
+  macos-cli:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: pdfsign-signer-rust
+      - run: cargo test --workspace --locked
+      - run: cargo build --release --locked -p pdfsign-cli

@@ -1,0 +1,81 @@
+name: pdfsign-web-rust
+
+on:
+  push:
+    paths:
+      - "pdfsign-web-rust/**"
+      - "pdfsign-signer-rust/crates/pdfsign-core/**"
+      - ".github/workflows/pdfsign-web-rust.yml"
+  pull_request:
+    paths:
+      - "pdfsign-web-rust/**"
+      - "pdfsign-signer-rust/crates/pdfsign-core/**"
+      - ".github/workflows/pdfsign-web-rust.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: pdfsign-web-rust-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  DATABASE_URL: postgres://pdfsign:pdfsign@127.0.0.1:5432/pdfsign
+  APP_URL: http://127.0.0.1:8080
+  APP_PUBLIC_HOST: localhost
+  STORAGE_DIR: /tmp/pdfsign-web-storage
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: pdfsign
+          POSTGRES_PASSWORD: pdfsign
+          POSTGRES_DB: pdfsign
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U pdfsign -d pdfsign"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: pdfsign-web-rust
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install SoftHSM2 + OpenSC
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y softhsm2 opensc
+      - name: Build UI
+        working-directory: pdfsign-web-rust/web
+        run: npm install && npm run build
+      - name: Build API + CLI
+        run: |
+          cargo build --release -p pdfsign-web --manifest-path pdfsign-web-rust/Cargo.toml
+          cargo build -p pdfsign-cli --manifest-path pdfsign-signer-rust/Cargo.toml
+      - name: Start server
+        working-directory: pdfsign-web-rust
+        run: |
+          mkdir -p "$STORAGE_DIR"
+          WEB_DIST=web/dist ./target/release/pdfsign-web > /tmp/pdfsign-web.log 2>&1 &
+          echo $! > /tmp/pdfsign-web.pid
+          for i in $(seq 1 60); do
+            curl -fsS "$APP_URL/api/v1/health" && break
+            sleep 0.5
+          done
+          curl -fsS "$APP_URL/api/v1/health"
+      - name: SoftHSM job e2e
+        env:
+          PDFSIGN_BIN: pdfsign-signer-rust/target/debug/pdfsign
+        run: bash pdfsign-web-rust/scripts/e2e-web-job.sh
+      - name: Dump server log on failure
+        if: failure()
+        run: tail -n 200 /tmp/pdfsign-web.log || true

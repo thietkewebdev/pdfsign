@@ -1,0 +1,24 @@
+[Unit]
+Description=PDFSign Web (Axum + React)
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=pdfsign
+Group=pdfsign
+WorkingDirectory=/opt/pdfsign
+EnvironmentFile=-/etc/pdfsign/pdfsign-web.env
+ExecStart=/opt/pdfsign/bin/pdfsign-web
+Restart=on-failure
+RestartSec=3
+LimitNOFILE=65535
+
+# Hardening (adjust as needed)
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/opt/pdfsign/storage /var/log/pdfsign
+
+[Install]
+WantedBy=multi-user.target

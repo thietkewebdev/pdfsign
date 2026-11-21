@@ -1,0 +1,8 @@
+/target/
+/storage/
+/web/node_modules/
+/web/dist/
+/web/screenshot.mjs
+.env
+*.log
+migration-export/
