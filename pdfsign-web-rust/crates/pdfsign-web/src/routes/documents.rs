@@ -1,7 +1,7 @@
-use crate::auth::{AuthUser, OptionalUser};
+use crate::auth::{user_from_jar, AuthUser, OptionalUser};
 use crate::crypto::{generate_id, generate_public_id};
 use crate::error::{AppError, AppResult};
-use crate::guest::{assert_under_limit, ensure_guest, GUEST_FREE_LIMIT};
+use crate::guest::{assert_under_limit, ensure_guest, guest_from_jar, GUEST_FREE_LIMIT};
 use crate::plans::{assert_can_sign, expires_from_now, retention_label};
 use crate::state::AppState;
 use axum::extract::{Multipart, Path, State};
@@ -12,6 +12,17 @@ use axum_extra::extract::cookie::CookieJar;
 use chrono::Utc;
 use serde_json::{json, Value};
 use sqlx::FromRow;
+
+/// Map internal document status (+ version) to short Vietnamese label.
+pub fn document_status_label(status: &str, version: i32) -> &'static str {
+    match status {
+        "EXPIRED" | "PURGED" => "Đã xóa",
+        "ACTIVE" if version > 1 => "Đã ký",
+        "ACTIVE" => "Chờ ký",
+        "SIGNED" => "Đã ký",
+        _ => "Chờ ký",
+    }
+}
 
 #[derive(FromRow)]
 struct DocListRow {
@@ -55,13 +66,15 @@ pub async fn list(State(state): State<AppState>, user: AuthUser) -> AppResult<Js
     let docs: Vec<Value> = rows
         .into_iter()
         .map(|r| {
+            let version = r.version.unwrap_or(1);
             let mut v = json!({
                 "id": r.id,
                 "publicId": r.public_id,
                 "title": r.title,
                 "status": r.status,
+                "statusLabel": document_status_label(&r.status, version),
                 "createdAt": r.created_at,
-                "version": r.version.unwrap_or(1),
+                "version": version,
             });
             if let Value::Object(ref mut map) = v {
                 if let Value::Object(extra) = expiry_fields(&state, r.expires_at) {
@@ -253,6 +266,7 @@ pub async fn get_one(
         "publicId": doc.public_id,
         "title": doc.title,
         "status": doc.status,
+        "statusLabel": document_status_label(&doc.status, version),
         "createdAt": doc.created_at,
         "version": version,
         "sizeBytes": size,
@@ -268,15 +282,17 @@ pub async fn get_one(
 
 pub async fn file(
     State(state): State<AppState>,
+    jar: CookieJar,
     Path(public_id): Path<String>,
 ) -> AppResult<impl IntoResponse> {
-    let doc: Option<(String, String)> = sqlx::query_as(
-        r#"SELECT id, status FROM documents WHERE public_id = $1 OR id = $1"#,
+    let doc: Option<(String, String, Option<String>, Option<String>)> = sqlx::query_as(
+        r#"SELECT id, status, user_id, guest_id FROM documents WHERE public_id = $1 OR id = $1"#,
     )
     .bind(&public_id)
     .fetch_optional(&state.db)
     .await?;
-    let (doc_id, status) = doc.ok_or_else(|| AppError::not_found("Document not found"))?;
+    let (doc_id, status, owner_id, guest_id) =
+        doc.ok_or_else(|| AppError::not_found("Document not found"))?;
     if status == "EXPIRED" || status == "PURGED" {
         return Err(AppError::coded(
             StatusCode::GONE,
@@ -284,6 +300,27 @@ pub async fn file(
             "File đã hết hạn lưu và bị xóa tự động",
         ));
     }
+
+    let mut allowed = false;
+    if let Some(u) = user_from_jar(&state, &jar).await? {
+        if owner_id.as_deref() == Some(u.id.as_str()) {
+            allowed = true;
+        } else {
+            return Err(AppError::not_found("Document not found"));
+        }
+    } else if let Some(g) = guest_from_jar(&state, &jar).await? {
+        if guest_id.as_deref() == Some(g.id.as_str()) {
+            allowed = true;
+        }
+    }
+    if !allowed {
+        return Err(AppError::coded(
+            StatusCode::FORBIDDEN,
+            "FORBIDDEN",
+            "Không có quyền tải file này",
+        ));
+    }
+
     let key: Option<(String,)> = sqlx::query_as(
         r#"SELECT storage_key FROM document_versions
            WHERE document_id = $1 ORDER BY version DESC LIMIT 1"#,

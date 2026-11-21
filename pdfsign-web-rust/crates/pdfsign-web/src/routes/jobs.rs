@@ -288,10 +288,11 @@ pub async fn signer_job(
         state.cfg.api_base(),
         job.id
     );
-    let seal_image_url = job
-        .seal_image_key
-        .as_ref()
-        .map(|k| state.storage.public_file_url(k));
+    let seal_image_url = job.seal_image_key.as_ref().map(|k| {
+        state
+            .storage
+            .signed_file_url(&state.cfg.jwt_secret, k, 3600)
+    });
 
     Ok(Json(json!({
         "jobId": job.id,
@@ -458,7 +459,11 @@ pub async fn complete(
     let app = state.cfg.api_base();
     let response = json!({
         "signedPublicUrl": format!("{app}/d/{public_id}"),
-        "signedDownloadUrl": state.storage.public_file_url(&storage_key),
+        "signedDownloadUrl": state.storage.signed_file_url(
+            &state.cfg.jwt_secret,
+            &storage_key,
+            3600,
+        ),
         "publicId": public_id,
         "versionNumber": next_version,
         "verify": verified.report_json,
@@ -560,7 +565,11 @@ pub async fn status(
                     .fetch_optional(&state.db)
                     .await?;
             if let Some((k,)) = key {
-                signed_download_url = Some(state.storage.public_file_url(&k));
+                signed_download_url = Some(state.storage.signed_file_url(
+                    &state.cfg.jwt_secret,
+                    &k,
+                    3600,
+                ));
             }
         }
     }

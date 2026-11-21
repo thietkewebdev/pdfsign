@@ -75,11 +75,21 @@ export type Doc = {
   createdAt?: string;
   fileUrl?: string;
   status?: string;
+  statusLabel?: string;
   expiresAt?: string | null;
   retentionHours?: number;
   retentionLabel?: string;
   remainingSeconds?: number | null;
 };
+
+/** Fallback when API has no statusLabel yet. */
+export function documentStatusLabel(status?: string, version?: number): string {
+  const s = (status || "ACTIVE").toUpperCase();
+  if (s === "EXPIRED" || s === "PURGED") return "Đã xóa";
+  if (s === "SIGNED" || (s === "ACTIVE" && (version || 1) > 1)) return "Đã ký";
+  if (s === "ACTIVE") return "Chờ ký";
+  return "Chờ ký";
+}
 
 export function formatRemaining(secs?: number | null): string {
   if (secs == null) return "";

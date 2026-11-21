@@ -56,8 +56,18 @@ impl LocalStorage {
         Path::new(&self.abs(key)).exists()
     }
 
-    /// Local driver URL under /api/v1/storage/.
+    /// Unsigned local path (do not expose publicly without auth). Prefer `signed_file_url`.
     pub fn public_file_url(&self, key: &str) -> String {
         format!("{}/api/v1/storage/{}", self.public_url, key)
+    }
+
+    /// Short-lived HMAC-signed download URL under `/api/v1/storage/{key}?exp=&k=`.
+    pub fn signed_file_url(&self, secret: &str, key: &str, ttl_secs: i64) -> String {
+        use crate::crypto::storage_download_sig;
+        use chrono::Utc;
+        let exp = Utc::now().timestamp() + ttl_secs;
+        let k = storage_download_sig(secret, key, exp);
+        let base = self.public_file_url(key);
+        format!("{base}?exp={exp}&k={k}")
     }
 }

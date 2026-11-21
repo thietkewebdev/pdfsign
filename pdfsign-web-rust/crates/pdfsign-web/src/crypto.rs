@@ -153,7 +153,7 @@ pub fn deep_link(launch_jwt: &str) -> String {
     format!("pdfsign://v1/sign?t={launch_jwt}")
 }
 
-/// Short-lived HMAC for file download query (?k=&exp=).
+/// Short-lived HMAC for signer file download query (?k=&exp=).
 pub fn file_download_sig(secret: &str, job_id: &str, exp: i64) -> String {
     use sha2::Sha256;
     let mut mac = Sha256::new();
@@ -170,4 +170,25 @@ pub fn verify_file_download_sig(secret: &str, job_id: &str, exp: i64, sig: &str)
         return false;
     }
     file_download_sig(secret, job_id, exp) == sig
+}
+
+/// Short-lived HMAC for `/api/v1/storage/{key}?exp=&k=` downloads.
+pub fn storage_download_sig(secret: &str, storage_key: &str, exp: i64) -> String {
+    use sha2::Sha256;
+    let mut mac = Sha256::new();
+    mac.update(secret.as_bytes());
+    mac.update(b"|storage|");
+    mac.update(storage_key.as_bytes());
+    mac.update(b"|");
+    mac.update(exp.to_string().as_bytes());
+    hex::encode(mac.finalize())
+}
+
+pub fn verify_storage_download_sig(secret: &str, storage_key: &str, exp: i64, sig: &str) -> bool {
+    if Utc::now().timestamp() > exp {
+        return false;
+    }
+    // Constant-time-ish compare
+    let expected = storage_download_sig(secret, storage_key, exp);
+    expected.len() == sig.len() && expected.as_bytes().iter().zip(sig.as_bytes()).all(|(a, b)| a == b)
 }

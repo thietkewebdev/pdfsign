@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { api, Doc, formatRemaining } from "../api";
+import { api, Doc, documentStatusLabel, formatRemaining } from "../api";
 import { useToast } from "../toast";
 
 export default function DocumentsPage() {
@@ -171,7 +171,13 @@ export default function DocumentsPage() {
                   <tr key={d.id}>
                     <td>{d.title || d.publicId}</td>
                     <td>
-                      <span className="badge badge-ok">{d.status || "ACTIVE"}</span>
+                      <span
+                        className={`badge ${
+                          (d.version || 1) > 1 ? "badge-ok" : "badge-warn"
+                        }`}
+                      >
+                        {d.statusLabel || documentStatusLabel(d.status, d.version)}
+                      </span>
                     </td>
                     <td>v{d.version}</td>
                     <td className="muted">
