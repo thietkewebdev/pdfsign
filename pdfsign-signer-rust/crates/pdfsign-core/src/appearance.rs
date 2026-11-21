@@ -494,9 +494,20 @@ pub fn build_appearance(
         }
     }
     let leading = size * LINE_HEIGHT;
+    // Keep only as many lines as fit in the text area (avoids overlapping / clipping).
+    let max_lines = ((th / leading).floor() as usize).max(1);
+    if wrapped.len() > max_lines {
+        wrapped.truncate(max_lines);
+    }
     let block_h = wrapped.len() as f64 * leading;
-    let mut y = (ty + size * 0.2).max(ty + (th + block_h) / 2.0 - size);
+    // PDF y grows upward: first baseline near the top of text_area, centered as a block.
+    let top_pad = ((th - block_h) / 2.0).max(0.0);
+    let mut y = ty + th - top_pad - size * 0.8;
+    let min_y = ty + size * 0.15;
     for (i, text) in wrapped {
+        if y < min_y {
+            break;
+        }
         let x = match tpl.align {
             TextAlign::Left => tx,
             TextAlign::Center => tx + ((tw - font.width(&text, size)) / 2.0).max(0.0),
