@@ -1,0 +1,18 @@
+[package]
+name = "pdfsign-token"
+description = "PKCS#11 token access (Vietnamese CA USB tokens) for the PDFSign signer"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+pdfsign-core.workspace = true
+cryptoki.workspace = true
+libloading.workspace = true
+thiserror.workspace = true
+serde.workspace = true
+chrono.workspace = true
+hex.workspace = true
+secrecy.workspace = true

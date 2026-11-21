@@ -1,0 +1,39 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: pdfsign
+      POSTGRES_PASSWORD: pdfsign
+      POSTGRES_DB: pdfsign
+    ports:
+      - "5432:5432"
+    volumes:
+      - pdfsign_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pdfsign -d pdfsign"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  web:
+    build:
+      context: ..
+      dockerfile: pdfsign-web-rust/Dockerfile
+    environment:
+      DATABASE_URL: postgres://pdfsign:pdfsign@db:5432/pdfsign
+      APP_URL: http://localhost:8080
+      APP_PUBLIC_HOST: localhost
+      LISTEN: 0.0.0.0:8080
+      STORAGE_DIR: /data/storage
+      WEB_DIST: /app/web/dist
+    ports:
+      - "8080:8080"
+    volumes:
+      - pdfsign_storage:/data/storage
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pdfsign_pg:
+  pdfsign_storage:
