@@ -1,29 +1,29 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
 import { api } from "../api";
+import { useToast } from "../toast";
 
 type JobState = {
   jobId: string;
   deepLink: string;
-  claimCode?: string;
   expiresAt?: string;
 };
+
+const OPEN = new Set(["READY", "CREATED", "IN_PROGRESS"]);
 
 export default function JobPage() {
   const { jobId = "" } = useParams();
   const loc = useLocation();
   const initial = (loc.state || {}) as JobState;
   const [deepLink, setDeepLink] = useState(initial.deepLink || "");
-  const [status, setStatus] = useState("CREATED");
+  const [status, setStatus] = useState("READY");
   const [download, setDownload] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const toast = useToast();
 
   useEffect(() => {
-    if (!deepLink && jobId) {
-      // Status endpoint is public; deep link only known at create time.
-      setDeepLink(`pdfsignpro://sign?p=`);
-    }
-  }, [deepLink, jobId]);
+    if (initial.deepLink) setDeepLink(initial.deepLink);
+  }, [initial.deepLink]);
 
   useEffect(() => {
     let stop = false;
@@ -36,7 +36,7 @@ export default function JobPage() {
         if (stop) return;
         setStatus(s.status);
         if (s.signedDownloadUrl) setDownload(s.signedDownloadUrl);
-        if (s.status === "CREATED") setTimeout(tick, 2000);
+        if (OPEN.has(s.status)) setTimeout(tick, 2000);
       } catch (e) {
         if (!stop) setError(e instanceof Error ? e.message : "Lỗi");
       }
@@ -47,26 +47,36 @@ export default function JobPage() {
     };
   }, [jobId]);
 
+  const badge =
+    status === "COMPLETED" ? "badge-ok" : status === "EXPIRED" ? "badge-bad" : "badge-warn";
+
+  const statusLabel: Record<string, string> = {
+    READY: "Sẵn sàng",
+    CREATED: "Đã tạo",
+    IN_PROGRESS: "Đang ký",
+    COMPLETED: "Hoàn tất",
+    EXPIRED: "Hết hạn",
+  };
+
   return (
     <div>
-      <h1 className="page-title">Phiên ký</h1>
-      <p className="page-sub">{jobId}</p>
-      {error && <div className="error">{error}</div>}
-      <div className="card" style={{ maxWidth: 640 }}>
-        <p>
-          Trạng thái:{" "}
-          <span
-            className={
-              "badge " +
-              (status === "COMPLETED" ? "badge-ok" : status === "EXPIRED" ? "badge-bad" : "badge-warn")
-            }
-          >
-            {status}
-          </span>
-        </p>
-        {deepLink && deepLink !== "pdfsignpro://sign?p=" && (
+      <div className="page-head">
+        <h1 className="h1">Phiên ký</h1>
+      </div>
+      {error && <div className="error" role="alert">{error}</div>}
+
+      <div className="card card-pad" style={{ maxWidth: 640 }}>
+        <div className="panel-title">
+          <span className="muted">Trạng thái</span>
+          <span className={`badge ${badge}`}>{statusLabel[status] || status}</span>
+        </div>
+
+        <div className="tiny" style={{ marginBottom: 16 }}>
+          {jobId}
+        </div>
+
+        {deepLink && (
           <>
-            <p className="muted">Deep link</p>
             <div className="code">{deepLink}</div>
             <div className="toolbar" style={{ marginTop: 14 }}>
               <a className="btn btn-primary" href={deepLink}>
@@ -74,13 +84,22 @@ export default function JobPage() {
               </a>
               <button
                 className="btn btn-ghost"
-                onClick={() => navigator.clipboard.writeText(deepLink)}
+                type="button"
+                onClick={() => {
+                  void navigator.clipboard.writeText(deepLink);
+                  toast.push("Đã sao chép", "ok");
+                }}
               >
                 Sao chép link
               </button>
             </div>
           </>
         )}
+
+        {!deepLink && OPEN.has(status) && (
+          <p className="muted">Mở lại từ trang đặt chữ ký để lấy link ký.</p>
+        )}
+
         {download && (
           <p style={{ marginTop: 16 }}>
             <a className="btn btn-primary" href={download}>
@@ -88,7 +107,17 @@ export default function JobPage() {
             </a>
           </p>
         )}
-        <p style={{ marginTop: 18 }}>
+
+        {OPEN.has(status) && (
+          <div style={{ marginTop: 16 }}>
+            <div className="skeleton" style={{ height: 8, width: "100%" }} />
+            <div className="tiny" style={{ marginTop: 8 }}>
+              Đang chờ app ký…
+            </div>
+          </div>
+        )}
+
+        <p style={{ marginTop: 18, marginBottom: 0 }}>
           <Link to="/documents">Về danh sách</Link>
         </p>
       </div>

@@ -1,11 +1,11 @@
 import { FormEvent, useState } from "react";
+import { Link } from "react-router-dom";
 import { api, User } from "../api";
+import { BrandLockup } from "../components/Brand";
 
 export default function LoginPage({ onAuth }: { onAuth: (u: User) => void }) {
-  const [mode, setMode] = useState<"login" | "register">("login");
-  const [email, setEmail] = useState("demo@pdfsign.local");
-  const [password, setPassword] = useState("demo-demo-1");
-  const [name, setName] = useState("Demo");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -14,12 +14,10 @@ export default function LoginPage({ onAuth }: { onAuth: (u: User) => void }) {
     setBusy(true);
     setError("");
     try {
-      const path = mode === "login" ? "/auth/login" : "/auth/register";
-      const body =
-        mode === "login"
-          ? { email, password }
-          : { email, password, name };
-      const u = await api<User>(path, { method: "POST", body: JSON.stringify(body) });
+      const u = await api<User>("/auth/login", {
+        method: "POST",
+        body: JSON.stringify({ email, password }),
+      });
       onAuth(u);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Lỗi");
@@ -31,55 +29,37 @@ export default function LoginPage({ onAuth }: { onAuth: (u: User) => void }) {
   return (
     <div className="auth-wrap">
       <form className="card auth-card" onSubmit={submit}>
-        <div className="brand" style={{ paddingLeft: 0 }}>
-          <div className="brand-mark">✓</div>
-          <div>
-            <strong style={{ color: "var(--ink)" }}>PDFSign</strong>
-            <span>Ký số PDF</span>
-          </div>
-        </div>
-        <h1>{mode === "login" ? "Đăng nhập" : "Tạo tài khoản"}</h1>
-        <p>Email và mật khẩu</p>
-        {mode === "register" && (
-          <div className="field">
-            <label>Tên</label>
-            <input value={name} onChange={(e) => setName(e.target.value)} />
-          </div>
-        )}
+        <BrandLockup />
+        <h1>Đăng nhập</h1>
         <div className="field">
-          <label>Email</label>
-          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-        </div>
-        <div className="field">
-          <label>Mật khẩu</label>
+          <label htmlFor="login-email">Email</label>
           <input
+            id="login-email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            autoComplete="email"
+          />
+        </div>
+        <div className="field">
+          <label htmlFor="login-pass">Mật khẩu</label>
+          <input
+            id="login-pass"
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
             minLength={8}
+            autoComplete="current-password"
           />
         </div>
-        {error && <div className="error">{error}</div>}
-        <button className="btn btn-primary" style={{ width: "100%" }} disabled={busy}>
-          {busy ? "…" : mode === "login" ? "Đăng nhập" : "Đăng ký"}
+        {error && <div className="error" role="alert">{error}</div>}
+        <button type="submit" className="btn btn-primary" style={{ width: "100%" }} disabled={busy}>
+          {busy ? "…" : "Đăng nhập"}
         </button>
-        <p className="muted" style={{ marginTop: 14 }}>
-          {mode === "login" ? (
-            <>
-              Chưa có tài khoản?{" "}
-              <a href="#" onClick={(e) => { e.preventDefault(); setMode("register"); }}>
-                Đăng ký
-              </a>
-            </>
-          ) : (
-            <>
-              Đã có tài khoản?{" "}
-              <a href="#" onClick={(e) => { e.preventDefault(); setMode("login"); }}>
-                Đăng nhập
-              </a>
-            </>
-          )}
+        <p className="muted" style={{ marginTop: 14, marginBottom: 0 }}>
+          Chưa có tài khoản? <Link to="/register">Đăng ký</Link>
         </p>
       </form>
     </div>

@@ -7,9 +7,23 @@ pub mod uploads;
 pub mod verify;
 
 use crate::state::AppState;
+use axum::response::IntoResponse;
 use axum::routing::{get, post, put};
 use axum::Router;
 use tower_http::services::{ServeDir, ServeFile};
+
+async fn spa_index() -> impl IntoResponse {
+    let static_dir = std::env::var("WEB_DIST").unwrap_or_else(|_| "web/dist".into());
+    let index = format!("{static_dir}/index.html");
+    match tokio::fs::read(&index).await {
+        Ok(bytes) => (
+            [(axum::http::header::CONTENT_TYPE, "text/html; charset=utf-8")],
+            bytes,
+        )
+            .into_response(),
+        Err(_) => axum::http::StatusCode::NOT_FOUND.into_response(),
+    }
+}
 
 pub fn router(state: AppState) -> Router {
     let v1 = Router::new()
@@ -40,6 +54,11 @@ pub fn router(state: AppState) -> Router {
         .nest("/api/v1", v1)
         // Compat alias for older local scripts during transition
         .route("/api/health", get(health::health))
-        .fallback_service(ServeDir::new(&static_dir).not_found_service(ServeFile::new(index)))
+        .nest_service(
+            "/assets",
+            ServeDir::new(format!("{static_dir}/assets")),
+        )
+        .route_service("/", ServeFile::new(index.clone()))
+        .fallback(get(spa_index))
         .with_state(state)
 }
