@@ -1,5 +1,6 @@
 pub mod auth;
 pub mod documents;
+pub mod guest;
 pub mod health;
 pub mod jobs;
 pub mod storage;
@@ -32,6 +33,7 @@ pub fn router(state: AppState) -> Router {
         .route("/auth/login", post(auth::login))
         .route("/auth/logout", post(auth::logout))
         .route("/auth/me", get(auth::me))
+        .route("/guest/quota", get(guest::quota))
         .route("/documents", get(documents::list).post(documents::upload))
         .route("/documents/{public_id}", get(documents::get_one))
         .route("/documents/{public_id}/file", get(documents::file))

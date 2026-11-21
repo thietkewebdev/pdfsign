@@ -1,0 +1,33 @@
+[
+ {
+  "shape": "Split Studio",
+  "theme": "coral",
+  "axes": "light/grotesk-sans/warm",
+  "hero": "Settled",
+  "nav": "floating pill",
+  "footer": "statement",
+  "imagery": "built product",
+  "photos": [],
+  "entry": "pdfsign home guest",
+  "fingerprint": "2976c8",
+  "sections": [
+   "hero",
+   "trust",
+   "steps",
+   "features",
+   "download",
+   "pricing",
+   "faq",
+   "footer"
+  ],
+  "signature": "hero upload + product mock",
+  "waived": [
+   "steps-included",
+   "be-vietnam-pro",
+   "brand-crimson"
+  ],
+  "prompt": "PDFSign landing guest sign",
+  "date": "2026-11-21",
+  "mode": "build"
+ }
+]

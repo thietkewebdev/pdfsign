@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import * as pdfjs from "pdfjs-dist";
 import pdfWorker from "pdfjs-dist/build/pdf.worker.min.mjs?url";
-import { api, Doc } from "../api";
+import { api, ApiError, Doc } from "../api";
 import { useToast } from "../toast";
 
 pdfjs.GlobalWorkerOptions.workerSrc = pdfWorker;
@@ -135,6 +135,9 @@ export default function PlaceBoxPage() {
       const msg = e instanceof Error ? e.message : "Lỗi tạo job";
       setError(msg);
       toast.push(msg, "err");
+      if (e instanceof ApiError && e.code === "GUEST_LIMIT_REACHED") {
+        window.location.href = "/register";
+      }
     } finally {
       setBusy(false);
     }

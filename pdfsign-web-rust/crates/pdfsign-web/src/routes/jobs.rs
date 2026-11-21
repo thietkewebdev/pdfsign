@@ -1,15 +1,19 @@
-use crate::auth::AuthUser;
+use crate::auth::OptionalUser;
 use crate::crypto::{
     deep_link, file_download_sig, generate_id, generate_jti, issue_access_jwt, issue_launch_jwt,
     verify_file_download_sig,
 };
 use crate::error::{AppError, AppResult};
+use crate::guest::{
+    assert_under_limit, ensure_guest, guest_from_jar, record_completion, GUEST_FREE_LIMIT,
+};
 use crate::placement::Placement;
 use crate::services::verify_complete::{maybe_upgrade, verify_signed_pdf};
 use crate::state::AppState;
 use axum::extract::{Multipart, Path, Query, State};
 use axum::http::{HeaderMap, StatusCode};
 use axum::Json;
+use axum_extra::extract::cookie::CookieJar;
 use chrono::{Duration, Utc};
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -43,19 +47,42 @@ struct JobRow {
 
 pub async fn create(
     State(state): State<AppState>,
-    user: AuthUser,
+    user: OptionalUser,
+    jar: CookieJar,
+    headers: HeaderMap,
     Json(body): Json<CreateJobBody>,
-) -> AppResult<Json<Value>> {
+) -> AppResult<(CookieJar, Json<Value>)> {
     let placement = Placement::normalize(&body.placement)?;
-    let doc: Option<(String, String)> = sqlx::query_as(
-        r#"SELECT id, public_id FROM documents
-           WHERE (id = $1 OR public_id = $1) AND (user_id = $2 OR user_id IS NULL)"#,
-    )
-    .bind(&body.document_id)
-    .bind(&user.0.id)
-    .fetch_optional(&state.db)
-    .await?;
-    let (doc_id, _public_id) = doc.ok_or_else(|| AppError::not_found("Document not found"))?;
+    let mut jar = jar;
+    let mut guest_remaining = None;
+
+    let doc: Option<(String, String, Option<String>, Option<String>)> = if let Some(u) = &user.0 {
+        sqlx::query_as(
+            r#"SELECT id, public_id, user_id, guest_id FROM documents
+               WHERE (id = $1 OR public_id = $1)
+                 AND (user_id = $2 OR user_id IS NULL)"#,
+        )
+        .bind(&body.document_id)
+        .bind(&u.id)
+        .fetch_optional(&state.db)
+        .await?
+    } else {
+        let (j, guest) = ensure_guest(&state, jar, &headers).await?;
+        jar = j;
+        let used = assert_under_limit(&state, &guest, &headers).await?;
+        guest_remaining = Some(GUEST_FREE_LIMIT - used);
+        sqlx::query_as(
+            r#"SELECT id, public_id, user_id, guest_id FROM documents
+               WHERE (id = $1 OR public_id = $1)
+                 AND (guest_id = $2 OR (user_id IS NULL AND guest_id IS NULL))"#,
+        )
+        .bind(&body.document_id)
+        .bind(&guest.id)
+        .fetch_optional(&state.db)
+        .await?
+    };
+    let (doc_id, _public_id, _uid, _gid) =
+        doc.ok_or_else(|| AppError::not_found("Document not found"))?;
 
     let ver: Option<(String,)> = sqlx::query_as(
         r#"SELECT id FROM document_versions WHERE document_id = $1
@@ -97,15 +124,20 @@ pub async fn create(
     .execute(&state.db)
     .await?;
 
-    Ok(Json(json!({
-        "jobId": job_id,
-        "deepLink": link,
-        "protocol": 1,
-        "placement": placement,
-        "documentId": doc_id,
-        "expiresAt": expires_at.to_rfc3339_opts(chrono::SecondsFormat::Millis, true),
-        "idempotencyKey": idem,
-    })))
+    Ok((
+        jar,
+        Json(json!({
+            "jobId": job_id,
+            "deepLink": link,
+            "protocol": 1,
+            "placement": placement,
+            "documentId": doc_id,
+            "expiresAt": expires_at.to_rfc3339_opts(chrono::SecondsFormat::Millis, true),
+            "idempotencyKey": idem,
+            "guestRemaining": guest_remaining,
+            "guestLimit": GUEST_FREE_LIMIT,
+        })),
+    ))
 }
 
 #[derive(Deserialize)]
@@ -448,23 +480,40 @@ pub async fn complete(
     .execute(&state.db)
     .await?;
 
+    record_completion(&state, &job.id, &job.document_id).await?;
+
     Ok(Json(response))
 }
 
 pub async fn status(
     State(state): State<AppState>,
-    user: AuthUser,
+    user: OptionalUser,
+    jar: CookieJar,
     Path(job_id): Path<String>,
 ) -> AppResult<Json<Value>> {
-    let job = sqlx::query_as::<_, JobRow>(
-        r#"SELECT j.* FROM signing_jobs j
-           JOIN documents d ON d.id = j.document_id
-           WHERE j.id = $1 AND d.user_id = $2"#,
-    )
-    .bind(&job_id)
-    .bind(&user.0.id)
-    .fetch_optional(&state.db)
-    .await?
+    let job = if let Some(u) = &user.0 {
+        sqlx::query_as::<_, JobRow>(
+            r#"SELECT j.* FROM signing_jobs j
+               JOIN documents d ON d.id = j.document_id
+               WHERE j.id = $1 AND (d.user_id = $2 OR d.user_id IS NULL)"#,
+        )
+        .bind(&job_id)
+        .bind(&u.id)
+        .fetch_optional(&state.db)
+        .await?
+    } else if let Some(g) = guest_from_jar(&state, &jar).await? {
+        sqlx::query_as::<_, JobRow>(
+            r#"SELECT j.* FROM signing_jobs j
+               JOIN documents d ON d.id = j.document_id
+               WHERE j.id = $1 AND d.guest_id = $2"#,
+        )
+        .bind(&job_id)
+        .bind(&g.id)
+        .fetch_optional(&state.db)
+        .await?
+    } else {
+        None
+    }
     .ok_or_else(|| {
         AppError::coded(StatusCode::NOT_FOUND, "JOB_NOT_FOUND", "Job not found")
     })?;

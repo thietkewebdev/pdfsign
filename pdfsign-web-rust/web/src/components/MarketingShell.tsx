@@ -1,12 +1,13 @@
 import { Link, NavLink } from "react-router-dom";
 import { BrandLockup } from "./Brand";
+import type { User } from "../api";
 
 export default function MarketingShell({
   children,
   user,
 }: {
   children: React.ReactNode;
-  user: { email: string } | null;
+  user: User | null;
 }) {
   return (
     <div className="mkt">
@@ -16,6 +17,7 @@ export default function MarketingShell({
             <BrandLockup />
           </Link>
           <nav className="mkt-nav">
+            <a href="/#cach-lam">Cách làm</a>
             <a href="/#tinh-nang">Tính năng</a>
             <a href="/#bang-gia">Bảng giá</a>
             <NavLink to="/verify">Xác minh</NavLink>
@@ -47,14 +49,23 @@ export default function MarketingShell({
       <footer className="mkt-footer">
         <div className="mkt-footer-inner">
           <div>
-            <strong>PDFSign</strong>
-            Ký số PDF bằng USB token. Khóa riêng không rời thiết bị.
+            <BrandLockup />
+            <p className="muted" style={{ marginTop: 12 }}>
+              Ký số PDF bằng USB token.
+            </p>
           </div>
           <div>
             <strong>Sản phẩm</strong>
-            <Link to="/documents">Tài liệu</Link>
+            <a href="/#cach-lam">Cách làm</a>
+            <a href="/#tai-app">Tải app</a>
             <Link to="/verify">Xác minh</Link>
             <a href="/#bang-gia">Bảng giá</a>
+          </div>
+          <div>
+            <strong>Tài khoản</strong>
+            <Link to="/login">Đăng nhập</Link>
+            <Link to="/register">Đăng ký</Link>
+            <Link to="/documents">Tài liệu</Link>
           </div>
           <div>
             <strong>Liên hệ</strong>

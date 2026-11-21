@@ -23,7 +23,11 @@ cd web && npm install && npm run build
 
 ```bash
 ./scripts/e2e-web-job.sh
+./scripts/e2e-web-guest.sh   # guest upload → web-sign → COMPLETED
+./scripts/test-guest-limit.sh  # 2 free completed signatures, 3rd → GUEST_LIMIT_REACHED
 ```
+
+Guests get 2 free completed signatures (cookie `pdfsign_guest` + fingerprint header). Register/login attaches guest documents to the account.
 
 ## Env
 

@@ -1,11 +1,13 @@
 use crate::auth::{AuthUser, OptionalUser};
 use crate::crypto::{generate_id, generate_public_id};
 use crate::error::{AppError, AppResult};
+use crate::guest::{assert_under_limit, ensure_guest, GUEST_FREE_LIMIT};
 use crate::state::AppState;
 use axum::extract::{Multipart, Path, State};
-use axum::http::{header, StatusCode};
+use axum::http::{header, HeaderMap, StatusCode};
 use axum::response::IntoResponse;
 use axum::Json;
+use axum_extra::extract::cookie::CookieJar;
 use serde_json::{json, Value};
 use sqlx::FromRow;
 
@@ -51,8 +53,10 @@ pub async fn list(State(state): State<AppState>, user: AuthUser) -> AppResult<Js
 pub async fn upload(
     State(state): State<AppState>,
     user: OptionalUser,
+    jar: CookieJar,
+    headers: HeaderMap,
     mut multipart: Multipart,
-) -> AppResult<Json<Value>> {
+) -> AppResult<(CookieJar, Json<Value>)> {
     let mut title: Option<String> = None;
     let mut file_bytes: Option<Vec<u8>> = None;
     let mut file_name: Option<String> = None;
@@ -106,17 +110,29 @@ pub async fn upload(
         .or(file_name)
         .unwrap_or_else(|| "Untitled".into());
 
+    let owner = user.0.as_ref().map(|u| u.id.clone());
+    let mut jar = jar;
+    let mut guest_id: Option<String> = None;
+    let mut guest_remaining: Option<i64> = None;
+    if owner.is_none() {
+        let (j, guest) = ensure_guest(&state, jar, &headers).await?;
+        jar = j;
+        let used = assert_under_limit(&state, &guest, &headers).await?;
+        guest_remaining = Some(GUEST_FREE_LIMIT - used);
+        guest_id = Some(guest.id);
+    }
+
     state.storage.upload(&storage_key, &bytes).await?;
 
-    let owner = user.0.as_ref().map(|u| u.id.clone());
     sqlx::query(
-        r#"INSERT INTO documents (id, public_id, title, status, user_id)
-           VALUES ($1, $2, $3, 'ACTIVE', $4)"#,
+        r#"INSERT INTO documents (id, public_id, title, status, user_id, guest_id)
+           VALUES ($1, $2, $3, 'ACTIVE', $4, $5)"#,
     )
     .bind(&doc_id)
     .bind(&public_id)
     .bind(&title)
     .bind(&owner)
+    .bind(guest_id.as_deref())
     .execute(&state.db)
     .await?;
 
@@ -132,13 +148,19 @@ pub async fn upload(
     .await?;
 
     let public_url = format!("{}/d/{}", state.cfg.public_url.trim_end_matches('/'), public_id);
-    Ok(Json(json!({
-        "documentId": doc_id,
-        "publicId": public_id,
-        "publicUrl": public_url,
-        "title": title,
-        "version": 1,
-    })))
+    Ok((
+        jar,
+        Json(json!({
+            "documentId": doc_id,
+            "publicId": public_id,
+            "publicUrl": public_url,
+            "title": title,
+            "version": 1,
+            "guest": guest_id.is_some(),
+            "guestRemaining": guest_remaining,
+            "guestLimit": GUEST_FREE_LIMIT,
+        })),
+    ))
 }
 
 #[derive(FromRow)]

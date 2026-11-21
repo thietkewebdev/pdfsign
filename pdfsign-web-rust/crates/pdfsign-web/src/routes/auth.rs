@@ -3,6 +3,7 @@ use crate::auth::{
 };
 use crate::crypto::generate_id;
 use crate::error::{AppError, AppResult};
+use crate::guest::attach_guest_docs_to_user;
 use crate::state::AppState;
 use axum::extract::State;
 use axum::http::StatusCode;
@@ -53,6 +54,7 @@ pub async fn register(
     .await?;
 
     let jar = create_session(&state, jar, &id).await?;
+    attach_guest_docs_to_user(&state, &jar, &id).await?;
     Ok((
         jar,
         Json(json!({ "id": id, "email": email, "name": body.name })),
@@ -80,6 +82,7 @@ pub async fn login(
         return Err(AppError::unauthorized("Email hoặc mật khẩu sai"));
     }
     let jar = create_session(&state, jar, &id).await?;
+    attach_guest_docs_to_user(&state, &jar, &id).await?;
     Ok((
         jar,
         Json(json!({ "id": id, "email": email, "name": name, "plan": plan })),

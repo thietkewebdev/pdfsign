@@ -63,7 +63,7 @@ export default function App() {
           path="/"
           element={
             <MarketingShell user={user}>
-              <LandingPage />
+              <LandingPage user={user} onAuth={setUser} />
             </MarketingShell>
           }
         />
@@ -123,7 +123,11 @@ export default function App() {
                 <PlaceBoxPage />
               </Guard>
             ) : (
-              <Navigate to="/login" replace />
+              <MarketingShell user={null}>
+                <div className="section" style={{ paddingTop: 24, maxWidth: 1120, margin: "0 auto" }}>
+                  <PlaceBoxPage />
+                </div>
+              </MarketingShell>
             )
           }
         />
@@ -135,7 +139,11 @@ export default function App() {
                 <JobPage />
               </Guard>
             ) : (
-              <Navigate to="/login" replace />
+              <MarketingShell user={null}>
+                <div className="section" style={{ paddingTop: 24, maxWidth: 720, margin: "0 auto" }}>
+                  <JobPage />
+                </div>
+              </MarketingShell>
             )
           }
         />
@@ -151,7 +159,7 @@ export default function App() {
             )
           }
         />
-        <Route path="*" element={<Navigate to={user ? "/dashboard" : "/"} replace />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </ToastProvider>
   );

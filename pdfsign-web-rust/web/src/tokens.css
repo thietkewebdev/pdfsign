@@ -1,0 +1,72 @@
+:root {
+  color-scheme: light;
+  --space-3xs: 2px; --space-2xs: 4px; --space-xs: 8px; --space-sm: 12px; --space-md: 16px; --space-lg: 24px; --space-xl: 40px; --space-2xl: 64px; --space-3xl: 96px; --space-4xl: 144px;
+  --text-xs: 0.8125rem; --text-sm: 0.875rem; --text-md: 1rem; --text-lg: 1.25rem; --text-xl: 1.5625rem; --text-2xl: 1.953rem; --text-3xl: 2.441rem;
+  --text-display-s: clamp(2.25rem, 4vw + 0.5rem, 3.75rem); --text-display: clamp(2.75rem, 5vw + 1rem, 5.25rem);
+  --text-section: clamp(2rem, 2.5vw + 1rem, 3.5rem); --text-title: clamp(1.25rem, 0.75vw + 0.875rem, 1.625rem); --text-lead: clamp(1.125rem, 0.35vw + 1rem, 1.375rem);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1); --ease-in: cubic-bezier(0.7, 0, 0.84, 0); --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-micro: 120ms; --dur-short: 220ms; --dur-long: 420ms;
+  --color-error: #7f1d1d; --color-success: #15803d;
+  --container: 1120px; --gutter: 32px; --gap-columns: 32px; --section-gap-s: 72px; --section-gap: 96px; --section-gap-l: 120px;
+  --z-base: 1; --z-raised: 10; --z-dropdown: 100; --z-sticky: 200; --z-sticky-nav: 300; --z-modal: 400; --z-toast: 500; --z-tooltip: 600;
+
+  /* Brand: PDFSign crimson + warm paper (Coral remapped) */
+  --brand: #e11d48;
+  --brand-ink: #9f1239;
+  --brand-soft: #fff1f2;
+  --navy: #0f172a;
+  --color-paper: #f7f5f2;
+  --color-paper-2: #f1eee9;
+  --color-paper-3: #e8e4de;
+  --color-ink: #0f172a;
+  --color-ink-2: #1e293b;
+  --color-muted: #64748b;
+  --color-rule: #e2e8f0;
+  --color-rule-2: #cbd5e1;
+  --color-accent: #e11d48;
+  --color-accent-ink: #ffffff;
+  --color-accent-2: #9f1239;
+  --color-focus: #e11d48;
+  --color-cotton: #ffffff;
+  --color-desk: #efebe5;
+  --color-print: #0f172a;
+  --color-board: #0f172a;
+  --color-board-type: #f8fafc;
+  --color-paid: #e11d48;
+  --shade: 15% 0.02 250; --lit: 100% 0 0; --deep: 8% 0.02 250;
+  --font-display: "Be Vietnam Pro", "Segoe UI", sans-serif;
+  --font-body: var(--font-display);
+  --font-outlier: ui-monospace, SFMono-Regular, Menlo, monospace;
+  --radius-card: 10px; --radius-input: 8px; --radius-pill: 999px; --radius-stock: 10px; --rule-hair: 1px;
+  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --edge-stock: 0 0 0 1px var(--color-rule);
+  --cast-stock: var(--shadow-card);
+  --cast-stock-lift: 0 4px 12px rgba(15, 23, 42, 0.06);
+  --press-groove: inset 0 0 0 1px var(--color-rule);
+  --tracking-display: -0.03em; --display-weight: 700;
+
+  /* App aliases */
+  --ink: var(--color-ink);
+  --muted: var(--color-muted);
+  --line: var(--color-rule);
+  --line-strong: var(--color-rule-2);
+  --bg: var(--color-paper);
+  --panel: var(--color-cotton);
+  --ok: var(--color-success);
+  --ok-bg: #f0fdf4;
+  --warn: #b45309;
+  --warn-bg: #fffbeb;
+  --bad: var(--color-error);
+  --bad-bg: #fef2f2;
+  --radius: var(--radius-card);
+  --radius-sm: var(--radius-input);
+  --space-1: var(--space-2xs);
+  --space-2: var(--space-xs);
+  --space-3: var(--space-sm);
+  --space-4: var(--space-md);
+  --space-5: var(--space-lg);
+  --space-6: var(--space-xl);
+  --space-7: var(--space-2xl);
+  --shadow: var(--shadow-card);
+  --font: var(--font-body);
+}
