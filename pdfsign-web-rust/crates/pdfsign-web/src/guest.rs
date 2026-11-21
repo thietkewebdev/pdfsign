@@ -163,7 +163,7 @@ pub async fn assert_under_limit(
             StatusCode::FORBIDDEN,
             "GUEST_LIMIT_REACHED",
             format!(
-                "Khách chỉ được ký {} file miễn phí. Đăng nhập để tiếp tục.",
+                "Khách chưa đăng ký chỉ được ký thử {} file miễn phí. Đăng ký hoặc đăng nhập để tiếp tục.",
                 GUEST_FREE_LIMIT
             ),
         ));

@@ -47,7 +47,7 @@ export default function AuthGateModal({
           {mode === "login" ? "Đăng nhập" : "Đăng ký"}
         </h2>
         <p className="muted" style={{ margin: "8px 0 16px" }}>
-          {resumeHint || "Đã dùng hết 2 file miễn phí."}
+          {resumeHint || "Đã dùng hết 2 file ký thử. Đăng ký hoặc đăng nhập để tiếp tục."}
         </p>
         {mode === "register" && (
           <div className="field">

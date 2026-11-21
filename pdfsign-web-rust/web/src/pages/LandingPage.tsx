@@ -577,7 +577,7 @@ export default function LandingPage({
         open={gateOpen}
         onClose={() => setGateOpen(false)}
         onAuth={onAuthed}
-        resumeHint="Đã dùng hết 2 file miễn phí. Đăng nhập để tiếp tục file này."
+        resumeHint="Đã dùng hết 2 file ký thử (chỉ dành cho khách chưa đăng ký). Đăng nhập hoặc đăng ký để tiếp tục file này."
       />
     </div>
   );

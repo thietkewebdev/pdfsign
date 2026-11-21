@@ -2,8 +2,8 @@
  * Public home copy + optional facts.
  * Leave optional fields `null` to hide the related UI (never show `[brackets]`).
  *
- * Wording note: reference said "2 file mỗi tháng" for free tier; product rule is
- * 2 free guest signatures then login. Copy below follows the implemented rule.
+ * Free trial: 2 files only for guests who have not registered (not a monthly
+ * free-account quota). Server guest limit stays unchanged.
  */
 
 export const WINDOWS_INSTALLER_URL =
@@ -70,10 +70,10 @@ export const HOME = {
     title: "Ký số file PDF bằng USB token, ngay trên trình duyệt",
     lead:
       "Tải file lên, kéo ô chữ ký vào đúng chỗ, cắm token và bấm Ký. File ký xong mở bằng Adobe vẫn báo hợp lệ, còn khóa ký luôn nằm trong token của bạn.",
-    primaryCta: "Ký file đầu tiên miễn phí",
+    primaryCta: "Ký thử miễn phí 2 file",
     secondaryCta: "Tải app Windows",
     checks: [
-      "Miễn phí 2 file, sau đó cần đăng nhập",
+      "Ký thử miễn phí 2 file, không cần đăng ký",
       "Không cần thẻ thanh toán",
       "Có hóa đơn VAT",
     ],
@@ -188,10 +188,10 @@ export const HOME = {
         blurb: "Dùng thử, ký lẻ vài file",
         price: "0đ",
         period: "/ tháng",
-        cta: "Bắt đầu miễn phí",
+        cta: "Ký thử miễn phí",
         featured: false,
         features: [
-          "2 file miễn phí, sau đó cần đăng nhập",
+          "Ký thử miễn phí 2 file, không cần đăng ký",
           "Token của mọi nhà cung cấp",
           "Đặt chữ ký trên mọi trang",
           "Xác minh file không giới hạn",
@@ -249,7 +249,7 @@ export const HOME = {
       },
       {
         q: "Gói miễn phí được ký bao nhiêu file?",
-        a: "Khách chưa đăng nhập được ký 2 file miễn phí. Sau đó cần đăng ký hoặc đăng nhập để tiếp tục.",
+        a: "Khách chưa đăng ký được ký thử miễn phí 2 file. Không có hạn mức hàng tháng cho tài khoản miễn phí — sau 2 file cần đăng ký hoặc đăng nhập để tiếp tục.",
       },
       {
         q: "Làm sao kiểm tra một file đã ký?",
@@ -263,7 +263,7 @@ export const HOME = {
   },
   ctaBand: {
     title: "Ký file đầu tiên trong một phút",
-    lead: "Miễn phí 2 file, sau đó cần đăng nhập. Không cần thẻ, không cần gọi tư vấn.",
+    lead: "Ký thử miễn phí 2 file, không cần đăng ký. Không cần thẻ, không cần gọi tư vấn.",
     primary: "Tải PDF lên và ký",
     secondary: "Gọi tư vấn",
   },
