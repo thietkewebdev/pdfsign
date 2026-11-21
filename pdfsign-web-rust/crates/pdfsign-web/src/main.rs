@@ -1,4 +1,4 @@
-use pdfsign_web::{app, build_state};
+use pdfsign_web::{app, build_state, retention};
 use tracing_subscriber::EnvFilter;
 
 #[tokio::main]
@@ -8,6 +8,8 @@ async fn main() -> anyhow::Result<()> {
         .init();
 
     let state = build_state().await?;
+    retention::spawn_cleanup_loop(state.clone());
+
     let listen = state.cfg.listen.clone();
     let router = app(state);
     let listener = tokio::net::TcpListener::bind(&listen).await?;

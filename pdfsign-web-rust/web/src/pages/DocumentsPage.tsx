@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { api, Doc } from "../api";
+import { api, Doc, formatRemaining } from "../api";
 import { useToast } from "../toast";
 
 export default function DocumentsPage() {
   const [docs, setDocs] = useState<Doc[] | null>(null);
+  const [retentionLabel, setRetentionLabel] = useState("Tự xóa sau 2 ngày");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [q, setQ] = useState("");
@@ -15,8 +16,9 @@ export default function DocumentsPage() {
   const toast = useToast();
 
   async function refresh() {
-    const data = await api<{ documents: Doc[] }>("/documents");
+    const data = await api<{ documents: Doc[]; retentionLabel?: string }>("/documents");
     setDocs(data.documents || []);
+    if (data.retentionLabel) setRetentionLabel(data.retentionLabel);
   }
 
   useEffect(() => {
@@ -66,7 +68,12 @@ export default function DocumentsPage() {
   return (
     <div>
       <div className="page-head">
-        <h1 className="h1">Tài liệu</h1>
+        <div>
+          <h1 className="h1">Tài liệu</h1>
+          <p className="muted" style={{ marginTop: 6 }}>
+            {retentionLabel}. Tải file về trước khi hết hạn.
+          </p>
+        </div>
       </div>
 
       <div className="toolbar">
@@ -155,6 +162,7 @@ export default function DocumentsPage() {
                   <th>Trạng thái</th>
                   <th>Phiên bản</th>
                   <th>Ngày</th>
+                  <th>Lưu trữ</th>
                   <th></th>
                 </tr>
               </thead>
@@ -168,6 +176,10 @@ export default function DocumentsPage() {
                     <td>v{d.version}</td>
                     <td className="muted">
                       {d.createdAt ? new Date(d.createdAt).toLocaleString("vi-VN") : ""}
+                    </td>
+                    <td className="muted" style={{ fontSize: 13 }}>
+                      <div>{d.retentionLabel || retentionLabel}</div>
+                      <div>{formatRemaining(d.remainingSeconds)}</div>
                     </td>
                     <td>
                       <Link to={`/d/${d.publicId}`}>Mở</Link>

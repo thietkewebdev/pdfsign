@@ -54,7 +54,19 @@ export async function api<T = unknown>(path: string, init: RequestInit = {}): Pr
   return data as T;
 }
 
-export type User = { id: string; email: string; name?: string | null; plan?: string };
+export type User = {
+  id: string;
+  email: string;
+  name?: string | null;
+  plan?: string;
+  role?: string;
+  quota?: {
+    canSign?: boolean;
+    upgradeRequired?: boolean;
+    trialRemaining?: number;
+    remaining?: number | null;
+  };
+};
 export type Doc = {
   id: string;
   publicId: string;
@@ -63,4 +75,19 @@ export type Doc = {
   createdAt?: string;
   fileUrl?: string;
   status?: string;
+  expiresAt?: string | null;
+  retentionHours?: number;
+  retentionLabel?: string;
+  remainingSeconds?: number | null;
 };
+
+export function formatRemaining(secs?: number | null): string {
+  if (secs == null) return "";
+  if (secs <= 0) return "Sắp xóa";
+  const h = Math.floor(secs / 3600);
+  const d = Math.floor(h / 24);
+  if (d >= 1) return `còn ${d} ngày ${h % 24} giờ`;
+  if (h >= 1) return `còn ${h} giờ`;
+  const m = Math.max(1, Math.floor(secs / 60));
+  return `còn ${m} phút`;
+}

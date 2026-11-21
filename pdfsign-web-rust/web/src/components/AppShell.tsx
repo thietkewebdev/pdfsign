@@ -18,12 +18,18 @@ export default function AppShell({
   onLogout: () => void;
   children: React.ReactNode;
 }) {
+  const nav = [
+    ...links,
+    ...(user.role?.toUpperCase() === "ADMIN"
+      ? [{ to: "/admin", label: "Admin" }]
+      : []),
+  ];
   return (
     <div className="shell">
       <aside className="sidebar">
         <BrandLockup dark />
         <nav className="nav">
-          {links.map((l) => (
+          {nav.map((l) => (
             <NavLink key={l.to} to={l.to} className={({ isActive }) => (isActive ? "active" : "")}>
               {l.label}
             </NavLink>

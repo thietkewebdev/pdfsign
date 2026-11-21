@@ -38,6 +38,13 @@ Guests get 2 free completed signatures (cookie `pdfsign_guest` + fingerprint hea
 | `JWT_SECRET` | dev default | HS256 for launch/access tokens |
 | `SIGNING_JOB_EXPIRES_MINUTES` | 90 | Job TTL |
 | `LAUNCH_TTL_MINUTES` | 15 | Launch JWT TTL |
+| `PUBLIC_BASE_URL` | (or `APP_URL`) | Public base URL |
+| `FILE_RETENTION_HOURS` | 48 | Auto-delete blobs |
+| `REGISTERED_TRIAL_FILES` | 5 | One-time trial for free accounts |
+| `ADMIN_TOKEN` | — | Admin plan API |
+| `WEB_DIST` | `web/dist` | SPA static dir |
+
+Deploy: [`docs/DEPLOY.md`](docs/DEPLOY.md). Extra tests: `./scripts/test-retention.sh`, `./scripts/test-plan-quota.sh`.
 | `SERVER_UPGRADE_LEVEL` | (empty) | `B-LT` / `B-LTA` after complete |
 | `STORAGE_DIR` | `./storage` | Local files |
 | `WEB_DIST` | `web/dist` | Static UI |

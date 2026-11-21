@@ -99,7 +99,17 @@ pub async fn logout(
 
 pub async fn me(State(state): State<AppState>, jar: CookieJar) -> AppResult<Json<Value>> {
     match user_from_jar(&state, &jar).await? {
-        Some(u) => Ok(Json(json!(u))),
+        Some(u) => {
+            let quota = crate::plans::quota_status(&state, &u.id).await.ok();
+            Ok(Json(json!({
+                "id": u.id,
+                "email": u.email,
+                "name": u.name,
+                "role": u.role,
+                "plan": u.plan,
+                "quota": quota,
+            })))
+        }
         None => Err(AppError::unauthorized("Unauthorized")),
     }
 }

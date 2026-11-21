@@ -124,14 +124,16 @@ pub async fn finish(
     let storage_key = format!("documents/{public_id}/v1.pdf");
     state.storage.upload(&storage_key, &bytes).await?;
     let title = title.unwrap_or_else(|| "Untitled".into());
+    let expires_at = crate::plans::expires_from_now(&state.cfg);
     sqlx::query(
-        r#"INSERT INTO documents (id, public_id, title, status, user_id)
-           VALUES ($1,$2,$3,'ACTIVE',$4)"#,
+        r#"INSERT INTO documents (id, public_id, title, status, user_id, expires_at)
+           VALUES ($1,$2,$3,'ACTIVE',$4,$5)"#,
     )
     .bind(&doc_id)
     .bind(&public_id)
     .bind(&title)
     .bind(&user.0.id)
+    .bind(expires_at)
     .execute(&state.db)
     .await?;
     sqlx::query(

@@ -13,6 +13,7 @@ import PlaceBoxPage from "./pages/PlaceBoxPage";
 import JobPage from "./pages/JobPage";
 import VerifyPage from "./pages/VerifyPage";
 import SettingsPage from "./pages/SettingsPage";
+import AdminPage from "./pages/AdminPage";
 
 function Guard({
   user,
@@ -154,6 +155,20 @@ export default function App() {
               <Guard user={user} onLogout={logout}>
                 <SettingsPage user={user} />
               </Guard>
+            ) : (
+              <Navigate to="/login" replace />
+            )
+          }
+        />
+        <Route
+          path="/admin"
+          element={
+            user && user.role?.toUpperCase() === "ADMIN" ? (
+              <Guard user={user} onLogout={logout}>
+                <AdminPage />
+              </Guard>
+            ) : user ? (
+              <Navigate to="/dashboard" replace />
             ) : (
               <Navigate to="/login" replace />
             )

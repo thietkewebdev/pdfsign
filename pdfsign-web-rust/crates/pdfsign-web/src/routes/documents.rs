@@ -2,12 +2,14 @@ use crate::auth::{AuthUser, OptionalUser};
 use crate::crypto::{generate_id, generate_public_id};
 use crate::error::{AppError, AppResult};
 use crate::guest::{assert_under_limit, ensure_guest, GUEST_FREE_LIMIT};
+use crate::plans::{assert_can_sign, expires_from_now, retention_label};
 use crate::state::AppState;
 use axum::extract::{Multipart, Path, State};
 use axum::http::{header, HeaderMap, StatusCode};
 use axum::response::IntoResponse;
 use axum::Json;
 use axum_extra::extract::cookie::CookieJar;
+use chrono::Utc;
 use serde_json::{json, Value};
 use sqlx::FromRow;
 
@@ -18,15 +20,31 @@ struct DocListRow {
     title: Option<String>,
     status: String,
     created_at: chrono::DateTime<chrono::Utc>,
+    expires_at: Option<chrono::DateTime<chrono::Utc>>,
     version: Option<i32>,
+}
+
+fn expiry_fields(
+    state: &AppState,
+    expires_at: Option<chrono::DateTime<Utc>>,
+) -> Value {
+    let hours = state.cfg.file_retention_hours;
+    let label = retention_label(hours);
+    let remaining_secs = expires_at.map(|e| (e - Utc::now()).num_seconds().max(0));
+    json!({
+        "expiresAt": expires_at.map(|t| t.to_rfc3339_opts(chrono::SecondsFormat::Millis, true)),
+        "retentionHours": hours,
+        "retentionLabel": label,
+        "remainingSeconds": remaining_secs,
+    })
 }
 
 pub async fn list(State(state): State<AppState>, user: AuthUser) -> AppResult<Json<Value>> {
     let rows = sqlx::query_as::<_, DocListRow>(
-        r#"SELECT d.id, d.public_id, d.title, d.status, d.created_at,
+        r#"SELECT d.id, d.public_id, d.title, d.status, d.created_at, d.expires_at,
                   (SELECT MAX(v.version) FROM document_versions v WHERE v.document_id = d.id) AS version
            FROM documents d
-           WHERE d.user_id = $1 AND d.status = 'ACTIVE'
+           WHERE d.user_id = $1 AND d.status = 'ACTIVE' AND d.purged_at IS NULL
            ORDER BY d.created_at DESC
            LIMIT 100"#,
     )
@@ -37,17 +55,27 @@ pub async fn list(State(state): State<AppState>, user: AuthUser) -> AppResult<Js
     let docs: Vec<Value> = rows
         .into_iter()
         .map(|r| {
-            json!({
+            let mut v = json!({
                 "id": r.id,
                 "publicId": r.public_id,
                 "title": r.title,
                 "status": r.status,
                 "createdAt": r.created_at,
                 "version": r.version.unwrap_or(1),
-            })
+            });
+            if let Value::Object(ref mut map) = v {
+                if let Value::Object(extra) = expiry_fields(&state, r.expires_at) {
+                    map.extend(extra);
+                }
+            }
+            v
         })
         .collect();
-    Ok(Json(json!({ "documents": docs })))
+    Ok(Json(json!({
+        "documents": docs,
+        "retentionHours": state.cfg.file_retention_hours,
+        "retentionLabel": retention_label(state.cfg.file_retention_hours),
+    })))
 }
 
 pub async fn upload(
@@ -114,7 +142,10 @@ pub async fn upload(
     let mut jar = jar;
     let mut guest_id: Option<String> = None;
     let mut guest_remaining: Option<i64> = None;
-    if owner.is_none() {
+    if let Some(ref uid) = owner {
+        // Registered accounts need remaining trial/plan quota to upload for signing.
+        assert_can_sign(&state, uid).await?;
+    } else {
         let (j, guest) = ensure_guest(&state, jar, &headers).await?;
         jar = j;
         let used = assert_under_limit(&state, &guest, &headers).await?;
@@ -123,16 +154,18 @@ pub async fn upload(
     }
 
     state.storage.upload(&storage_key, &bytes).await?;
+    let expires_at = expires_from_now(&state.cfg);
 
     sqlx::query(
-        r#"INSERT INTO documents (id, public_id, title, status, user_id, guest_id)
-           VALUES ($1, $2, $3, 'ACTIVE', $4, $5)"#,
+        r#"INSERT INTO documents (id, public_id, title, status, user_id, guest_id, expires_at)
+           VALUES ($1, $2, $3, 'ACTIVE', $4, $5, $6)"#,
     )
     .bind(&doc_id)
     .bind(&public_id)
     .bind(&title)
     .bind(&owner)
     .bind(guest_id.as_deref())
+    .bind(expires_at)
     .execute(&state.db)
     .await?;
 
@@ -148,19 +181,22 @@ pub async fn upload(
     .await?;
 
     let public_url = format!("{}/d/{}", state.cfg.public_url.trim_end_matches('/'), public_id);
-    Ok((
-        jar,
-        Json(json!({
-            "documentId": doc_id,
-            "publicId": public_id,
-            "publicUrl": public_url,
-            "title": title,
-            "version": 1,
-            "guest": guest_id.is_some(),
-            "guestRemaining": guest_remaining,
-            "guestLimit": GUEST_FREE_LIMIT,
-        })),
-    ))
+    let mut body = json!({
+        "documentId": doc_id,
+        "publicId": public_id,
+        "publicUrl": public_url,
+        "title": title,
+        "version": 1,
+        "guest": guest_id.is_some(),
+        "guestRemaining": guest_remaining,
+        "guestLimit": GUEST_FREE_LIMIT,
+    });
+    if let Value::Object(ref mut map) = body {
+        if let Value::Object(extra) = expiry_fields(&state, Some(expires_at)) {
+            map.extend(extra);
+        }
+    }
+    Ok((jar, Json(body)))
 }
 
 #[derive(FromRow)]
@@ -170,6 +206,7 @@ struct DocDetail {
     title: Option<String>,
     status: String,
     created_at: chrono::DateTime<chrono::Utc>,
+    expires_at: Option<chrono::DateTime<chrono::Utc>>,
 }
 
 pub async fn get_one(
@@ -177,13 +214,21 @@ pub async fn get_one(
     Path(public_id): Path<String>,
 ) -> AppResult<Json<Value>> {
     let doc = sqlx::query_as::<_, DocDetail>(
-        r#"SELECT id, public_id, title, status, created_at FROM documents
+        r#"SELECT id, public_id, title, status, created_at, expires_at FROM documents
            WHERE public_id = $1 OR id = $1"#,
     )
     .bind(&public_id)
     .fetch_optional(&state.db)
     .await?
     .ok_or_else(|| AppError::not_found("Document not found"))?;
+
+    if doc.status == "EXPIRED" || doc.status == "PURGED" {
+        return Err(AppError::coded(
+            StatusCode::GONE,
+            "DOCUMENT_EXPIRED",
+            "File đã hết hạn lưu và bị xóa tự động",
+        ));
+    }
 
     let version: Option<(i32, String, i32)> = sqlx::query_as(
         r#"SELECT version, storage_key, size_bytes FROM document_versions
@@ -203,7 +248,7 @@ pub async fn get_one(
         doc.public_id
     );
 
-    Ok(Json(json!({
+    let mut body = json!({
         "id": doc.id,
         "publicId": doc.public_id,
         "title": doc.title,
@@ -212,21 +257,33 @@ pub async fn get_one(
         "version": version,
         "sizeBytes": size,
         "fileUrl": file_url,
-    })))
+    });
+    if let Value::Object(ref mut map) = body {
+        if let Value::Object(extra) = expiry_fields(&state, doc.expires_at) {
+            map.extend(extra);
+        }
+    }
+    Ok(Json(body))
 }
 
 pub async fn file(
     State(state): State<AppState>,
     Path(public_id): Path<String>,
 ) -> AppResult<impl IntoResponse> {
-    let doc_id: Option<(String,)> =
-        sqlx::query_as("SELECT id FROM documents WHERE public_id = $1 OR id = $1")
-            .bind(&public_id)
-            .fetch_optional(&state.db)
-            .await?;
-    let doc_id = doc_id
-        .ok_or_else(|| AppError::not_found("Document not found"))?
-        .0;
+    let doc: Option<(String, String)> = sqlx::query_as(
+        r#"SELECT id, status FROM documents WHERE public_id = $1 OR id = $1"#,
+    )
+    .bind(&public_id)
+    .fetch_optional(&state.db)
+    .await?;
+    let (doc_id, status) = doc.ok_or_else(|| AppError::not_found("Document not found"))?;
+    if status == "EXPIRED" || status == "PURGED" {
+        return Err(AppError::coded(
+            StatusCode::GONE,
+            "DOCUMENT_EXPIRED",
+            "File đã hết hạn lưu và bị xóa tự động",
+        ));
+    }
     let key: Option<(String,)> = sqlx::query_as(
         r#"SELECT storage_key FROM document_versions
            WHERE document_id = $1 ORDER BY version DESC LIMIT 1"#,

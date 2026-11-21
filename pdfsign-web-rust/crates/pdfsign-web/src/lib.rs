@@ -4,6 +4,8 @@ pub mod crypto;
 pub mod error;
 pub mod guest;
 pub mod placement;
+pub mod plans;
+pub mod retention;
 pub mod routes;
 pub mod services;
 pub mod state;
@@ -25,6 +27,7 @@ pub async fn build_state() -> anyhow::Result<AppState> {
         .await?;
 
     let migr_dir = find_migrations();
+    tracing::info!(dir = %migr_dir.display(), "running SQL migrations");
     sqlx::migrate::Migrator::new(migr_dir)
         .await?
         .run(&db)
@@ -34,11 +37,22 @@ pub async fn build_state() -> anyhow::Result<AppState> {
 }
 
 fn find_migrations() -> PathBuf {
-    for p in [
+    // Prefer next to the binary (deploy layout), then cwd / repo paths.
+    let mut candidates = Vec::new();
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(dir) = exe.parent() {
+            candidates.push(dir.join("migrations"));
+            candidates.push(dir.join("../migrations"));
+            candidates.push(dir.join("../share/pdfsign-web/migrations"));
+        }
+    }
+    candidates.extend([
         PathBuf::from("migrations"),
         PathBuf::from("pdfsign-web-rust/migrations"),
         PathBuf::from("/workspace/pdfsign-web-rust/migrations"),
-    ] {
+        PathBuf::from("/opt/pdfsign/migrations"),
+    ]);
+    for p in candidates {
         if p.exists() {
             return p;
         }

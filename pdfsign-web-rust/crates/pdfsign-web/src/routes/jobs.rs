@@ -8,6 +8,7 @@ use crate::guest::{
     assert_under_limit, ensure_guest, guest_from_jar, record_completion, GUEST_FREE_LIMIT,
 };
 use crate::placement::Placement;
+use crate::plans::{assert_can_sign, expires_from_now, record_signed_usage, retention_label};
 use crate::services::verify_complete::{maybe_upgrade, verify_signed_pdf};
 use crate::state::AppState;
 use axum::extract::{Multipart, Path, Query, State};
@@ -57,9 +58,11 @@ pub async fn create(
     let mut guest_remaining = None;
 
     let doc: Option<(String, String, Option<String>, Option<String>)> = if let Some(u) = &user.0 {
+        assert_can_sign(&state, &u.id).await?;
         sqlx::query_as(
             r#"SELECT id, public_id, user_id, guest_id FROM documents
                WHERE (id = $1 OR public_id = $1)
+                 AND status = 'ACTIVE' AND purged_at IS NULL
                  AND (user_id = $2 OR user_id IS NULL)"#,
         )
         .bind(&body.document_id)
@@ -482,6 +485,27 @@ pub async fn complete(
 
     record_completion(&state, &job.id, &job.document_id).await?;
 
+    // Refresh file retention clock from sign time; count toward account quota.
+    let new_expires = expires_from_now(&state.cfg);
+    let _ = sqlx::query(
+        r#"UPDATE documents SET expires_at = $2 WHERE id = $1 AND purged_at IS NULL"#,
+    )
+    .bind(&job.document_id)
+    .bind(new_expires)
+    .execute(&state.db)
+    .await;
+
+    if let Some(uid) = sqlx::query_as::<_, (Option<String>,)>(
+        "SELECT user_id FROM documents WHERE id = $1",
+    )
+    .bind(&job.document_id)
+    .fetch_optional(&state.db)
+    .await?
+    .and_then(|r| r.0)
+    {
+        record_signed_usage(&state, &uid).await?;
+    }
+
     Ok(Json(response))
 }
 
@@ -541,11 +565,23 @@ pub async fn status(
         }
     }
 
+    let doc_exp: Option<(Option<chrono::DateTime<Utc>>,)> =
+        sqlx::query_as("SELECT expires_at FROM documents WHERE id = $1")
+            .bind(&job.document_id)
+            .fetch_optional(&state.db)
+            .await?;
+    let file_expires = doc_exp.and_then(|r| r.0);
+    let remaining_secs = file_expires.map(|e| (e - Utc::now()).num_seconds().max(0));
+
     Ok(Json(json!({
         "status": status,
         "expiresAt": job.expires_at.to_rfc3339_opts(chrono::SecondsFormat::Millis, true),
         "completedAt": job.completed_at.map(|t| t.to_rfc3339_opts(chrono::SecondsFormat::Millis, true)),
         "signedDownloadUrl": signed_download_url,
+        "fileExpiresAt": file_expires.map(|t| t.to_rfc3339_opts(chrono::SecondsFormat::Millis, true)),
+        "retentionHours": state.cfg.file_retention_hours,
+        "retentionLabel": retention_label(state.cfg.file_retention_hours),
+        "remainingSeconds": remaining_secs,
         "protocol": 1,
     })))
 }

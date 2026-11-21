@@ -44,7 +44,7 @@ export type HomeFacts = {
 
 /** From live pdfsign.vn + pdfsignpro-cloud/src/lib/company-legal.ts */
 export const HOME_FACTS: HomeFacts = {
-  fileRetentionDays: null,
+  fileRetentionDays: 2,
   dataLocation: null,
   windowsAppSizeMb: null,
   statsSignedFiles: null,
@@ -189,55 +189,7 @@ export const HOME = {
   pricing: {
     eyebrow: "Bảng giá",
     title: "Bắt đầu miễn phí, nâng cấp khi cần",
-    lead: "Giá chưa gồm VAT. Mọi gói trả phí đều có hóa đơn điện tử.",
-    tiers: [
-      {
-        id: "free",
-        name: "Cơ bản",
-        blurb: "Dùng thử, ký lẻ vài file",
-        price: "0đ",
-        period: "/ tháng",
-        cta: "Ký thử miễn phí",
-        featured: false,
-        features: [
-          "Ký thử miễn phí 2 file, không cần đăng ký",
-          "Token của mọi nhà cung cấp",
-          "Đặt chữ ký trên mọi trang",
-          "Xác minh file không giới hạn",
-        ],
-      },
-      {
-        id: "pro",
-        name: "Pro",
-        blurb: "Doanh nghiệp nhỏ, ký thường xuyên",
-        price: "199.000đ",
-        period: "/ tháng",
-        cta: "Dùng gói Pro",
-        featured: true,
-        badge: "Phổ biến nhất",
-        features: [
-          "Mọi thứ trong gói Cơ bản",
-          "Dấu thời gian, kiểm tra dài hạn",
-          "Lưu lịch sử file đã ký",
-          "Hỗ trợ qua Zalo, điện thoại",
-        ],
-      },
-      {
-        id: "enterprise",
-        name: "Doanh nghiệp",
-        blurb: "Nhiều người ký, nhiều phòng ban",
-        price: "Liên hệ",
-        period: "",
-        cta: "Nhận báo giá",
-        featured: false,
-        features: [
-          "Mọi thứ trong gói Pro",
-          "Nhiều tài khoản, phân quyền",
-          "Hợp đồng, hóa đơn theo yêu cầu",
-          "Hỗ trợ cài đặt tận nơi",
-        ],
-      },
-    ],
+    lead: "Giá đã gồm VAT. Có hóa đơn điện tử.",
   },
   faq: {
     eyebrow: "Hỏi đáp",
@@ -261,7 +213,11 @@ export const HOME = {
       },
       {
         q: "Gói miễn phí được ký bao nhiêu file?",
-        a: "Khách chưa đăng ký được ký thử miễn phí 2 file. Không có hạn mức hàng tháng cho tài khoản miễn phí — sau 2 file cần đăng ký hoặc đăng nhập để tiếp tục.",
+        a: "Khách chưa đăng ký được ký thử 2 file. Tài khoản mới (gói Miễn phí) có thêm 5 file dùng thử một lần — không phải hạn mức hàng tháng. Sau đó cần chọn gói Cá nhân / Doanh nghiệp / Không giới hạn.",
+      },
+      {
+        q: "File tải lên được lưu bao lâu?",
+        a: "File tải lên và file đã ký tự xóa sau 2 ngày. Hãy tải về máy trước khi hết hạn.",
       },
       {
         q: "Làm sao kiểm tra một file đã ký?",

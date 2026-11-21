@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
-import { api } from "../api";
+import { api, formatRemaining } from "../api";
 import { useToast } from "../toast";
 
 type JobState = {
@@ -18,6 +18,8 @@ export default function JobPage() {
   const [deepLink, setDeepLink] = useState(initial.deepLink || "");
   const [status, setStatus] = useState("READY");
   const [download, setDownload] = useState<string | null>(null);
+  const [retentionLabel, setRetentionLabel] = useState("Tự xóa sau 2 ngày");
+  const [remaining, setRemaining] = useState<number | null>(null);
   const [error, setError] = useState("");
   const toast = useToast();
 
@@ -32,10 +34,14 @@ export default function JobPage() {
         const s = await api<{
           status: string;
           signedDownloadUrl?: string | null;
+          retentionLabel?: string;
+          remainingSeconds?: number | null;
         }>(`/jobs/${jobId}/status`);
         if (stop) return;
         setStatus(s.status);
         if (s.signedDownloadUrl) setDownload(s.signedDownloadUrl);
+        if (s.retentionLabel) setRetentionLabel(s.retentionLabel);
+        if (s.remainingSeconds != null) setRemaining(s.remainingSeconds);
         if (OPEN.has(s.status)) setTimeout(tick, 2000);
       } catch (e) {
         if (!stop) setError(e instanceof Error ? e.message : "Lỗi");
@@ -74,6 +80,10 @@ export default function JobPage() {
         <div className="tiny" style={{ marginBottom: 16 }}>
           {jobId}
         </div>
+        <p className="muted" style={{ marginTop: 0, marginBottom: 16, fontSize: 13 }}>
+          {retentionLabel}
+          {remaining != null ? ` · ${formatRemaining(remaining)}` : ""}
+        </p>
 
         {deepLink && (
           <>

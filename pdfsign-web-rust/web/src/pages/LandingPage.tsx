@@ -8,6 +8,16 @@ import {
   WINDOWS_INSTALL_GUIDE_URL,
 } from "../homeContent";
 import AuthGateModal from "../components/AuthGateModal";
+import ContactPlanModal from "../components/ContactPlanModal";
+import {
+  BillingPeriod,
+  periodSuffix,
+  Plan,
+  PLANS,
+  PRICING_LEAD,
+  priceFor,
+  YEARLY_BONUS,
+} from "../plans";
 import { useToast } from "../toast";
 import "../home.css";
 
@@ -87,6 +97,8 @@ export default function LandingPage({
   const [download, setDownload] = useState<string | null>(null);
   const [gateOpen, setGateOpen] = useState(false);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [billing, setBilling] = useState<BillingPeriod>("monthly");
+  const [contactPlan, setContactPlan] = useState<Plan | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const toast = useToast();
   const facts = HOME_FACTS;
@@ -492,45 +504,51 @@ export default function LandingPage({
         <div className="home-wrap">
           <div className="home-eyebrow">{HOME.pricing.eyebrow}</div>
           <h2 className="home-h2">{HOME.pricing.title}</h2>
-          <p className="home-lead">{HOME.pricing.lead}</p>
-          <div className="ref-price-grid">
-            {HOME.pricing.tiers.map((t) => (
+          <p className="home-lead">{PRICING_LEAD}</p>
+          <div className="billing-toggle" role="group" aria-label="Chu kỳ thanh toán">
+            <button
+              type="button"
+              className={billing === "monthly" ? "active" : ""}
+              onClick={() => setBilling("monthly")}
+            >
+              Theo tháng
+            </button>
+            <button
+              type="button"
+              className={billing === "yearly" ? "active" : ""}
+              onClick={() => setBilling("yearly")}
+            >
+              Theo năm
+            </button>
+          </div>
+          {billing === "yearly" && <p className="billing-bonus">{YEARLY_BONUS}</p>}
+          <div className="ref-price-grid ref-price-grid-4">
+            {PLANS.map((t) => (
               <article key={t.id} className={`ref-price ${t.featured ? "featured" : ""}`}>
-                {"badge" in t && t.badge && <span className="badge">{t.badge}</span>}
+                {t.badge && <span className="badge">{t.badge}</span>}
                 <div className="name">{t.name}</div>
                 <div className="blurb">{t.blurb}</div>
                 <div className="amt">
-                  {t.price}
-                  {t.period && <span>{t.period}</span>}
+                  {priceFor(t, billing)}
+                  <span>{periodSuffix(billing)}</span>
                 </div>
-                {t.id === "pro" && facts.proYearlyPrice && (
-                  <div className="yearly">
-                    hoặc {facts.proYearlyPrice} / năm
-                    {facts.proYearlySavingsPercent != null
-                      ? `, tiết kiệm ${facts.proYearlySavingsPercent}%`
-                      : ""}
-                  </div>
-                )}
                 <ul>
-                  {t.id === "pro" && facts.proFileCount && (
-                    <li>{facts.proFileCount} file mỗi tháng</li>
-                  )}
                   {t.features.map((f) => (
                     <li key={f}>{f}</li>
                   ))}
                 </ul>
-                {t.id === "enterprise" ? (
-                  <a className="btn btn-ghost" href={consultHref}>
-                    {t.cta}
-                  </a>
-                ) : t.id === "free" ? (
+                {t.id === "free" ? (
                   <button type="button" className="btn btn-ghost" onClick={openUpload}>
                     {t.cta}
                   </button>
                 ) : (
-                  <Link className="btn btn-primary" to={user ? "/documents" : "/register"}>
+                  <button
+                    type="button"
+                    className={`btn ${t.featured ? "btn-primary" : "btn-ghost"}`}
+                    onClick={() => setContactPlan(t)}
+                  >
                     {t.cta}
-                  </Link>
+                  </button>
                 )}
               </article>
             ))}
@@ -583,6 +601,12 @@ export default function LandingPage({
         onClose={() => setGateOpen(false)}
         onAuth={onAuthed}
         resumeHint="Đã dùng hết 2 file ký thử (chỉ dành cho khách chưa đăng ký). Đăng nhập hoặc đăng ký để tiếp tục file này."
+      />
+      <ContactPlanModal
+        open={!!contactPlan}
+        plan={contactPlan}
+        periodLabel={billing === "yearly" ? "năm" : "tháng"}
+        onClose={() => setContactPlan(null)}
       />
     </div>
   );
