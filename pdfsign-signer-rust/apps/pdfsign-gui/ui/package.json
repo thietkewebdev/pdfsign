@@ -1,0 +1,13 @@
+{
+  "name": "pdfsign-gui-ui",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "lint": "eslint js --max-warnings 0",
+    "check": "node ./scripts/check-globals.mjs && npm run lint"
+  },
+  "devDependencies": {
+    "eslint": "^9.15.0",
+    "globals": "^15.12.0"
+  }
+}

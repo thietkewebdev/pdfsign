@@ -164,6 +164,7 @@
       ];
     },
     test_tsa: async () => "OK",
+    take_pending_deep_link: async () => null,
   };
 
   const listeners = {};

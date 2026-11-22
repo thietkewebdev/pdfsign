@@ -12,8 +12,12 @@ use pdfsign_core::{PadesLevel, StampTemplate, StampValues, Timestamper};
 use pdfsign_token::{discover, pin_from_string, CertSelector, Module, TokenError};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+use std::sync::Mutex;
 use tauri::{Emitter, Manager};
 use tauri_plugin_deep_link::DeepLinkExt;
+
+/// Deep links that arrived before the webview subscribed to `deep-link`.
+static PENDING_DEEP_LINK: Mutex<Option<String>> = Mutex::new(None);
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -55,11 +59,24 @@ fn store() -> TemplateStore {
 }
 
 fn emit_deep_link(app: &tauri::AppHandle, url: &str) {
+    let url = url.trim();
+    if url.is_empty() {
+        return;
+    }
+    if let Ok(mut g) = PENDING_DEEP_LINK.lock() {
+        *g = Some(url.to_string());
+    }
     let _ = app.emit("deep-link", url.to_string());
     if let Some(win) = app.get_webview_window("main") {
         let _ = win.set_focus();
         let _ = win.unminimize();
     }
+}
+
+/// Drain a buffered deep link (cold start before `listen("deep-link")`).
+#[tauri::command]
+fn take_pending_deep_link() -> Option<String> {
+    PENDING_DEEP_LINK.lock().ok().and_then(|mut g| g.take())
 }
 
 #[tauri::command]
@@ -405,6 +422,7 @@ fn main() {
             get_settings,
             save_settings,
             config_path,
+            take_pending_deep_link,
             list_tokens,
             list_certs,
             read_pdf,

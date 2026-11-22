@@ -1,4 +1,4 @@
-import { $, invoke, errText, toast } from "./api.js";
+import { $, invoke, listen, errText, toast } from "./api.js";
 import { state } from "./state.js";
 import { initCustomSelects } from "./select.js";
 import { handleDeepLink, initSign, refreshTemplates, refreshTsas, scanTokens } from "./sign.js";
@@ -69,9 +69,19 @@ async function boot() {
   });
   scanTokens().catch((e) => toast(errText(e)));
   window.__pdfsignShowView = showView;
-  listen("deep-link", (ev) => {
-    handleDeepLink(ev.payload);
-  }).catch(() => {});
+
+  // Warm start / second-instance: events after the UI is listening.
+  await listen("deep-link", (ev) => {
+    handleDeepLink(typeof ev.payload === "string" ? ev.payload : String(ev.payload || ""));
+  });
+
+  // Cold start: protocol may have fired before the webview subscribed.
+  try {
+    const pending = await invoke("take_pending_deep_link");
+    if (pending) handleDeepLink(pending);
+  } catch (e) {
+    console.warn("take_pending_deep_link", e);
+  }
 }
 
 boot().catch((e) => toast(`Lỗi khởi động: ${errText(e)}`, 10000));

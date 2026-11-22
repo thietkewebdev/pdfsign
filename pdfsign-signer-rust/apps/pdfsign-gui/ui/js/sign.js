@@ -379,7 +379,7 @@ async function doWebSign(pin) {
       actions.className = "actions";
       const open = document.createElement("button");
       open.textContent = "Mở link";
-      open.onclick = () => window.__TAURI__?.opener?.openUrl?.(result.signedDownloadUrl);
+      open.onclick = () => opener.openUrl(result.signedDownloadUrl);
       actions.append(open);
       li.append(actions);
     }
