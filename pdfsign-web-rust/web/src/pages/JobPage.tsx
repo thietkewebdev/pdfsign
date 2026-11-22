@@ -1,31 +1,33 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
-import { api, formatRemaining } from "../api";
-import { useToast } from "../toast";
+import { api } from "../api";
+import { WINDOWS_INSTALLER_URL } from "../homeContent";
 
 type JobState = {
   jobId: string;
   deepLink: string;
-  expiresAt?: string;
 };
 
 const OPEN = new Set(["READY", "CREATED", "IN_PROGRESS"]);
+const APP_HINT_MS = 10_000;
 
 export default function JobPage() {
   const { jobId = "" } = useParams();
   const loc = useLocation();
   const initial = (loc.state || {}) as JobState;
-  const [deepLink, setDeepLink] = useState(initial.deepLink || "");
+  const [deepLink] = useState(initial.deepLink || "");
   const [status, setStatus] = useState("READY");
   const [download, setDownload] = useState<string | null>(null);
-  const [retentionLabel, setRetentionLabel] = useState("Tự xóa sau 2 ngày");
-  const [remaining, setRemaining] = useState<number | null>(null);
   const [error, setError] = useState("");
-  const toast = useToast();
+  const [showAppHint, setShowAppHint] = useState(false);
 
   useEffect(() => {
-    if (initial.deepLink) setDeepLink(initial.deepLink);
-  }, [initial.deepLink]);
+    if (deepLink) {
+      window.location.href = deepLink;
+      const t = window.setTimeout(() => setShowAppHint(true), APP_HINT_MS);
+      return () => window.clearTimeout(t);
+    }
+  }, [deepLink]);
 
   useEffect(() => {
     let stop = false;
@@ -34,14 +36,14 @@ export default function JobPage() {
         const s = await api<{
           status: string;
           signedDownloadUrl?: string | null;
-          retentionLabel?: string;
-          remainingSeconds?: number | null;
         }>(`/jobs/${jobId}/status`);
         if (stop) return;
         setStatus(s.status);
-        if (s.signedDownloadUrl) setDownload(s.signedDownloadUrl);
-        if (s.retentionLabel) setRetentionLabel(s.retentionLabel);
-        if (s.remainingSeconds != null) setRemaining(s.remainingSeconds);
+        if (s.signedDownloadUrl) {
+          setDownload(s.signedDownloadUrl);
+          setShowAppHint(false);
+          return;
+        }
         if (OPEN.has(s.status)) setTimeout(tick, 2000);
       } catch (e) {
         if (!stop) setError(e instanceof Error ? e.message : "Lỗi");
@@ -53,82 +55,37 @@ export default function JobPage() {
     };
   }, [jobId]);
 
-  const badge =
-    status === "COMPLETED" ? "badge-ok" : status === "EXPIRED" ? "badge-bad" : "badge-warn";
-
-  const statusLabel: Record<string, string> = {
-    READY: "Sẵn sàng",
-    CREATED: "Đã tạo",
-    IN_PROGRESS: "Đang ký",
-    COMPLETED: "Hoàn tất",
-    EXPIRED: "Hết hạn",
-  };
-
   return (
     <div>
       <div className="page-head">
-        <h1 className="h1">Phiên ký</h1>
+        <h1 className="h1">{download ? "Đã ký" : "Đang ký"}</h1>
       </div>
-      {error && <div className="error" role="alert">{error}</div>}
-
-      <div className="card card-pad" style={{ maxWidth: 640 }}>
-        <div className="panel-title">
-          <span className="muted">Trạng thái</span>
-          <span className={`badge ${badge}`}>{statusLabel[status] || status}</span>
+      {error && (
+        <div className="error" role="alert">
+          {error}
         </div>
+      )}
 
-        <div className="tiny" style={{ marginBottom: 16 }}>
-          {jobId}
-        </div>
-        <p className="muted" style={{ marginTop: 0, marginBottom: 16, fontSize: 13 }}>
-          {retentionLabel}
-          {remaining != null ? ` · ${formatRemaining(remaining)}` : ""}
-        </p>
-
-        {deepLink && (
+      <div className="card card-pad" style={{ maxWidth: 480 }}>
+        {download ? (
+          <a className="btn btn-primary" href={download}>
+            Tải PDF
+          </a>
+        ) : (
           <>
-            <div className="code">{deepLink}</div>
-            <div className="toolbar" style={{ marginTop: 14 }}>
-              <a className="btn btn-primary" href={deepLink}>
-                Mở app ký
-              </a>
-              <button
-                className="btn btn-ghost"
-                type="button"
-                onClick={() => {
-                  void navigator.clipboard.writeText(deepLink);
-                  toast.push("Đã sao chép", "ok");
-                }}
-              >
-                Sao chép link
-              </button>
-            </div>
+            <div className="skeleton" style={{ height: 8, width: "100%" }} />
+            {showAppHint && (
+              <p style={{ marginTop: 12, marginBottom: 0, fontSize: 13 }}>
+                <a href={WINDOWS_INSTALLER_URL}>Tải app ký</a>
+              </p>
+            )}
+            <p className="tiny" style={{ marginTop: 12, marginBottom: 0 }}>
+              {status}
+            </p>
           </>
         )}
-
-        {!deepLink && OPEN.has(status) && (
-          <p className="muted">Mở lại từ trang đặt chữ ký để lấy link ký.</p>
-        )}
-
-        {download && (
-          <p style={{ marginTop: 16 }}>
-            <a className="btn btn-primary" href={download}>
-              Tải PDF đã ký
-            </a>
-          </p>
-        )}
-
-        {OPEN.has(status) && (
-          <div style={{ marginTop: 16 }}>
-            <div className="skeleton" style={{ height: 8, width: "100%" }} />
-            <div className="tiny" style={{ marginTop: 8 }}>
-              Đang chờ app ký…
-            </div>
-          </div>
-        )}
-
         <p style={{ marginTop: 18, marginBottom: 0 }}>
-          <Link to="/documents">Về danh sách</Link>
+          <Link to="/">Về trang chủ</Link>
         </p>
       </div>
     </div>

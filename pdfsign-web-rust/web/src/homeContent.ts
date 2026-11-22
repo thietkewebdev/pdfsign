@@ -9,7 +9,7 @@
 /** Same-origin installer hosted from DOWNLOADS_DIR (see server `/downloads/*`). */
 export const WINDOWS_INSTALLER_URL = "/downloads/PDFSign-setup.exe";
 
-export const WINDOWS_APP_VERSION = "0.3.0";
+export const WINDOWS_APP_VERSION = "0.3.1";
 
 export const WINDOWS_INSTALL_GUIDE_URL = "/#tai-app";
 
@@ -48,7 +48,7 @@ export type HomeFacts = {
 export const HOME_FACTS: HomeFacts = {
   fileRetentionDays: 2,
   dataLocation: null,
-  // From CI NSIS artifact PDFSign_0.3.0_x64-setup.exe (8706023 bytes ≈ 8.3 MiB).
+  // Updated after 0.3.1 NSIS CI artifact lands.
   windowsAppSizeMb: 8.3,
   statsSignedFiles: null,
   statsCompanies: null,
