@@ -76,6 +76,12 @@ pub struct CloudJobSource {
 
 impl CloudJobSource {
     pub fn from_deep_link(deep_link: &str) -> Result<Self> {
+        Self::from_deep_link_with_default(deep_link, None)
+    }
+
+    /// Resolve API base: deep-link `&u=` → JWT `api` claim → `default_api` →
+    /// env `PDFSIGN_WEB_API_BASE` → [`crate::settings::DEFAULT_WEB_API_BASE`].
+    pub fn from_deep_link_with_default(deep_link: &str, default_api: Option<&str>) -> Result<Self> {
         let link = DeepLink::parse(deep_link)?;
         let agent: ureq::Agent = ureq::Agent::config_builder()
             .timeout_global(Some(Duration::from_secs(60)))
@@ -86,7 +92,13 @@ impl CloudJobSource {
             .api_hint
             .clone()
             .or_else(|| peek_launch_api(&link.launch_token))
-            .ok_or_else(|| AppError::Other("cannot determine API base from deep link".into()))?;
+            .or_else(|| {
+                default_api
+                    .map(|s| s.trim().to_string())
+                    .filter(|s| !s.is_empty())
+            })
+            .or_else(|| std::env::var("PDFSIGN_WEB_API_BASE").ok())
+            .unwrap_or_else(|| crate::settings::DEFAULT_WEB_API_BASE.to_string());
         let api_base = api_base.trim_end_matches('/').to_string();
 
         let health_url = format!("{api_base}/api/v1/health");
@@ -256,7 +268,19 @@ pub fn run_remote_job(
     tsa: Option<&dyn Timestamper>,
     http: Option<&dyn Http>,
 ) -> Result<String> {
-    let mut src = CloudJobSource::from_deep_link(deep_link)?;
+    run_remote_job_with_api(deep_link, None, appearance, signer, level, tsa, http)
+}
+
+pub fn run_remote_job_with_api(
+    deep_link: &str,
+    default_api: Option<&str>,
+    appearance: &AppearanceOptions,
+    signer: &mut dyn RawSigner,
+    level: PadesLevel,
+    tsa: Option<&dyn Timestamper>,
+    http: Option<&dyn Http>,
+) -> Result<String> {
+    let mut src = CloudJobSource::from_deep_link_with_default(deep_link, default_api)?;
     let doc = src.fetch()?;
     let mut appearance = appearance.clone();
     if let Some(seal) = doc.seal_image {
@@ -370,7 +394,8 @@ struct PlacementDto {
 #[serde(untagged)]
 enum PageValue {
     Num(u32),
-    Last(String),
+    /// Server sends `"last"` (or similar); we only need the variant, not the text.
+    Last(#[allow(dead_code)] String),
 }
 
 #[derive(Deserialize)]
@@ -386,4 +411,37 @@ struct RectDto {
 struct CompletePayload {
     signed_download_url: Option<String>,
     signed_public_url: Option<String>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_v1_sign_deep_link() {
+        let d = DeepLink::parse("pdfsign://v1/sign?t=abc.def.ghi").unwrap();
+        assert_eq!(d.launch_token, "abc.def.ghi");
+        assert!(d.api_hint.is_none());
+    }
+
+    #[test]
+    fn parse_with_api_hint() {
+        let d =
+            DeepLink::parse("pdfsign://v1/sign?t=tok&u=https%3A%2F%2Fpdfsign.example%2F").unwrap();
+        assert_eq!(d.launch_token, "tok");
+        assert_eq!(d.api_hint.as_deref(), Some("https://pdfsign.example/"));
+    }
+
+    #[test]
+    fn reject_bad_scheme() {
+        assert!(DeepLink::parse("https://evil/v1/sign?t=x").is_err());
+    }
+
+    #[test]
+    fn default_api_fallback_constant() {
+        assert_eq!(
+            crate::settings::DEFAULT_WEB_API_BASE,
+            "https://pdfsign.thietkeweb.dev"
+        );
+    }
 }

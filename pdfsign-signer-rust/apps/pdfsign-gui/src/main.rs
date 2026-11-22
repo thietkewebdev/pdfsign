@@ -1,17 +1,19 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use pdfsign_app::jobs::{run_job, FileResult, SignJob};
+use pdfsign_app::remote::run_remote_job_with_api;
 use pdfsign_app::settings::{config_dir, Settings};
 use pdfsign_app::templates::{ImageSlot, TemplateStore};
 use pdfsign_app::verify_view::{verify_file, SignatureView};
 use pdfsign_core::appearance::preview_pdf;
 use pdfsign_core::ltv::UreqHttp;
 use pdfsign_core::tsa::HttpTimestamper;
-use pdfsign_core::{StampTemplate, StampValues, Timestamper};
+use pdfsign_core::{PadesLevel, StampTemplate, StampValues, Timestamper};
 use pdfsign_token::{discover, pin_from_string, CertSelector, Module, TokenError};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
-use tauri::Emitter;
+use tauri::{Emitter, Manager};
+use tauri_plugin_deep_link::DeepLinkExt;
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -50,6 +52,14 @@ type UiResult<T> = Result<T, UiError>;
 
 fn store() -> TemplateStore {
     TemplateStore::new(&config_dir())
+}
+
+fn emit_deep_link(app: &tauri::AppHandle, url: &str) {
+    let _ = app.emit("deep-link", url.to_string());
+    if let Some(win) = app.get_webview_window("main") {
+        let _ = win.set_focus();
+        let _ = win.unminimize();
+    }
 }
 
 #[tauri::command]
@@ -244,6 +254,89 @@ async fn sign_job(app: tauri::AppHandle, req: SignRequest) -> UiResult<Vec<FileR
     .map_err(ui_err)?
 }
 
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct WebSignRequest {
+    deep_link: String,
+    template_id: String,
+    module: PathBuf,
+    slot: usize,
+    cert_serial: String,
+    pin: String,
+    level: Option<PadesLevel>,
+    tsa_url: Option<String>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct WebSignResult {
+    signed_download_url: String,
+}
+
+/// Handshake → fetch job → sign with token PIN → complete (protocol v1).
+#[tauri::command]
+async fn web_sign(app: tauri::AppHandle, req: WebSignRequest) -> UiResult<WebSignResult> {
+    tauri::async_runtime::spawn_blocking(move || -> UiResult<WebSignResult> {
+        let _ = app.emit(
+            "sign-progress",
+            Progress {
+                done: 0,
+                total: 1,
+                current: "web".into(),
+            },
+        );
+        let pin = pin_from_string(req.pin);
+        let tpl = store().get(&req.template_id).unwrap_or_default();
+        let appearance = store().appearance(&tpl).map_err(ui_err)?;
+        let m = Module::load(&req.module)?;
+        let mut signer = m.signer(req.slot, &pin, &CertSelector::Serial(req.cert_serial.clone()))?;
+        drop(pin);
+
+        let mut settings = Settings::load(&config_dir());
+        settings.last_module = Some(req.module.clone());
+        settings.last_slot = req.slot;
+        settings.last_cert_serial = Some(req.cert_serial.clone());
+        let _ = settings.save(&config_dir());
+
+        let level = req.level.unwrap_or(settings.level);
+        let tsa_url = req
+            .tsa_url
+            .filter(|u| !u.trim().is_empty())
+            .or_else(|| {
+                if matches!(level, PadesLevel::BB) {
+                    None
+                } else {
+                    Some(settings.tsa_url.clone())
+                }
+            });
+        let tsa = tsa_url.map(HttpTimestamper::new);
+        let http = UreqHttp::default();
+        let url = run_remote_job_with_api(
+            &req.deep_link,
+            Some(settings.web_api_base.as_str()),
+            &appearance,
+            &mut signer,
+            level,
+            tsa.as_ref().map(|t| t as &dyn Timestamper),
+            Some(&http),
+        )
+        .map_err(ui_err)?;
+        let _ = app.emit(
+            "sign-progress",
+            Progress {
+                done: 1,
+                total: 1,
+                current: "web".into(),
+            },
+        );
+        Ok(WebSignResult {
+            signed_download_url: url,
+        })
+    })
+    .await
+    .map_err(ui_err)?
+}
+
 #[tauri::command]
 async fn verify(path: PathBuf) -> UiResult<Vec<SignatureView>> {
     tauri::async_runtime::spawn_blocking(move || {
@@ -272,8 +365,42 @@ fn page_count(path: PathBuf) -> UiResult<usize> {
 
 fn main() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
+            // Second instance: forward deep-link argv into the running app.
+            for arg in argv.into_iter().skip(1) {
+                if arg.to_ascii_lowercase().starts_with("pdfsign://") {
+                    emit_deep_link(app, &arg);
+                }
+            }
+        }))
+        .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
+        .setup(|app| {
+            // Register pdfsign:// for local/dev runs (NSIS also registers on install).
+            #[cfg(any(target_os = "linux", all(debug_assertions, windows)))]
+            {
+                if let Err(e) = app.deep_link().register_all() {
+                    eprintln!("deep-link register_all: {e}");
+                }
+            }
+
+            let handle = app.handle().clone();
+            app.deep_link().on_open_url(move |event| {
+                for url in event.urls() {
+                    emit_deep_link(&handle, &url.to_string());
+                }
+            });
+
+            // Cold start: protocol launched the app with a URL.
+            if let Ok(Some(urls)) = app.deep_link().get_current() {
+                for url in urls {
+                    emit_deep_link(app.handle(), &url.to_string());
+                }
+            }
+
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             get_settings,
             save_settings,
@@ -287,6 +414,7 @@ fn main() {
             set_template_image,
             template_preview,
             sign_job,
+            web_sign,
             verify,
             test_tsa,
             page_count

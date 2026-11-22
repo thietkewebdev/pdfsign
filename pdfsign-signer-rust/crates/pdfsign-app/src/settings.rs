@@ -72,6 +72,17 @@ pub struct Settings {
     pub location: String,
     /// Extra trusted root certificates (PEM/DER files) for the Verify tab.
     pub trust_anchors: Vec<PathBuf>,
+    /// Default web API base when the launch JWT / deep link omits `api` / `&u=`.
+    /// Override with env `PDFSIGN_WEB_API_BASE`.
+    #[serde(default = "default_web_api_base")]
+    pub web_api_base: String,
+}
+
+/// Production web default (configurable via settings / env).
+pub const DEFAULT_WEB_API_BASE: &str = "https://pdfsign.thietkeweb.dev";
+
+fn default_web_api_base() -> String {
+    DEFAULT_WEB_API_BASE.into()
 }
 
 impl Default for Settings {
@@ -89,6 +100,7 @@ impl Default for Settings {
             reason: String::new(),
             location: String::new(),
             trust_anchors: Vec::new(),
+            web_api_base: DEFAULT_WEB_API_BASE.into(),
         }
     }
 }

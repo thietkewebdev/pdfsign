@@ -1,8 +1,8 @@
 use anyhow::{anyhow, bail, Context, Result};
 use clap::{Args, Parser, Subcommand};
 use pdfsign_app::jobs::{run_job, OutputSpec, Placement, SignJob};
-use pdfsign_app::remote::run_remote_job;
-use pdfsign_app::settings::config_dir;
+use pdfsign_app::remote::run_remote_job_with_api;
+use pdfsign_app::settings::{config_dir, Settings};
 use pdfsign_app::templates::TemplateStore;
 use pdfsign_app::verify_view::verify_file;
 use pdfsign_core::ltv::UreqHttp;
@@ -385,8 +385,10 @@ fn cmd_web_sign(a: WebSignArgs) -> Result<()> {
         Box::new(module.signer(a.token.slot, &pin, &a.cert)?)
     };
 
-    let url = run_remote_job(
+    let default_api = Settings::load(&config_dir()).web_api_base;
+    let url = run_remote_job_with_api(
         &a.deep_link,
+        Some(default_api.as_str()),
         &appearance,
         signer.as_mut(),
         a.level,
@@ -394,7 +396,10 @@ fn cmd_web_sign(a: WebSignArgs) -> Result<()> {
         Some(&http),
     )?;
     if a.json {
-        println!("{}", serde_json::to_string_pretty(&json!({ "ok": true, "signedDownloadUrl": url }))?);
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&json!({ "ok": true, "signedDownloadUrl": url }))?
+        );
     } else {
         println!("OK web-sign -> {url}");
     }

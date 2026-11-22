@@ -81,6 +81,7 @@ export function showSettings() {
   $("set-level").value = state.settings.level;
   $("set-suffix").value = state.settings.outputSuffix;
   $("set-location").value = state.settings.location;
+  if ($("set-web-api")) $("set-web-api").value = state.settings.webApiBase || "";
 }
 
 export function initSettings(onSaved) {
@@ -105,6 +106,10 @@ export function initSettings(onSaved) {
     state.settings.level = $("set-level").value;
     state.settings.outputSuffix = $("set-suffix").value || "-da-ky";
     state.settings.location = $("set-location").value;
+    if ($("set-web-api")) {
+      state.settings.webApiBase = ($("set-web-api").value || "").trim().replace(/\/$/, "")
+        || "https://pdfsign.thietkeweb.dev";
+    }
     if (!state.settings.tsas.some((t) => t.url === state.settings.tsaUrl && t.enabled)) {
       state.settings.tsaUrl = state.settings.tsas.find((t) => t.enabled)?.url || "";
     }

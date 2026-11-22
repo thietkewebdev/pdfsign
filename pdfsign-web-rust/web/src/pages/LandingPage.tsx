@@ -4,6 +4,7 @@ import { api, ApiError, User } from "../api";
 import {
   HOME,
   HOME_FACTS,
+  WINDOWS_APP_VERSION,
   WINDOWS_INSTALLER_URL,
   WINDOWS_INSTALL_GUIDE_URL,
 } from "../homeContent";
@@ -212,6 +213,7 @@ export default function LandingPage({
   const windowsMeta = [
     "Windows 10/11",
     "64-bit",
+    `v${WINDOWS_APP_VERSION}`,
     facts.windowsAppSizeMb != null ? `${facts.windowsAppSizeMb} MB` : null,
     "Miễn phí",
   ]

@@ -46,5 +46,6 @@ Guests get 2 free completed signatures (cookie `pdfsign_guest` + fingerprint hea
 
 Deploy: [`docs/DEPLOY.md`](docs/DEPLOY.md). Extra tests: `./scripts/test-retention.sh`, `./scripts/test-plan-quota.sh`.
 | `SERVER_UPGRADE_LEVEL` | (empty) | `B-LT` / `B-LTA` after complete |
-| `STORAGE_DIR` | `./storage` | Local files |
+| `STORAGE_DIR` | `./storage` | Local PDF blobs (HMAC) |
+| `DOWNLOADS_DIR` | `./downloads` | Public static files at `/downloads/*` (installer) |
 | `WEB_DIST` | `web/dist` | Static UI |

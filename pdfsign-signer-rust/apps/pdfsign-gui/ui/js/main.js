@@ -1,7 +1,7 @@
 import { $, invoke, errText, toast } from "./api.js";
 import { state } from "./state.js";
 import { initCustomSelects } from "./select.js";
-import { initSign, refreshTemplates, refreshTsas, scanTokens } from "./sign.js";
+import { handleDeepLink, initSign, refreshTemplates, refreshTsas, scanTokens } from "./sign.js";
 import { initTemplates, showTemplates } from "./templates.js";
 import { initVerify, verifyPath } from "./verify.js";
 import { initSettings, showSettings } from "./settings.js";
@@ -69,6 +69,9 @@ async function boot() {
   });
   scanTokens().catch((e) => toast(errText(e)));
   window.__pdfsignShowView = showView;
+  listen("deep-link", (ev) => {
+    handleDeepLink(ev.payload);
+  }).catch(() => {});
 }
 
 boot().catch((e) => toast(`Lỗi khởi động: ${errText(e)}`, 10000));
