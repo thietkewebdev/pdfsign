@@ -1,5 +1,7 @@
 /target/
 /storage/
+/downloads/*
+!/downloads/README.md
 /web/node_modules/
 /web/dist/
 /web/screenshot.mjs
