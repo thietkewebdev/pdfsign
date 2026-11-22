@@ -48,7 +48,7 @@ export type HomeFacts = {
 export const HOME_FACTS: HomeFacts = {
   fileRetentionDays: 2,
   dataLocation: null,
-  // Updated after 0.3.1 NSIS CI artifact lands.
+  // From CI NSIS artifact PDFSign_0.3.1_x64-setup.exe (8706696 bytes ≈ 8.3 MiB).
   windowsAppSizeMb: 8.3,
   statsSignedFiles: null,
   statsCompanies: null,
