@@ -335,6 +335,9 @@ fn cmd_list_certs(token: &TokenArgs, pin: &PinArgs, as_json: bool) -> Result<()>
     }
     println!("Module: {}", module.path().display());
     let now = chrono::Utc::now();
+    // Same pool the signer uses: token certs + OS CA/Root stores.
+    let mut pool: Vec<Vec<u8>> = certs.iter().map(|c| c.der.clone()).collect();
+    pool.extend(pdfsign_token::system_ca_certs());
     for c in certs {
         let s = &c.summary;
         println!(
@@ -351,6 +354,25 @@ fn cmd_list_certs(token: &TokenArgs, pin: &PinArgs, as_json: bool) -> Result<()>
                 " (KHÔNG còn hiệu lực)"
             }
         );
+        if s.is_ca {
+            continue;
+        }
+        let chain: Vec<String> = pdfsign_core::complete_chain(&c.der, &pool)
+            .iter()
+            .filter_map(|d| pdfsign_core::summarize(d).ok())
+            .map(|ca| {
+                format!(
+                    "{} (hết hạn {})",
+                    ca.subject_cn.as_deref().unwrap_or("-"),
+                    ca.valid_to.format("%d-%m-%Y")
+                )
+            })
+            .collect();
+        if chain.is_empty() {
+            println!("    chuỗi: (không tìm thấy CA cấp)");
+        } else {
+            println!("    chuỗi: {}", chain.join(" → "));
+        }
     }
     Ok(())
 }

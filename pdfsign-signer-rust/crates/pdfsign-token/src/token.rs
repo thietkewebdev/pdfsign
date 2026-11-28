@@ -232,7 +232,10 @@ impl Module {
             ));
         }
         let key = find_private_key(&session, &cert)?;
-        let chain = build_chain(&cert, &certs);
+        // Token CA certs first, then the OS store (where CA drivers install intermediates).
+        let mut pool: Vec<Vec<u8>> = certs.iter().map(|c| c.der.clone()).collect();
+        pool.extend(crate::syscerts::system_ca_certs());
+        let chain = pdfsign_core::complete_chain(&cert.der, &pool);
         // get_mechanism_list() makes cryptoki log every vendor mechanism it does not know;
         // probing the two mechanisms we can use is quieter and sufficient.
         let has = |m: MechanismType| self.ctx.get_mechanism_info(slot, m).is_ok();
@@ -405,34 +408,6 @@ fn find_private_key(session: &Session, cert: &TokenCert) -> Result<ObjectHandle>
         ErrorCode::General,
         "no private key matches the selected certificate (modulus/CKA_ID/label)",
     ))
-}
-
-/// CA certificates present on the token that chain up from the signer (issuer == subject).
-fn build_chain(signer: &TokenCert, all: &[TokenCert]) -> Vec<Vec<u8>> {
-    use pdfsign_core::cades::parse_certificate;
-    let mut chain = Vec::new();
-    let Ok(mut current) = parse_certificate(&signer.der) else {
-        return chain;
-    };
-    for _ in 0..8 {
-        let issuer = current.tbs_certificate.issuer.clone();
-        if issuer == current.tbs_certificate.subject {
-            break;
-        }
-        let next = all.iter().find_map(|c| {
-            let parsed = parse_certificate(&c.der).ok()?;
-            (parsed.tbs_certificate.subject == issuer && !chain.contains(&c.der))
-                .then(|| (c.der.clone(), parsed))
-        });
-        match next {
-            Some((der, parsed)) => {
-                chain.push(der);
-                current = parsed;
-            }
-            None => break,
-        }
-    }
-    chain
 }
 
 /// How the RSA signature is produced on the device.

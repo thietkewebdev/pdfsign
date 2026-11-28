@@ -8,6 +8,7 @@
 pub mod appearance;
 pub mod cades;
 pub mod certinfo;
+pub mod chain;
 pub mod error;
 pub mod ltv;
 pub mod pades;
@@ -21,6 +22,7 @@ pub mod verify;
 pub use appearance::{AppearanceOptions, StampLayout, StampTemplate, StampValues, TextAlign};
 pub use cades::{build_cades_detached, RawSigner, Timestamper};
 pub use certinfo::{summarize, CertSummary};
+pub use chain::complete_chain;
 pub use error::{Error, Result};
 pub use pades::{sign_at_level, LevelOutcome, PadesLevel};
 pub use sign::{
