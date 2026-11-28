@@ -110,7 +110,7 @@ pub async fn me(State(state): State<AppState>, jar: CookieJar) -> AppResult<Json
                 "quota": quota,
             })))
         }
-        None => Err(AppError::unauthorized("Unauthorized")),
+        None => Err(AppError::unauthorized("Chưa đăng nhập hoặc phiên đã hết")),
     }
 }
 

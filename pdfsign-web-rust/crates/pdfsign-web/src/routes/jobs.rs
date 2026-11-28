@@ -87,7 +87,7 @@ pub async fn create(
         .await?
     };
     let (doc_id, _public_id, _uid, _gid) =
-        doc.ok_or_else(|| AppError::not_found("Document not found"))?;
+        doc.ok_or_else(|| AppError::not_found("Không tìm thấy tài liệu"))?;
 
     let ver: Option<(String,)> = sqlx::query_as(
         r#"SELECT id FROM document_versions WHERE document_id = $1
@@ -96,7 +96,7 @@ pub async fn create(
     .bind(&doc_id)
     .fetch_optional(&state.db)
     .await?;
-    let ver_id = ver.ok_or_else(|| AppError::not_found("No version"))?.0;
+    let ver_id = ver.ok_or_else(|| AppError::not_found("Tài liệu chưa có phiên bản"))?.0;
 
     let job_id = generate_id("job_");
     let jti = generate_jti();
@@ -165,7 +165,7 @@ pub async fn handshake(
         .bind(&claims.job)
         .fetch_optional(&state.db)
         .await?
-        .ok_or_else(|| AppError::coded(StatusCode::NOT_FOUND, "JOB_NOT_FOUND", "Job not found"))?;
+        .ok_or_else(|| AppError::coded(StatusCode::NOT_FOUND, "JOB_NOT_FOUND", "Không tìm thấy phiên ký"))?;
 
     if job.launch_jti != claims.jti {
         return Err(AppError::coded(
@@ -179,14 +179,14 @@ pub async fn handshake(
         return Err(AppError::coded(
             StatusCode::CONFLICT,
             "LAUNCH_USED",
-            "Launch token already used",
+            "Liên kết ký đã được dùng",
         ));
     }
     if Utc::now() > job.expires_at {
         return Err(AppError::coded(
             StatusCode::GONE,
             "JOB_EXPIRED",
-            "Job has expired",
+            "Phiên ký đã hết hạn",
         ));
     }
 
@@ -209,13 +209,13 @@ pub async fn handshake(
                 .fetch_optional(&state.db)
                 .await?
                 .ok_or_else(|| {
-                    AppError::coded(StatusCode::NOT_FOUND, "JOB_NOT_FOUND", "Job not found")
+                    AppError::coded(StatusCode::NOT_FOUND, "JOB_NOT_FOUND", "Không tìm thấy phiên ký")
                 })?;
             if again.status != "READY" {
                 return Err(AppError::coded(
                     StatusCode::CONFLICT,
                     "LAUNCH_USED",
-                    "Launch token already used",
+                    "Liên kết ký đã được dùng",
                 ));
             }
         }
@@ -267,12 +267,12 @@ async fn load_job_for_access(state: &AppState, headers: &HeaderMap) -> AppResult
         .bind(&claims.job)
         .fetch_optional(&state.db)
         .await?
-        .ok_or_else(|| AppError::coded(StatusCode::NOT_FOUND, "JOB_NOT_FOUND", "Job not found"))?;
+        .ok_or_else(|| AppError::coded(StatusCode::NOT_FOUND, "JOB_NOT_FOUND", "Không tìm thấy phiên ký"))?;
     if Utc::now() > job.expires_at && job.status == "READY" {
         return Err(AppError::coded(
             StatusCode::GONE,
             "JOB_EXPIRED",
-            "Job has expired",
+            "Phiên ký đã hết hạn",
         ));
     }
     Ok(job)
@@ -287,7 +287,7 @@ pub async fn signer_job(
         return Err(AppError::coded(
             StatusCode::BAD_REQUEST,
             "JOB_NOT_READY",
-            "Job is not ready for signing",
+            "Phiên ký chưa sẵn sàng",
         ));
     }
 
@@ -302,7 +302,7 @@ pub async fn signer_job(
     .fetch_optional(&state.db)
     .await?;
     let (title, public_id, storage_key) =
-        meta.ok_or_else(|| AppError::not_found("Document not found"))?;
+        meta.ok_or_else(|| AppError::not_found("Không tìm thấy tài liệu"))?;
 
     let placement: Value = serde_json::from_str(&job.placement_json).unwrap_or(json!({}));
     let placement = Placement::normalize(&placement)?.to_json();
@@ -349,7 +349,7 @@ pub async fn signer_file(
         return Err(AppError::coded(
             StatusCode::UNAUTHORIZED,
             "INVALID_TOKEN",
-            "Invalid or expired download signature",
+            "Link tải không hợp lệ hoặc đã hết hạn",
         ));
     }
     let key: Option<(String,)> = sqlx::query_as(
@@ -360,7 +360,7 @@ pub async fn signer_file(
     .bind(&q.job)
     .fetch_optional(&state.db)
     .await?;
-    let key = key.ok_or_else(|| AppError::not_found("File not found"))?.0;
+    let key = key.ok_or_else(|| AppError::not_found("Không tìm thấy file"))?.0;
     let bytes = state.storage.read(&key).await?;
     Ok((
         [(axum::http::header::CONTENT_TYPE, "application/pdf")],
@@ -398,7 +398,7 @@ pub async fn complete(
         return Err(AppError::coded(
             StatusCode::GONE,
             "JOB_EXPIRED",
-            "Job has expired",
+            "Phiên ký đã hết hạn",
         ));
     }
     // Claim the job so concurrent completes cannot double-write versions/quota.
@@ -416,7 +416,7 @@ pub async fn complete(
             .fetch_optional(&state.db)
             .await?
             .ok_or_else(|| {
-                AppError::coded(StatusCode::NOT_FOUND, "JOB_NOT_FOUND", "Job not found")
+                AppError::coded(StatusCode::NOT_FOUND, "JOB_NOT_FOUND", "Không tìm thấy phiên ký")
             })?;
         if again.status == "COMPLETED" {
             if let Some(raw) = &again.complete_response_json {
@@ -427,7 +427,7 @@ pub async fn complete(
         return Err(AppError::coded(
             StatusCode::CONFLICT,
             "JOB_NOT_READY",
-            "Job is not ready for signing",
+            "Phiên ký chưa sẵn sàng",
         ));
     }
 
@@ -457,7 +457,7 @@ pub async fn complete(
                 return Err(AppError::coded(
                     StatusCode::PAYLOAD_TOO_LARGE,
                     "FILE_TOO_LARGE",
-                    "Signed PDF exceeds 25MB",
+                    "File đã ký vượt quá 25MB",
                 ));
             }
             file_bytes.replace(data.to_vec());
@@ -472,7 +472,7 @@ pub async fn complete(
             return Err(AppError::coded(
                 StatusCode::BAD_REQUEST,
                 "INVALID_MULTIPART",
-                "Missing signed PDF",
+                "Thiếu file đã ký",
             ));
         }
     };
@@ -615,7 +615,7 @@ pub async fn status(
     } else {
         None
     }
-    .ok_or_else(|| AppError::coded(StatusCode::NOT_FOUND, "JOB_NOT_FOUND", "Job not found"))?;
+    .ok_or_else(|| AppError::coded(StatusCode::NOT_FOUND, "JOB_NOT_FOUND", "Không tìm thấy phiên ký"))?;
 
     let mut status = job.status.clone();
     if status == "READY" && Utc::now() > job.expires_at {

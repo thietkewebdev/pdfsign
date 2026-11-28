@@ -1,5 +1,10 @@
 import { useEffect, useState } from "react";
 import { api, type User } from "../api";
+import { PLANS } from "../plans";
+
+function planName(plan: string): string {
+  return PLANS.find((p) => p.id === plan)?.name ?? plan;
+}
 
 type Quota = NonNullable<User["quota"]> & {
   plan?: string;
@@ -54,15 +59,11 @@ export default function SettingsPage({ user }: { user: User }) {
         </div>
         <div className="field">
           <label>Gói</label>
-          <input value={plan} readOnly />
-        </div>
-        <div className="field">
-          <label>Hạn mức</label>
-          <input value={quotaLine(quota, plan)} readOnly />
+          <input value={planName(plan)} readOnly />
         </div>
         <div className="field" style={{ marginBottom: 0 }}>
-          <label>ID</label>
-          <input value={user.id} readOnly />
+          <label>Hạn mức</label>
+          <input value={quotaLine(quota, plan)} readOnly />
         </div>
       </div>
     </div>

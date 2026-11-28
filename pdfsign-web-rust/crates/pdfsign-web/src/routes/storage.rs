@@ -64,7 +64,7 @@ async fn authorize_storage_key(
     .await?;
 
     let Some((user_id, guest_id, status)) = row else {
-        return Err(AppError::not_found("File not found"));
+        return Err(AppError::not_found("Không tìm thấy file"));
     };
     if status == "EXPIRED" || status == "PURGED" {
         return Err(AppError::coded(
@@ -79,7 +79,7 @@ async fn authorize_storage_key(
             return Ok(());
         }
         // Other logged-in user → hide existence
-        return Err(AppError::not_found("File not found"));
+        return Err(AppError::not_found("Không tìm thấy file"));
     }
 
     if let Some(g) = guest_from_jar(state, jar).await? {
@@ -105,7 +105,7 @@ pub async fn get_file(
 ) -> AppResult<impl IntoResponse> {
     // Prevent path escape
     if key.contains("..") {
-        return Err(AppError::bad("Invalid key"));
+        return Err(AppError::bad("Đường dẫn file không hợp lệ"));
     }
 
     authorize_storage_key(&state, &jar, &headers, &key, &q).await?;

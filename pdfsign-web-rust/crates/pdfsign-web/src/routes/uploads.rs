@@ -66,18 +66,18 @@ pub async fn put_chunk(
     .fetch_optional(&state.db)
     .await?;
     let (key, chunk_size, status, owner) =
-        row.ok_or_else(|| AppError::not_found("Upload not found"))?;
+        row.ok_or_else(|| AppError::not_found("Không tìm thấy phiên tải lên"))?;
     if owner != user.0.id {
-        return Err(AppError::unauthorized("Unauthorized"));
+        return Err(AppError::unauthorized("Chưa đăng nhập hoặc phiên đã hết"));
     }
     if status != "open" {
-        return Err(AppError::bad("Upload is closed"));
+        return Err(AppError::bad("Phiên tải lên đã đóng"));
     }
     if body.len() as i32 > chunk_size + 1024 {
         return Err(AppError::coded(
             StatusCode::PAYLOAD_TOO_LARGE,
             "FILE_TOO_LARGE",
-            "Chunk too large",
+            "Phần file quá lớn",
         ));
     }
     let path = state.storage.abs_path(&key);
@@ -115,13 +115,13 @@ pub async fn finish(
     .bind(&user.0.id)
     .fetch_optional(&state.db)
     .await?;
-    let (part_key, title, status) = row.ok_or_else(|| AppError::not_found("Upload not found"))?;
+    let (part_key, title, status) = row.ok_or_else(|| AppError::not_found("Không tìm thấy phiên tải lên"))?;
     if status != "open" {
-        return Err(AppError::bad("Upload already finished"));
+        return Err(AppError::bad("File đã tải lên xong"));
     }
     let bytes = state.storage.read(&part_key).await?;
     if bytes.len() < 5 || &bytes[..4] != b"%PDF" {
-        return Err(AppError::bad("Upload is not a PDF"));
+        return Err(AppError::bad("File không phải PDF"));
     }
     let public_id = generate_public_id();
     let doc_id = generate_id("doc_");

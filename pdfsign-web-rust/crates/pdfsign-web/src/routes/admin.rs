@@ -27,7 +27,7 @@ async fn require_admin(state: &AppState, jar: &CookieJar, headers: &HeaderMap) -
             return Ok(());
         }
     }
-    Err(AppError::new(StatusCode::FORBIDDEN, "Admin only"))
+    Err(AppError::new(StatusCode::FORBIDDEN, "Chỉ quản trị viên được dùng"))
 }
 
 #[derive(Deserialize)]
@@ -74,7 +74,7 @@ pub async fn set_user_plan(
     .await?;
 
     let Some((id, email, plan)) = updated else {
-        return Err(AppError::not_found("User not found"));
+        return Err(AppError::not_found("Không tìm thấy người dùng"));
     };
 
     Ok(Json(json!({

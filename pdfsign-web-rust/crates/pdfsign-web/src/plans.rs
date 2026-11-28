@@ -112,7 +112,7 @@ pub async fn load_user_quota(state: &AppState, user_id: &str) -> AppResult<UserQ
     .bind(user_id)
     .fetch_optional(&state.db)
     .await?;
-    row.ok_or_else(|| AppError::not_found("User not found"))
+    row.ok_or_else(|| AppError::not_found("Không tìm thấy người dùng"))
 }
 
 pub async fn ensure_quota_period(state: &AppState, user_id: &str) -> AppResult<()> {

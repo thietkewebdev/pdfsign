@@ -126,7 +126,7 @@ pub async fn upload(
                     .to_lowercase()
                     .ends_with(".pdf")
             {
-                return Err(AppError::bad("File must be a PDF"));
+                return Err(AppError::bad("File không phải PDF"));
             }
             if data.len() > 50 * 1024 * 1024 {
                 return Err(AppError::new(
@@ -138,9 +138,9 @@ pub async fn upload(
         }
     }
 
-    let bytes = file_bytes.ok_or_else(|| AppError::bad("Missing or invalid file"))?;
+    let bytes = file_bytes.ok_or_else(|| AppError::bad("Thiếu file hoặc file không hợp lệ"))?;
     if bytes.len() < 5 || &bytes[..5] != b"%PDF-" {
-        return Err(AppError::bad("File must be a PDF (%PDF-… header)"));
+        return Err(AppError::bad("File không phải PDF"));
     }
     let public_id = generate_public_id();
     let doc_id = generate_id("doc_");
@@ -238,7 +238,7 @@ pub async fn get_one(
     .fetch_optional(&state.db)
     .await?;
     let (doc_id, owner_id, guest_id) =
-        row.ok_or_else(|| AppError::not_found("Document not found"))?;
+        row.ok_or_else(|| AppError::not_found("Không tìm thấy tài liệu"))?;
 
     let mut allowed = false;
     if let Some(u) = user_from_jar(&state, &jar).await? {
@@ -247,7 +247,7 @@ pub async fn get_one(
         allowed = guest_id.as_deref() == Some(g.id.as_str());
     }
     if !allowed {
-        return Err(AppError::not_found("Document not found"));
+        return Err(AppError::not_found("Không tìm thấy tài liệu"));
     }
 
     let doc = sqlx::query_as::<_, DocDetail>(
@@ -257,7 +257,7 @@ pub async fn get_one(
     .bind(&doc_id)
     .fetch_optional(&state.db)
     .await?
-    .ok_or_else(|| AppError::not_found("Document not found"))?;
+    .ok_or_else(|| AppError::not_found("Không tìm thấy tài liệu"))?;
 
     if doc.status == "EXPIRED" || doc.status == "PURGED" {
         return Err(AppError::coded(
@@ -314,7 +314,7 @@ pub async fn file(
     .fetch_optional(&state.db)
     .await?;
     let (doc_id, status, owner_id, guest_id) =
-        doc.ok_or_else(|| AppError::not_found("Document not found"))?;
+        doc.ok_or_else(|| AppError::not_found("Không tìm thấy tài liệu"))?;
     if status == "EXPIRED" || status == "PURGED" {
         return Err(AppError::coded(
             StatusCode::GONE,
@@ -328,7 +328,7 @@ pub async fn file(
         if owner_id.as_deref() == Some(u.id.as_str()) {
             allowed = true;
         } else {
-            return Err(AppError::not_found("Document not found"));
+            return Err(AppError::not_found("Không tìm thấy tài liệu"));
         }
     } else if let Some(g) = guest_from_jar(&state, &jar).await? {
         if guest_id.as_deref() == Some(g.id.as_str()) {
@@ -350,7 +350,7 @@ pub async fn file(
     .bind(&doc_id)
     .fetch_optional(&state.db)
     .await?;
-    let key = key.ok_or_else(|| AppError::not_found("No version"))?.0;
+    let key = key.ok_or_else(|| AppError::not_found("Tài liệu chưa có phiên bản"))?.0;
     let bytes = state.storage.read(&key).await?;
     Ok((
         [

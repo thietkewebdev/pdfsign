@@ -97,12 +97,12 @@ pub fn decode_launch_jwt(secret: &str, token: &str) -> AppResult<LaunchClaims> {
     .map_err(|e| {
         let msg = e.to_string();
         if msg.to_lowercase().contains("expired") {
-            AppError::coded(StatusCode::GONE, "LAUNCH_EXPIRED", "Launch token expired")
+            AppError::coded(StatusCode::GONE, "LAUNCH_EXPIRED", "Liên kết ký đã hết hạn")
         } else {
             AppError::coded(
                 StatusCode::UNAUTHORIZED,
                 "INVALID_TOKEN",
-                "Invalid launch token",
+                "Liên kết ký không hợp lệ",
             )
         }
     })?;
@@ -148,7 +148,7 @@ pub fn decode_access_jwt(secret: &str, token: &str) -> AppResult<AccessClaims> {
         AppError::coded(
             StatusCode::UNAUTHORIZED,
             "INVALID_TOKEN",
-            "Invalid access token",
+            "Phiên đăng nhập không hợp lệ",
         )
     })?;
     if data.claims.typ != "access" || data.claims.scope != "sign" {

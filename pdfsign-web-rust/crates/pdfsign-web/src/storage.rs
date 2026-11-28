@@ -49,7 +49,7 @@ impl LocalStorage {
     pub async fn read(&self, key: &str) -> AppResult<Vec<u8>> {
         fs::read(self.abs(key))
             .await
-            .map_err(|_| AppError::not_found("File not found"))
+            .map_err(|_| AppError::not_found("Không tìm thấy file"))
     }
 
     pub fn exists_sync(&self, key: &str) -> bool {
