@@ -96,18 +96,23 @@ pub struct QuotaStatus {
     pub upgrade_required: bool,
 }
 
-pub async fn load_user_quota(
-    state: &AppState,
-    user_id: &str,
-) -> AppResult<(String, String, i32, i32, Option<chrono::DateTime<Utc>>)> {
-    let row: Option<(String, String, i32, i32, Option<chrono::DateTime<Utc>>)> = sqlx::query_as(
+type UserQuotaRow = (
+    String,
+    String,
+    i32,
+    i32,
+    Option<chrono::DateTime<Utc>>,
+);
+
+pub async fn load_user_quota(state: &AppState, user_id: &str) -> AppResult<UserQuotaRow> {
+    let row: Option<UserQuotaRow> = sqlx::query_as(
         r#"SELECT plan, plan_period, trial_files_used, quota_used, quota_period_start
            FROM users WHERE id = $1"#,
     )
     .bind(user_id)
     .fetch_optional(&state.db)
     .await?;
-    row.ok_or_else(|| AppError::not_found("User not found"))
+    row.ok_or_else(|| AppError::not_found("Không tìm thấy người dùng"))
 }
 
 pub async fn ensure_quota_period(state: &AppState, user_id: &str) -> AppResult<()> {
@@ -186,12 +191,10 @@ pub async fn record_signed_usage(state: &AppState, user_id: &str) -> AppResult<(
     ensure_quota_period(state, user_id).await?;
     let (plan, _, _, _, _) = load_user_quota(state, user_id).await?;
     if plan == PLAN_FREE {
-        sqlx::query(
-            r#"UPDATE users SET trial_files_used = trial_files_used + 1 WHERE id = $1"#,
-        )
-        .bind(user_id)
-        .execute(&state.db)
-        .await?;
+        sqlx::query(r#"UPDATE users SET trial_files_used = trial_files_used + 1 WHERE id = $1"#)
+            .bind(user_id)
+            .execute(&state.db)
+            .await?;
     } else if plan != PLAN_UNLIMITED {
         sqlx::query(r#"UPDATE users SET quota_used = quota_used + 1 WHERE id = $1"#)
             .bind(user_id)

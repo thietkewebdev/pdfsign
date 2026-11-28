@@ -21,8 +21,9 @@ pub async fn verify_upload(mut multipart: Multipart) -> AppResult<Json<Value>> {
             );
         }
     }
-    let bytes = file_bytes.ok_or_else(|| AppError::bad("Missing file"))?;
-    let reports = verify_pdf(&bytes).map_err(|e| AppError::bad(format!("Không đọc được PDF: {e}")))?;
+    let bytes = file_bytes.ok_or_else(|| AppError::bad("Chưa chọn file"))?;
+    let reports =
+        verify_pdf(&bytes).map_err(|e| AppError::bad(format!("Không đọc được PDF: {e}")))?;
     let signatures: Vec<Value> = reports
         .iter()
         .map(|r| {

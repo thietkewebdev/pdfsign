@@ -183,7 +183,8 @@ function renderBoxes(boxes) {
 }
 
 function updateSignEnabled() {
-  $("sign-btn").disabled = !(files.length && $("cert-select").value && $("token-select").value);
+  const hasToken = $("token-select").value && $("cert-select").value;
+  $("sign-btn").disabled = !(files.length && hasToken);
 }
 
 export async function scanTokens() {
@@ -286,10 +287,14 @@ function buildJob() {
   };
 }
 
-function openPinModal() {
+function openPinModal(opts = {}) {
   const modal = $("pin-modal");
   const pin = $("pin");
   pin.value = "";
+  const title = $("pin-title");
+  if (title) title.textContent = opts.title || "Nhập mã PIN";
+  const confirm = $("pin-confirm");
+  if (confirm) confirm.textContent = opts.confirmLabel || "Ký";
   modal.hidden = false;
   setTimeout(() => pin.focus(), 50);
 }
@@ -297,6 +302,10 @@ function openPinModal() {
 function closePinModal() {
   $("pin-modal").hidden = true;
   $("pin").value = "";
+  const title = $("pin-title");
+  if (title) title.textContent = "Nhập mã PIN";
+  const confirm = $("pin-confirm");
+  if (confirm) confirm.textContent = "Ký";
 }
 
 async function doSign(pin) {

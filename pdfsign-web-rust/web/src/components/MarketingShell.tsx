@@ -4,12 +4,8 @@ import type { User } from "../api";
 import { HOME, HOME_FACTS, WINDOWS_INSTALLER_URL } from "../homeContent";
 
 function FooterLink({ href, label }: { href: string; label: string }) {
-  if (href === "/#tai-app") {
-    return (
-      <a href={WINDOWS_INSTALLER_URL} target="_blank" rel="noreferrer">
-        {label}
-      </a>
-    );
+  if (href === "/#tai-app" && label.startsWith("Tải")) {
+    return <a href={WINDOWS_INSTALLER_URL}>{label}</a>;
   }
   if (href.startsWith("http") || href.startsWith("mailto") || href.startsWith("tel") || href.startsWith("/#") || href.startsWith("#")) {
     return (

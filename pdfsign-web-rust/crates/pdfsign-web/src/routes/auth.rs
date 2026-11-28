@@ -32,7 +32,9 @@ pub async fn register(
 ) -> AppResult<(CookieJar, Json<Value>)> {
     let email = body.email.trim().to_lowercase();
     if !email.contains('@') || body.password.len() < 8 {
-        return Err(AppError::bad("Email hoặc mật khẩu không hợp lệ (tối thiểu 8 ký tự)"));
+        return Err(AppError::bad(
+            "Email hoặc mật khẩu không hợp lệ (tối thiểu 8 ký tự)",
+        ));
     }
     let exists: Option<(String,)> = sqlx::query_as("SELECT id FROM users WHERE email = $1")
         .bind(&email)
@@ -43,15 +45,13 @@ pub async fn register(
     }
     let id = generate_id("usr_");
     let hash = hash_password(&body.password)?;
-    sqlx::query(
-        r#"INSERT INTO users (id, email, name, password_hash) VALUES ($1, $2, $3, $4)"#,
-    )
-    .bind(&id)
-    .bind(&email)
-    .bind(body.name.as_deref())
-    .bind(&hash)
-    .execute(&state.db)
-    .await?;
+    sqlx::query(r#"INSERT INTO users (id, email, name, password_hash) VALUES ($1, $2, $3, $4)"#)
+        .bind(&id)
+        .bind(&email)
+        .bind(body.name.as_deref())
+        .bind(&hash)
+        .execute(&state.db)
+        .await?;
 
     let jar = create_session(&state, jar, &id).await?;
     attach_guest_docs_to_user(&state, &jar, &id).await?;
@@ -110,7 +110,7 @@ pub async fn me(State(state): State<AppState>, jar: CookieJar) -> AppResult<Json
                 "quota": quota,
             })))
         }
-        None => Err(AppError::unauthorized("Unauthorized")),
+        None => Err(AppError::unauthorized("Chưa đăng nhập hoặc phiên đã hết")),
     }
 }
 

@@ -208,6 +208,8 @@ pub enum Source {
     PreferredViettel,
     Known,
     Scan,
+    /// Picked from the inserted card's PC/SC registration, without a disk scan.
+    PcSc,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -432,6 +434,67 @@ pub fn discover(user: Option<&Path>) -> Vec<ModuleCandidate> {
     }
     for k in known_for_os() {
         push(PathBuf::from(k.path), Source::Known, &mut out);
+    }
+    out
+}
+
+fn has_token(path: &Path) -> bool {
+    crate::token::Module::load(path)
+        .and_then(|m| m.token_slots())
+        .is_ok_and(|s| !s.is_empty())
+}
+
+/// Fast path for signing: modules that have an inserted token, chosen from the cards' PC/SC
+/// registration (see [`crate::pcsc`]) plus the remembered `user` module. Falls back to the
+/// full [`discover`] scan when an env override is set, PC/SC reports no card, any inserted
+/// card is not mapped to a driver yet, or no mapped driver sees a token.
+pub fn discover_present(user: Option<&Path>) -> Vec<ModuleCandidate> {
+    if ["PDFSIGN_PKCS11_MODULE", "PKCS11_DLL"]
+        .iter()
+        .any(|v| std::env::var_os(v).is_some())
+    {
+        return discover(user);
+    }
+    let cards = crate::pcsc::present_cards();
+    if cards.is_empty()
+        || cards
+            .iter()
+            .any(|c| crate::pcsc::module_hints(c).is_empty())
+    {
+        return discover(user);
+    }
+    let system32 = std::env::var_os("SystemRoot")
+        .map(|r| PathBuf::from(r).join("System32"))
+        .unwrap_or_else(|| PathBuf::from(r"C:\Windows\System32"));
+    let mut out: Vec<ModuleCandidate> = Vec::new();
+    let mut seen = HashSet::new();
+    let mut push = |path: PathBuf, source: Source, out: &mut Vec<ModuleCandidate>| {
+        if seen.insert(norm(&path)) && is_pkcs11_module(&path) && has_token(&path) {
+            out.push(ModuleCandidate {
+                vendor: vendor_for(&path),
+                path,
+                source,
+            });
+        }
+    };
+    if let Some(p) = user {
+        push(p.to_path_buf(), Source::UserSpecified, &mut out);
+    }
+    for card in &cards {
+        // First mapped driver that sees a token wins for this card (v6 before v5, ...).
+        for name in crate::pcsc::module_hints(card) {
+            let path = system32.join(name);
+            let before = out.len();
+            if path.is_file() {
+                push(path, Source::PcSc, &mut out);
+            }
+            if out.len() > before {
+                break;
+            }
+        }
+    }
+    if out.is_empty() {
+        return discover(user);
     }
     out
 }

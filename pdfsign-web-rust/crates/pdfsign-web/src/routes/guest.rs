@@ -1,7 +1,5 @@
 use crate::error::AppResult;
-use crate::guest::{
-    completed_count, ensure_guest, guest_from_jar, GUEST_FREE_LIMIT,
-};
+use crate::guest::{completed_count, ensure_guest, guest_from_jar, GUEST_FREE_LIMIT};
 use crate::state::AppState;
 use axum::extract::State;
 use axum::http::HeaderMap;

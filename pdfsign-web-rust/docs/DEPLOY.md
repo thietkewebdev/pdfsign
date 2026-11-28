@@ -66,6 +66,7 @@ Put nginx/caddy in front for TLS; proxy to `LISTEN` (default `127.0.0.1:8080`).
 | `PUBLIC_BASE_URL` | yes (prod) | Public site/API base (also accepts `APP_URL`) |
 | `JWT_SECRET` | yes (prod) | HS256 for launch/access JWTs (also `HMAC_SECRET`) |
 | `STORAGE_DIR` | yes | Local PDF blob root |
+| `DOWNLOADS_DIR` | no | Public installer/static files at `/downloads/*` (default `./downloads`) |
 | `WEB_DIST` | yes | Path to `index.html` + `assets/` |
 | `FILE_RETENTION_HOURS` | no | Default `48` — hourly cleanup deletes blobs |
 | `REGISTERED_TRIAL_FILES` | no | Default `5` one-time trial for plan=`free` |

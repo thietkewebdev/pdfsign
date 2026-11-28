@@ -1,10 +1,14 @@
 use crate::error::{AppError, AppResult};
 use axum::http::StatusCode;
 use chrono::{Duration, Utc};
+use hmac::{Hmac, Mac};
 use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, Validation};
 use rand::RngCore;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use subtle::ConstantTimeEq;
+
+type HmacSha256 = Hmac<Sha256>;
 
 pub fn sha256_hex(data: &str) -> String {
     hex::encode(Sha256::digest(data.as_bytes()))
@@ -93,16 +97,20 @@ pub fn decode_launch_jwt(secret: &str, token: &str) -> AppResult<LaunchClaims> {
     .map_err(|e| {
         let msg = e.to_string();
         if msg.to_lowercase().contains("expired") {
-            AppError::coded(StatusCode::GONE, "LAUNCH_EXPIRED", "Launch token expired")
+            AppError::coded(StatusCode::GONE, "LAUNCH_EXPIRED", "Liên kết ký đã hết hạn")
         } else {
-            AppError::coded(StatusCode::UNAUTHORIZED, "INVALID_TOKEN", "Invalid launch token")
+            AppError::coded(
+                StatusCode::UNAUTHORIZED,
+                "INVALID_TOKEN",
+                "Liên kết ký không hợp lệ",
+            )
         }
     })?;
-    if data.claims.typ != "launch" || data.claims.v != 1 {
+    if data.claims.typ != "launch" {
         return Err(AppError::coded(
             StatusCode::UNAUTHORIZED,
             "INVALID_TOKEN",
-            "Invalid launch token type",
+            "Not a launch token",
         ));
     }
     Ok(data.claims)
@@ -137,13 +145,17 @@ pub fn decode_access_jwt(secret: &str, token: &str) -> AppResult<AccessClaims> {
         &validation,
     )
     .map_err(|_| {
-        AppError::coded(StatusCode::UNAUTHORIZED, "INVALID_TOKEN", "Invalid access token")
+        AppError::coded(
+            StatusCode::UNAUTHORIZED,
+            "INVALID_TOKEN",
+            "Phiên đăng nhập không hợp lệ",
+        )
     })?;
-    if data.claims.typ != "access" || data.claims.scope != "sign" || data.claims.v != 1 {
+    if data.claims.typ != "access" || data.claims.scope != "sign" {
         return Err(AppError::coded(
             StatusCode::UNAUTHORIZED,
             "INVALID_TOKEN",
-            "Invalid access token type",
+            "Not an access token",
         ));
     }
     Ok(data.claims)
@@ -153,42 +165,66 @@ pub fn deep_link(launch_jwt: &str) -> String {
     format!("pdfsign://v1/sign?t={launch_jwt}")
 }
 
-/// Short-lived HMAC for signer file download query (?k=&exp=).
+fn hmac_hex(secret: &str, parts: &[&str]) -> String {
+    let mut mac =
+        HmacSha256::new_from_slice(secret.as_bytes()).expect("HMAC accepts any key length");
+    for (i, p) in parts.iter().enumerate() {
+        if i > 0 {
+            mac.update(b"|");
+        }
+        mac.update(p.as_bytes());
+    }
+    hex::encode(mac.finalize().into_bytes())
+}
+
+fn ct_eq_hex(a: &str, b: &str) -> bool {
+    if a.len() != b.len() {
+        return false;
+    }
+    a.as_bytes().ct_eq(b.as_bytes()).into()
+}
+
+/// Short-lived HMAC-SHA256 for signer file download query (?k=&exp=).
 pub fn file_download_sig(secret: &str, job_id: &str, exp: i64) -> String {
-    use sha2::Sha256;
-    let mut mac = Sha256::new();
-    mac.update(secret.as_bytes());
-    mac.update(b"|");
-    mac.update(job_id.as_bytes());
-    mac.update(b"|");
-    mac.update(exp.to_string().as_bytes());
-    hex::encode(mac.finalize())
+    hmac_hex(secret, &[job_id, &exp.to_string()])
 }
 
 pub fn verify_file_download_sig(secret: &str, job_id: &str, exp: i64, sig: &str) -> bool {
     if Utc::now().timestamp() > exp {
         return false;
     }
-    file_download_sig(secret, job_id, exp) == sig
+    ct_eq_hex(&file_download_sig(secret, job_id, exp), sig)
 }
 
-/// Short-lived HMAC for `/api/v1/storage/{key}?exp=&k=` downloads.
+/// Short-lived HMAC-SHA256 for `/api/v1/storage/{key}?exp=&k=` downloads.
 pub fn storage_download_sig(secret: &str, storage_key: &str, exp: i64) -> String {
-    use sha2::Sha256;
-    let mut mac = Sha256::new();
-    mac.update(secret.as_bytes());
-    mac.update(b"|storage|");
-    mac.update(storage_key.as_bytes());
-    mac.update(b"|");
-    mac.update(exp.to_string().as_bytes());
-    hex::encode(mac.finalize())
+    hmac_hex(secret, &["storage", storage_key, &exp.to_string()])
 }
 
 pub fn verify_storage_download_sig(secret: &str, storage_key: &str, exp: i64, sig: &str) -> bool {
     if Utc::now().timestamp() > exp {
         return false;
     }
-    // Constant-time-ish compare
-    let expected = storage_download_sig(secret, storage_key, exp);
-    expected.len() == sig.len() && expected.as_bytes().iter().zip(sig.as_bytes()).all(|(a, b)| a == b)
+    ct_eq_hex(&storage_download_sig(secret, storage_key, exp), sig)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn hmac_roundtrip_and_tamper() {
+        let s = "test-secret-at-least-32-bytes-long!!";
+        let k = file_download_sig(s, "job_abc", 9_999_999_999);
+        assert!(verify_file_download_sig(s, "job_abc", 9_999_999_999, &k));
+        assert!(!verify_file_download_sig(s, "job_abc", 9_999_999_999, "00"));
+        assert!(!verify_file_download_sig(s, "job_other", 9_999_999_999, &k));
+        let sk = storage_download_sig(s, "documents/x/v1.pdf", 9_999_999_999);
+        assert!(verify_storage_download_sig(
+            s,
+            "documents/x/v1.pdf",
+            9_999_999_999,
+            &sk
+        ));
+    }
 }

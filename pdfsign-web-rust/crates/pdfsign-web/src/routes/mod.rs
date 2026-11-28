@@ -57,10 +57,13 @@ pub fn router(state: AppState) -> Router {
     let static_dir = state.cfg.web_dist.clone();
     let index = static_dir.join("index.html");
     let assets = static_dir.join("assets");
+    // Public installer / static downloads — not under STORAGE_DIR (no HMAC).
+    let downloads = ServeDir::new(state.cfg.downloads_dir.clone());
 
     Router::new()
         .nest("/api/v1", v1)
         .route("/api/health", get(health::health))
+        .nest_service("/downloads", downloads)
         .nest_service("/assets", ServeDir::new(assets))
         .route_service("/", ServeFile::new(index))
         .fallback(get(spa_index))

@@ -65,14 +65,14 @@ echo "== create job + complete path yields signed URL (status) =="
 JWT_SECRET="${JWT_SECRET:-dev-pdfsign-jwt-secret-change-me}"
 export JWT_SECRET
 SIGNED=$(KEY="$KEY" APP_URL="$APP_URL" JWT_SECRET="$JWT_SECRET" python3 - <<'PY'
-import hashlib, time, os
-secret=os.environ["JWT_SECRET"]
+import hmac, hashlib, time, os
+secret=os.environ["JWT_SECRET"].encode()
 key=os.environ["KEY"]
 app=os.environ["APP_URL"].rstrip("/")
 exp=int(time.time())+3600
-mac=hashlib.sha256()
-mac.update(secret.encode()); mac.update(b"|storage|"); mac.update(key.encode()); mac.update(b"|"); mac.update(str(exp).encode())
-print(f"{app}/api/v1/storage/{key}?exp={exp}&k={mac.hexdigest()}")
+msg="|".join(["storage", key, str(exp)]).encode()
+k=hmac.new(secret, msg, hashlib.sha256).hexdigest()
+print(f"{app}/api/v1/storage/{key}?exp={exp}&k={k}")
 PY
 )
 echo "signed=$SIGNED"

@@ -3,10 +3,51 @@ import * as pdfjsLib from "../pdfjs/pdf.min.mjs";
 pdfjsLib.GlobalWorkerOptions.workerSrc = "./pdfjs/pdf.worker.min.mjs";
 
 export { pdfjsLib };
-export const invoke = window.__TAURI__.core.invoke;
-export const listen = window.__TAURI__.event.listen;
-export const dialog = window.__TAURI__.dialog;
-export const opener = window.__TAURI__.opener;
+
+/** Resolve withGlobalTauri globals; demo-mock.js installs a shim when absent. */
+function tauri() {
+  const t = window.__TAURI__;
+  if (!t?.core?.invoke) {
+    throw new Error("PDFSign chưa sẵn sàng (thiếu Tauri API)");
+  }
+  return t;
+}
+
+export function invoke(cmd, args) {
+  return tauri().core.invoke(cmd, args);
+}
+
+export function listen(event, handler) {
+  const ev = tauri().event;
+  if (!ev?.listen) throw new Error("listen is not defined");
+  return ev.listen(event, handler);
+}
+
+export const dialog = {
+  open: (opts) => {
+    const d = tauri().dialog;
+    if (!d?.open) throw new Error("dialog is not defined");
+    return d.open(opts);
+  },
+};
+
+export const opener = {
+  openPath: (path) => {
+    const o = tauri().opener;
+    if (!o?.openPath) throw new Error("opener is not defined");
+    return o.openPath(path);
+  },
+  revealItemInDir: (path) => {
+    const o = tauri().opener;
+    if (!o?.revealItemInDir) throw new Error("opener is not defined");
+    return o.revealItemInDir(path);
+  },
+  openUrl: (url) => {
+    const o = tauri().opener;
+    if (o?.openUrl) return o.openUrl(url);
+    window.open(url, "_blank", "noopener,noreferrer");
+  },
+};
 
 export const $ = (id) => document.getElementById(id);
 

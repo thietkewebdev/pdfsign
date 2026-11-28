@@ -84,9 +84,7 @@ impl Placement {
                         .as_f64()
                         .ok_or_else(|| AppError::bad(format!("placement.rectPct.{k} invalid")))?;
                     if !(0.0..=1.0).contains(&n) {
-                        return Err(AppError::bad(format!(
-                            "placement.rectPct.{k} must be 0..1"
-                        )));
+                        return Err(AppError::bad(format!("placement.rectPct.{k} must be 0..1")));
                     }
                     return Ok(n);
                 }

@@ -1,15 +1,17 @@
 use anyhow::{anyhow, bail, Context, Result};
 use clap::{Args, Parser, Subcommand};
 use pdfsign_app::jobs::{run_job, OutputSpec, Placement, SignJob};
-use pdfsign_app::remote::run_remote_job;
-use pdfsign_app::settings::config_dir;
+use pdfsign_app::remote::run_remote_job_with_api;
+use pdfsign_app::settings::{config_dir, Settings};
 use pdfsign_app::templates::TemplateStore;
 use pdfsign_app::verify_view::verify_file;
 use pdfsign_core::ltv::UreqHttp;
 use pdfsign_core::soft::{certs_from_pem_or_der, SoftSigner};
 use pdfsign_core::tsa::HttpTimestamper;
 use pdfsign_core::{PadesLevel, RawSigner, StampTemplate, Timestamper};
-use pdfsign_token::{discover, AuthPin, CertSelector, ErrorCode, Module, TokenError};
+use pdfsign_token::{
+    discover, discover_present, AuthPin, CertSelector, ErrorCode, Module, TokenError,
+};
 use serde_json::json;
 use std::io::BufRead;
 use std::path::{Path, PathBuf};
@@ -228,7 +230,7 @@ fn open_module(token: &TokenArgs) -> Result<Module> {
     if let Some(m) = &token.module {
         return Ok(Module::load(m)?);
     }
-    let candidates = discover(None);
+    let candidates = discover_present(None);
     if candidates.is_empty() {
         bail!(TokenError::new(
             ErrorCode::NoPkcs11Dll,
@@ -258,6 +260,19 @@ fn open_module(token: &TokenArgs) -> Result<Module> {
 }
 
 fn cmd_list_tokens(module: Option<&Path>, as_json: bool) -> Result<()> {
+    let cards = pdfsign_token::present_cards();
+    if !as_json {
+        // PC/SC view first: identifies the CA without loading drivers (support reports).
+        for c in &cards {
+            println!(
+                "Thẻ: {} | CSP: {} | đầu đọc: {} | ATR {}",
+                c.card.as_deref().unwrap_or("(chưa đăng ký)"),
+                c.csp.as_deref().unwrap_or("-"),
+                c.reader,
+                c.atr
+            );
+        }
+    }
     let mut rows = Vec::new();
     for c in discover(module) {
         let slots = Module::load(&c.path)
@@ -275,7 +290,9 @@ fn cmd_list_tokens(module: Option<&Path>, as_json: bool) -> Result<()> {
             .collect();
         println!(
             "{}",
-            serde_json::to_string_pretty(&json!({ "found": !out.is_empty(), "modules": out }))?
+            serde_json::to_string_pretty(
+                &json!({ "found": !out.is_empty(), "cards": cards, "modules": out })
+            )?
         );
         return Ok(());
     }
@@ -335,6 +352,9 @@ fn cmd_list_certs(token: &TokenArgs, pin: &PinArgs, as_json: bool) -> Result<()>
     }
     println!("Module: {}", module.path().display());
     let now = chrono::Utc::now();
+    // Same pool the signer uses: token certs + OS CA/Root stores.
+    let mut pool: Vec<Vec<u8>> = certs.iter().map(|c| c.der.clone()).collect();
+    pool.extend(pdfsign_token::system_ca_certs());
     for c in certs {
         let s = &c.summary;
         println!(
@@ -351,6 +371,25 @@ fn cmd_list_certs(token: &TokenArgs, pin: &PinArgs, as_json: bool) -> Result<()>
                 " (KHÔNG còn hiệu lực)"
             }
         );
+        if s.is_ca {
+            continue;
+        }
+        let chain: Vec<String> = pdfsign_core::complete_chain(&c.der, &pool)
+            .iter()
+            .filter_map(|d| pdfsign_core::summarize(d).ok())
+            .map(|ca| {
+                format!(
+                    "{} (hết hạn {})",
+                    ca.subject_cn.as_deref().unwrap_or("-"),
+                    ca.valid_to.format("%d-%m-%Y")
+                )
+            })
+            .collect();
+        if chain.is_empty() {
+            println!("    chuỗi: (không tìm thấy CA cấp)");
+        } else {
+            println!("    chuỗi: {}", chain.join(" → "));
+        }
     }
     Ok(())
 }
@@ -385,8 +424,10 @@ fn cmd_web_sign(a: WebSignArgs) -> Result<()> {
         Box::new(module.signer(a.token.slot, &pin, &a.cert)?)
     };
 
-    let url = run_remote_job(
+    let default_api = Settings::load(&config_dir()).web_api_base;
+    let url = run_remote_job_with_api(
         &a.deep_link,
+        Some(default_api.as_str()),
         &appearance,
         signer.as_mut(),
         a.level,
@@ -394,7 +435,10 @@ fn cmd_web_sign(a: WebSignArgs) -> Result<()> {
         Some(&http),
     )?;
     if a.json {
-        println!("{}", serde_json::to_string_pretty(&json!({ "ok": true, "signedDownloadUrl": url }))?);
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&json!({ "ok": true, "signedDownloadUrl": url }))?
+        );
     } else {
         println!("OK web-sign -> {url}");
     }

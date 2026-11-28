@@ -51,13 +51,13 @@ export default function AdminPage() {
   return (
     <div>
       <div className="page-head">
-        <h1 className="h1">Admin · Gói người dùng</h1>
+        <h1 className="h1">Quản trị · Gói người dùng</h1>
       </div>
       {error && <div className="error">{error}</div>}
 
       <form className="card card-pad" style={{ maxWidth: 560, marginBottom: 20 }} onSubmit={onSetPlan}>
         <div className="field">
-          <label>User id hoặc email</label>
+          <label>Email hoặc ID người dùng</label>
           <input value={target} onChange={(e) => setTarget(e.target.value)} required />
         </div>
         <div className="field">
@@ -90,8 +90,8 @@ export default function AdminPage() {
                 <th>Email</th>
                 <th>Gói</th>
                 <th>Chu kỳ</th>
-                <th>Trial đã dùng</th>
-                <th>Quota tháng</th>
+                <th>Đã dùng thử</th>
+                <th>Đã dùng tháng này</th>
               </tr>
             </thead>
             <tbody>
@@ -106,8 +106,8 @@ export default function AdminPage() {
                       {u.email}
                     </button>
                   </td>
-                  <td>{u.plan}</td>
-                  <td>{u.planPeriod}</td>
+                  <td>{PLANS.find((p) => p.id === u.plan)?.name ?? u.plan}</td>
+                  <td>{u.planPeriod === "yearly" ? "Theo năm" : u.planPeriod === "monthly" ? "Theo tháng" : (u.planPeriod ?? "")}</td>
                   <td>{u.trialFilesUsed}</td>
                   <td>{u.quotaUsed}</td>
                 </tr>

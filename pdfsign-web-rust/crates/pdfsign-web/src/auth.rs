@@ -105,10 +105,10 @@ impl FromRequestParts<AppState> for AuthUser {
     ) -> Result<Self, Self::Rejection> {
         let jar = CookieJar::from_request_parts(parts, state)
             .await
-            .map_err(|_| AppError::unauthorized("Unauthorized"))?;
+            .map_err(|_| AppError::unauthorized("Chưa đăng nhập hoặc phiên đã hết"))?;
         match user_from_jar(state, &jar).await? {
             Some(u) => Ok(AuthUser(u)),
-            None => Err(AppError::unauthorized("Unauthorized")),
+            None => Err(AppError::unauthorized("Chưa đăng nhập hoặc phiên đã hết")),
         }
     }
 }

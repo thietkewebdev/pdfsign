@@ -21,7 +21,7 @@ export default function AppShell({
   const nav = [
     ...links,
     ...(user.role?.toUpperCase() === "ADMIN"
-      ? [{ to: "/admin", label: "Admin" }]
+      ? [{ to: "/admin", label: "Quản trị" }]
       : []),
   ];
   return (

@@ -241,7 +241,8 @@ fn verify_signed(issuer: &Certificate, tbs: &[u8], alg: ObjectIdentifier, sig: &
     rsa_verify(issuer, d, &h, sig)
 }
 
-fn cert_issued_by(child: &Certificate, issuer: &Certificate) -> bool {
+/// True when `issuer` has `child`'s issuer name as subject and its key verifies `child`'s signature.
+pub fn cert_issued_by(child: &Certificate, issuer: &Certificate) -> bool {
     child.tbs_certificate.issuer == issuer.tbs_certificate.subject
         && child.tbs_certificate.to_der().is_ok_and(|tbs| {
             verify_signed(

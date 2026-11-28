@@ -43,14 +43,14 @@ impl AppError {
 impl From<anyhow::Error> for AppError {
     fn from(e: anyhow::Error) -> Self {
         tracing::error!("internal: {e:#}");
-        Self::new(StatusCode::INTERNAL_SERVER_ERROR, "Internal server error")
+        Self::new(StatusCode::INTERNAL_SERVER_ERROR, "Lỗi máy chủ, thử lại sau")
     }
 }
 
 impl From<sqlx::Error> for AppError {
     fn from(e: sqlx::Error) -> Self {
         tracing::error!("db: {e}");
-        Self::new(StatusCode::INTERNAL_SERVER_ERROR, "Internal server error")
+        Self::new(StatusCode::INTERNAL_SERVER_ERROR, "Lỗi máy chủ, thử lại sau")
     }
 }
 

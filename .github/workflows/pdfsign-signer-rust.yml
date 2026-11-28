@@ -81,6 +81,11 @@ jobs:
           python3 -m venv /tmp/ltv && /tmp/ltv/bin/pip install -q 'pyHanko==0.29.0'
       - run: cargo fmt --all --check
       - run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      - name: Lint GUI frontend (no-undef / Tauri globals)
+        working-directory: pdfsign-signer-rust/apps/pdfsign-gui/ui
+        run: |
+          npm install --no-fund --no-audit
+          npm run check
       - name: Start local PKI services (TSA, OCSP, CRL, AIA)
         run: |
           python3 scripts/pki_services.py > /tmp/pki.log 2>&1 &

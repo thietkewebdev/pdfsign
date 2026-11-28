@@ -1,9 +1,10 @@
 import { useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { api, ApiError, User } from "../api";
 import {
   HOME,
   HOME_FACTS,
+  WINDOWS_APP_VERSION,
   WINDOWS_INSTALLER_URL,
   WINDOWS_INSTALL_GUIDE_URL,
 } from "../homeContent";
@@ -21,7 +22,7 @@ import {
 import { useToast } from "../toast";
 import "../home.css";
 
-type Phase = "idle" | "uploading" | "ready" | "signing" | "done";
+type Phase = "idle" | "uploading";
 
 function ContractMock() {
   return (
@@ -89,18 +90,13 @@ export default function LandingPage({
   const [phase, setPhase] = useState<Phase>("idle");
   const [drag, setDrag] = useState(false);
   const [error, setError] = useState("");
-  const [publicId, setPublicId] = useState("");
-  const [title, setTitle] = useState("");
-  const [docId, setDocId] = useState("");
-  const [deepLink, setDeepLink] = useState("");
-  const [jobId, setJobId] = useState("");
-  const [download, setDownload] = useState<string | null>(null);
   const [gateOpen, setGateOpen] = useState(false);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [billing, setBilling] = useState<BillingPeriod>("monthly");
   const [contactPlan, setContactPlan] = useState<Plan | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const toast = useToast();
+  const nav = useNavigate();
   const facts = HOME_FACTS;
 
   function openUpload() {
@@ -110,8 +106,6 @@ export default function LandingPage({
   async function uploadFile(file: File) {
     setError("");
     setPhase("uploading");
-    setDownload(null);
-    setDeepLink("");
     try {
       const fd = new FormData();
       fd.append("file", file);
@@ -120,11 +114,7 @@ export default function LandingPage({
         "/documents",
         { method: "POST", body: fd },
       );
-      setPublicId(res.publicId);
-      setDocId(res.documentId);
-      setTitle(res.title || file.name);
-      setPhase("ready");
-      toast.push("Đã tải lên", "ok");
+      nav(`/d/${res.publicId}`);
     } catch (e) {
       setPhase("idle");
       if (e instanceof ApiError && e.code === "GUEST_LIMIT_REACHED") {
@@ -136,55 +126,6 @@ export default function LandingPage({
       const msg = e instanceof Error ? e.message : "Lỗi";
       setError(msg);
       toast.push(msg, "err");
-    }
-  }
-
-  async function startSign() {
-    if (!docId && !publicId) return;
-    setPhase("signing");
-    setError("");
-    try {
-      const res = await api<{ jobId: string; deepLink: string }>("/jobs", {
-        method: "POST",
-        body: JSON.stringify({
-          documentId: docId || publicId,
-          templateId: "valid",
-          placement: { page: 1, rectPct: { x: 0.64, y: 0.06, w: 0.32, h: 0.1 } },
-        }),
-      });
-      setJobId(res.jobId);
-      setDeepLink(res.deepLink);
-      toast.push("Đã tạo phiên ký", "ok");
-      void poll(res.jobId);
-    } catch (e) {
-      setPhase("ready");
-      if (e instanceof ApiError && e.code === "GUEST_LIMIT_REACHED") {
-        setGateOpen(true);
-        setError(e.message);
-        return;
-      }
-      const msg = e instanceof Error ? e.message : "Lỗi";
-      setError(msg);
-      toast.push(msg, "err");
-    }
-  }
-
-  async function poll(id: string) {
-    try {
-      const s = await api<{ status: string; signedDownloadUrl?: string | null }>(
-        `/jobs/${id}/status`,
-      );
-      if (s.signedDownloadUrl) {
-        setDownload(s.signedDownloadUrl);
-        setPhase("done");
-        toast.push("Đã ký xong", "ok");
-        return;
-      }
-      if (["READY", "CREATED", "IN_PROGRESS"].includes(s.status)) {
-        setTimeout(() => void poll(id), 2000);
-      }
-    } catch {
-      setTimeout(() => void poll(id), 2500);
     }
   }
 
@@ -212,6 +153,7 @@ export default function LandingPage({
   const windowsMeta = [
     "Windows 10/11",
     "64-bit",
+    `v${WINDOWS_APP_VERSION}`,
     facts.windowsAppSizeMb != null ? `${facts.windowsAppSizeMb} MB` : null,
     "Miễn phí",
   ]
@@ -261,60 +203,15 @@ export default function LandingPage({
                 if (f) void uploadFile(f);
               }}
             >
-              {phase === "idle" && (
+              {phase === "idle" ? (
                 <>
                   <strong>Kéo PDF vào đây để ký</strong>
                   <button type="button" className="btn btn-soft btn-sm" onClick={openUpload}>
                     Chọn file
                   </button>
                 </>
-              )}
-              {phase === "uploading" && <strong>Đang tải…</strong>}
-              {phase === "ready" && (
-                <>
-                  <strong>{title || publicId}</strong>
-                  <div className="toolbar" style={{ marginBottom: 0, justifyContent: "center" }}>
-                    <button type="button" className="btn btn-primary" onClick={() => void startSign()}>
-                      Ký ngay
-                    </button>
-                    <Link className="btn btn-ghost" to={`/d/${publicId}`}>
-                      Đặt ô chữ ký
-                    </Link>
-                  </div>
-                </>
-              )}
-              {phase === "signing" && (
-                <>
-                  <strong>Phiên ký sẵn sàng</strong>
-                  {deepLink && (
-                    <div className="toolbar" style={{ marginBottom: 0, justifyContent: "center" }}>
-                      <a className="btn btn-primary" href={deepLink}>
-                        Mở app ký
-                      </a>
-                      <button
-                        type="button"
-                        className="btn btn-ghost"
-                        onClick={() => {
-                          void navigator.clipboard.writeText(deepLink);
-                          toast.push("Đã sao chép", "ok");
-                        }}
-                      >
-                        Sao chép link
-                      </button>
-                    </div>
-                  )}
-                  <div className="tiny">{jobId}</div>
-                </>
-              )}
-              {phase === "done" && (
-                <>
-                  <strong>Đã ký xong</strong>
-                  {download && (
-                    <a className="btn btn-primary" href={download}>
-                      Tải PDF đã ký
-                    </a>
-                  )}
-                </>
+              ) : (
+                <strong>Đang tải…</strong>
               )}
             </div>
             {error && (
@@ -423,7 +320,7 @@ export default function LandingPage({
             </div>
             <div className="ref-sec-items">
               {securityItems.map((item) => {
-                let title = item.title;
+                let title: string = item.title;
                 if ("fact" in item && item.fact === "fileRetentionDays" && facts.fileRetentionDays != null) {
                   title = `File tự xóa sau ${facts.fileRetentionDays} ngày`;
                 }

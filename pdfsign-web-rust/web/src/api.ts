@@ -27,6 +27,16 @@ export class ApiError extends Error {
   }
 }
 
+function fallbackError(status: number): string {
+  if (status === 401) return "Chưa đăng nhập hoặc phiên đã hết";
+  if (status === 403) return "Không có quyền";
+  if (status === 404) return "Không tìm thấy";
+  if (status === 413) return "File quá lớn";
+  if (status === 429) return "Quá nhiều yêu cầu, thử lại sau";
+  if (status >= 500) return "Lỗi máy chủ, thử lại sau";
+  return `Lỗi (${status})`;
+}
+
 export async function api<T = unknown>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers);
   if (init.body && !(init.body instanceof FormData) && !headers.has("Content-Type")) {
@@ -45,11 +55,12 @@ export async function api<T = unknown>(path: string, init: RequestInit = {}): Pr
   try {
     data = text ? JSON.parse(text) : null;
   } catch {
-    data = { error: text };
+    // Non-JSON body (e.g. proxy HTML error page): don't show raw markup to users.
+    data = res.ok ? { error: text } : null;
   }
   if (!res.ok) {
     const err = (data as { error?: string; errorCode?: string }) || {};
-    throw new ApiError(err.error || res.statusText, res.status, err.errorCode);
+    throw new ApiError(err.error || fallbackError(res.status), res.status, err.errorCode);
   }
   return data as T;
 }

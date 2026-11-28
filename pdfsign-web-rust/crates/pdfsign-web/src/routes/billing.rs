@@ -22,10 +22,7 @@ pub async fn plans(State(state): State<AppState>) -> AppResult<Json<Value>> {
     })))
 }
 
-pub async fn my_quota(
-    State(state): State<AppState>,
-    user: AuthUser,
-) -> AppResult<Json<Value>> {
+pub async fn my_quota(State(state): State<AppState>, user: AuthUser) -> AppResult<Json<Value>> {
     let q = quota_status(&state, &user.0.id).await?;
     Ok(Json(json!(q)))
 }

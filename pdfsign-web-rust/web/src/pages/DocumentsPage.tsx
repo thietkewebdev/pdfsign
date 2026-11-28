@@ -57,7 +57,7 @@ export default function DocumentsPage() {
       toast.push("Đã tải lên", "ok");
       nav(`/d/${res.publicId}`);
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "Upload lỗi";
+      const msg = e instanceof Error ? e.message : "Tải lên lỗi";
       setError(msg);
       toast.push(msg, "err");
     } finally {
@@ -70,9 +70,9 @@ export default function DocumentsPage() {
       <div className="page-head">
         <div>
           <h1 className="h1">Tài liệu</h1>
-          <p className="muted" style={{ marginTop: 6 }}>
-            {retentionLabel}. Tải file về trước khi hết hạn.
-          </p>
+          <span className="badge badge-warn" style={{ marginTop: 8 }}>
+            {retentionLabel}
+          </span>
         </div>
       </div>
 

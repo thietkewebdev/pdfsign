@@ -26,7 +26,10 @@ pub async fn create(
     Json(body): Json<CreateUpload>,
 ) -> AppResult<Json<Value>> {
     let id = generate_id("upl_");
-    let chunk_size = body.chunk_size.unwrap_or(1024 * 1024).clamp(64 * 1024, 8 * 1024 * 1024);
+    let chunk_size = body
+        .chunk_size
+        .unwrap_or(1024 * 1024)
+        .clamp(64 * 1024, 8 * 1024 * 1024);
     let key = format!("uploads/{id}.part");
     let expires = Utc::now() + Duration::hours(6);
     state.storage.upload(&key, &[]).await?;
@@ -63,24 +66,25 @@ pub async fn put_chunk(
     .fetch_optional(&state.db)
     .await?;
     let (key, chunk_size, status, owner) =
-        row.ok_or_else(|| AppError::not_found("Upload not found"))?;
+        row.ok_or_else(|| AppError::not_found("Không tìm thấy phiên tải lên"))?;
     if owner != user.0.id {
-        return Err(AppError::unauthorized("Unauthorized"));
+        return Err(AppError::unauthorized("Chưa đăng nhập hoặc phiên đã hết"));
     }
     if status != "open" {
-        return Err(AppError::bad("Upload is closed"));
+        return Err(AppError::bad("Phiên tải lên đã đóng"));
     }
     if body.len() as i32 > chunk_size + 1024 {
         return Err(AppError::coded(
             StatusCode::PAYLOAD_TOO_LARGE,
             "FILE_TOO_LARGE",
-            "Chunk too large",
+            "Phần file quá lớn",
         ));
     }
     let path = state.storage.abs_path(&key);
     let mut file = OpenOptions::new()
         .create(true)
         .write(true)
+        .truncate(false)
         .open(&path)
         .await
         .map_err(|e| AppError::new(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
@@ -104,19 +108,20 @@ pub async fn finish(
     user: AuthUser,
     Path(id): Path<String>,
 ) -> AppResult<Json<Value>> {
-    let row: Option<(String, Option<String>, String)> =
-        sqlx::query_as(r#"SELECT storage_key, title, status FROM uploads WHERE id = $1 AND user_id = $2"#)
-            .bind(&id)
-            .bind(&user.0.id)
-            .fetch_optional(&state.db)
-            .await?;
-    let (part_key, title, status) = row.ok_or_else(|| AppError::not_found("Upload not found"))?;
+    let row: Option<(String, Option<String>, String)> = sqlx::query_as(
+        r#"SELECT storage_key, title, status FROM uploads WHERE id = $1 AND user_id = $2"#,
+    )
+    .bind(&id)
+    .bind(&user.0.id)
+    .fetch_optional(&state.db)
+    .await?;
+    let (part_key, title, status) = row.ok_or_else(|| AppError::not_found("Không tìm thấy phiên tải lên"))?;
     if status != "open" {
-        return Err(AppError::bad("Upload already finished"));
+        return Err(AppError::bad("File đã tải lên xong"));
     }
     let bytes = state.storage.read(&part_key).await?;
     if bytes.len() < 5 || &bytes[..4] != b"%PDF" {
-        return Err(AppError::bad("Upload is not a PDF"));
+        return Err(AppError::bad("File không phải PDF"));
     }
     let public_id = generate_public_id();
     let doc_id = generate_id("doc_");

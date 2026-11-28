@@ -6,8 +6,10 @@
  * free-account quota). Server guest limit stays unchanged.
  */
 
-export const WINDOWS_INSTALLER_URL =
-  "https://github.com/thietkewebdev/pdfsign/releases/download/v0.2.1/PDFSign_0.2.1_x64-setup.exe";
+/** Same-origin installer hosted from DOWNLOADS_DIR (see server `/downloads/*`). */
+export const WINDOWS_INSTALLER_URL = "/downloads/PDFSign-setup.exe";
+
+export const WINDOWS_APP_VERSION = "0.3.3";
 
 export const WINDOWS_INSTALL_GUIDE_URL = "/#tai-app";
 
@@ -46,7 +48,8 @@ export type HomeFacts = {
 export const HOME_FACTS: HomeFacts = {
   fileRetentionDays: 2,
   dataLocation: null,
-  windowsAppSizeMb: null,
+  // From CI NSIS artifact PDFSign_0.3.3_x64-setup.exe (8762061 bytes ≈ 8.4 MiB).
+  windowsAppSizeMb: 8.4,
   statsSignedFiles: null,
   statsCompanies: null,
   testimonial: null,
