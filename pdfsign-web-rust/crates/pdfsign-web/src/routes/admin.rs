@@ -9,11 +9,7 @@ use axum_extra::extract::cookie::CookieJar;
 use serde::Deserialize;
 use serde_json::{json, Value};
 
-async fn require_admin(
-    state: &AppState,
-    jar: &CookieJar,
-    headers: &HeaderMap,
-) -> AppResult<()> {
+async fn require_admin(state: &AppState, jar: &CookieJar, headers: &HeaderMap) -> AppResult<()> {
     if let Some(token) = &state.cfg.admin_token {
         if let Some(auth) = headers.get(axum::http::header::AUTHORIZATION) {
             if let Ok(v) = auth.to_str() {
@@ -22,11 +18,7 @@ async fn require_admin(
                 }
             }
         }
-        if headers
-            .get("X-Admin-Token")
-            .and_then(|v| v.to_str().ok())
-            == Some(token.as_str())
-        {
+        if headers.get("X-Admin-Token").and_then(|v| v.to_str().ok()) == Some(token.as_str()) {
             return Ok(());
         }
     }
@@ -101,7 +93,8 @@ pub async fn list_users(
     _user: AuthUser,
 ) -> AppResult<Json<Value>> {
     require_admin(&state, &jar, &headers).await?;
-    let rows: Vec<(String, String, Option<String>, String, String, i32, i32)> = sqlx::query_as(
+    type UserRow = (String, String, Option<String>, String, String, i32, i32);
+    let rows: Vec<UserRow> = sqlx::query_as(
         r#"SELECT id, email, name, plan, plan_period, trial_files_used, quota_used
            FROM users ORDER BY created_at DESC LIMIT 200"#,
     )

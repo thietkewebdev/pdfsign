@@ -26,12 +26,11 @@ pub async fn purge_expired(state: &AppState) -> anyhow::Result<usize> {
 
     let mut n = 0usize;
     for row in rows {
-        let keys: Vec<(String,)> = sqlx::query_as(
-            r#"SELECT storage_key FROM document_versions WHERE document_id = $1"#,
-        )
-        .bind(&row.id)
-        .fetch_all(&state.db)
-        .await?;
+        let keys: Vec<(String,)> =
+            sqlx::query_as(r#"SELECT storage_key FROM document_versions WHERE document_id = $1"#)
+                .bind(&row.id)
+                .fetch_all(&state.db)
+                .await?;
 
         for (key,) in keys {
             let path = state.storage.abs_path(&key);

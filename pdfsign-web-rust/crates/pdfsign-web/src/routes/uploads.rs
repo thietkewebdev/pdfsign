@@ -26,7 +26,10 @@ pub async fn create(
     Json(body): Json<CreateUpload>,
 ) -> AppResult<Json<Value>> {
     let id = generate_id("upl_");
-    let chunk_size = body.chunk_size.unwrap_or(1024 * 1024).clamp(64 * 1024, 8 * 1024 * 1024);
+    let chunk_size = body
+        .chunk_size
+        .unwrap_or(1024 * 1024)
+        .clamp(64 * 1024, 8 * 1024 * 1024);
     let key = format!("uploads/{id}.part");
     let expires = Utc::now() + Duration::hours(6);
     state.storage.upload(&key, &[]).await?;
@@ -81,6 +84,7 @@ pub async fn put_chunk(
     let mut file = OpenOptions::new()
         .create(true)
         .write(true)
+        .truncate(false)
         .open(&path)
         .await
         .map_err(|e| AppError::new(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
@@ -104,12 +108,13 @@ pub async fn finish(
     user: AuthUser,
     Path(id): Path<String>,
 ) -> AppResult<Json<Value>> {
-    let row: Option<(String, Option<String>, String)> =
-        sqlx::query_as(r#"SELECT storage_key, title, status FROM uploads WHERE id = $1 AND user_id = $2"#)
-            .bind(&id)
-            .bind(&user.0.id)
-            .fetch_optional(&state.db)
-            .await?;
+    let row: Option<(String, Option<String>, String)> = sqlx::query_as(
+        r#"SELECT storage_key, title, status FROM uploads WHERE id = $1 AND user_id = $2"#,
+    )
+    .bind(&id)
+    .bind(&user.0.id)
+    .fetch_optional(&state.db)
+    .await?;
     let (part_key, title, status) = row.ok_or_else(|| AppError::not_found("Upload not found"))?;
     if status != "open" {
         return Err(AppError::bad("Upload already finished"));

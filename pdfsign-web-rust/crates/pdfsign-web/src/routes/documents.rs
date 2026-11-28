@@ -35,10 +35,7 @@ struct DocListRow {
     version: Option<i32>,
 }
 
-fn expiry_fields(
-    state: &AppState,
-    expires_at: Option<chrono::DateTime<Utc>>,
-) -> Value {
+fn expiry_fields(state: &AppState, expires_at: Option<chrono::DateTime<Utc>>) -> Value {
     let hours = state.cfg.file_retention_hours;
     let label = retention_label(hours);
     let remaining_secs = expires_at.map(|e| (e - Utc::now()).num_seconds().max(0));
@@ -142,6 +139,9 @@ pub async fn upload(
     }
 
     let bytes = file_bytes.ok_or_else(|| AppError::bad("Missing or invalid file"))?;
+    if bytes.len() < 5 || &bytes[..5] != b"%PDF-" {
+        return Err(AppError::bad("File must be a PDF (%PDF-… header)"));
+    }
     let public_id = generate_public_id();
     let doc_id = generate_id("doc_");
     let ver_id = generate_id("ver_");
@@ -193,7 +193,11 @@ pub async fn upload(
     .execute(&state.db)
     .await?;
 
-    let public_url = format!("{}/d/{}", state.cfg.public_url.trim_end_matches('/'), public_id);
+    let public_url = format!(
+        "{}/d/{}",
+        state.cfg.public_url.trim_end_matches('/'),
+        public_id
+    );
     let mut body = json!({
         "documentId": doc_id,
         "publicId": public_id,
@@ -224,13 +228,33 @@ struct DocDetail {
 
 pub async fn get_one(
     State(state): State<AppState>,
+    jar: CookieJar,
     Path(public_id): Path<String>,
 ) -> AppResult<Json<Value>> {
-    let doc = sqlx::query_as::<_, DocDetail>(
-        r#"SELECT id, public_id, title, status, created_at, expires_at FROM documents
-           WHERE public_id = $1 OR id = $1"#,
+    let row: Option<(String, Option<String>, Option<String>)> = sqlx::query_as(
+        r#"SELECT id, user_id, guest_id FROM documents WHERE public_id = $1 OR id = $1"#,
     )
     .bind(&public_id)
+    .fetch_optional(&state.db)
+    .await?;
+    let (doc_id, owner_id, guest_id) =
+        row.ok_or_else(|| AppError::not_found("Document not found"))?;
+
+    let mut allowed = false;
+    if let Some(u) = user_from_jar(&state, &jar).await? {
+        allowed = owner_id.as_deref() == Some(u.id.as_str());
+    } else if let Some(g) = guest_from_jar(&state, &jar).await? {
+        allowed = guest_id.as_deref() == Some(g.id.as_str());
+    }
+    if !allowed {
+        return Err(AppError::not_found("Document not found"));
+    }
+
+    let doc = sqlx::query_as::<_, DocDetail>(
+        r#"SELECT id, public_id, title, status, created_at, expires_at FROM documents
+           WHERE id = $1"#,
+    )
+    .bind(&doc_id)
     .fetch_optional(&state.db)
     .await?
     .ok_or_else(|| AppError::not_found("Document not found"))?;
@@ -251,9 +275,7 @@ pub async fn get_one(
     .fetch_optional(&state.db)
     .await?;
 
-    let (version, size) = version
-        .map(|(v, _, s)| (v, s))
-        .unwrap_or((1, 0));
+    let (version, size) = version.map(|(v, _, s)| (v, s)).unwrap_or((1, 0));
 
     let file_url = format!(
         "{}/api/v1/documents/{}/file",
@@ -328,9 +350,7 @@ pub async fn file(
     .bind(&doc_id)
     .fetch_optional(&state.db)
     .await?;
-    let key = key
-        .ok_or_else(|| AppError::not_found("No version"))?
-        .0;
+    let key = key.ok_or_else(|| AppError::not_found("No version"))?.0;
     let bytes = state.storage.read(&key).await?;
     Ok((
         [

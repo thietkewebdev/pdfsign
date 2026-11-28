@@ -21,8 +21,12 @@ env:
   CARGO_TERM_COLOR: always
   DATABASE_URL: postgres://pdfsign:pdfsign@127.0.0.1:5432/pdfsign
   APP_URL: http://127.0.0.1:8080
+  PUBLIC_BASE_URL: http://127.0.0.1:8080
+  JWT_SECRET: ci-pdfsign-jwt-secret-at-least-32-chars
+  PDFSIGN_ALLOW_INSECURE_DEV: "1"
   APP_PUBLIC_HOST: localhost
   STORAGE_DIR: /tmp/pdfsign-web-storage
+  DOWNLOADS_DIR: /tmp/pdfsign-web-downloads
 
 jobs:
   linux:
@@ -76,6 +80,12 @@ jobs:
         env:
           PDFSIGN_BIN: pdfsign-signer-rust/target/debug/pdfsign
         run: bash pdfsign-web-rust/scripts/e2e-web-job.sh
+      - name: Job security regressions
+        run: bash pdfsign-web-rust/scripts/test-job-security.sh
+      - name: Storage HMAC auth
+        run: bash pdfsign-web-rust/scripts/test-storage-auth.sh
+      - name: Guest limit
+        run: bash pdfsign-web-rust/scripts/test-guest-limit.sh
       - name: Dump server log on failure
         if: failure()
         run: tail -n 200 /tmp/pdfsign-web.log || true

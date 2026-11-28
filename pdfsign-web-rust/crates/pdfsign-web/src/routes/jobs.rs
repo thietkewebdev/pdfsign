@@ -59,11 +59,12 @@ pub async fn create(
 
     let doc: Option<(String, String, Option<String>, Option<String>)> = if let Some(u) = &user.0 {
         assert_can_sign(&state, &u.id).await?;
+        // Exact ownership only — never allow foreign guest docs via user_id IS NULL.
         sqlx::query_as(
             r#"SELECT id, public_id, user_id, guest_id FROM documents
                WHERE (id = $1 OR public_id = $1)
                  AND status = 'ACTIVE' AND purged_at IS NULL
-                 AND (user_id = $2 OR user_id IS NULL)"#,
+                 AND user_id = $2"#,
         )
         .bind(&body.document_id)
         .bind(&u.id)
@@ -77,7 +78,8 @@ pub async fn create(
         sqlx::query_as(
             r#"SELECT id, public_id, user_id, guest_id FROM documents
                WHERE (id = $1 OR public_id = $1)
-                 AND (guest_id = $2 OR (user_id IS NULL AND guest_id IS NULL))"#,
+                 AND status = 'ACTIVE' AND purged_at IS NULL
+                 AND guest_id = $2"#,
         )
         .bind(&body.document_id)
         .bind(&guest.id)
@@ -163,9 +165,7 @@ pub async fn handshake(
         .bind(&claims.job)
         .fetch_optional(&state.db)
         .await?
-        .ok_or_else(|| {
-            AppError::coded(StatusCode::NOT_FOUND, "JOB_NOT_FOUND", "Job not found")
-        })?;
+        .ok_or_else(|| AppError::coded(StatusCode::NOT_FOUND, "JOB_NOT_FOUND", "Job not found"))?;
 
     if job.launch_jti != claims.jti {
         return Err(AppError::coded(
@@ -174,18 +174,12 @@ pub async fn handshake(
             "Launch jti mismatch",
         ));
     }
-    if job.launch_used_at.is_some() {
+    if job.status != "READY" {
+        // After complete/expire, do not mint new access tokens from the same launch JWT.
         return Err(AppError::coded(
             StatusCode::CONFLICT,
             "LAUNCH_USED",
             "Launch token already used",
-        ));
-    }
-    if job.status != "READY" {
-        return Err(AppError::coded(
-            StatusCode::BAD_REQUEST,
-            "JOB_NOT_READY",
-            "Job is not ready for signing",
         ));
     }
     if Utc::now() > job.expires_at {
@@ -196,10 +190,36 @@ pub async fn handshake(
         ));
     }
 
-    sqlx::query("UPDATE signing_jobs SET launch_used_at = NOW() WHERE id = $1 AND launch_used_at IS NULL")
+    // Atomic first claim. Re-handshake is allowed while READY so PIN/network retries work
+    // without forcing the browser to mint a new deep link.
+    if job.launch_used_at.is_none() {
+        let claimed = sqlx::query(
+            r#"UPDATE signing_jobs SET launch_used_at = NOW()
+               WHERE id = $1 AND launch_jti = $2 AND launch_used_at IS NULL AND status = 'READY'"#,
+        )
         .bind(&job.id)
+        .bind(&claims.jti)
         .execute(&state.db)
-        .await?;
+        .await?
+        .rows_affected();
+        if claimed == 0 {
+            // Lost the race or already claimed — re-load; still READY is OK.
+            let again = sqlx::query_as::<_, JobRow>("SELECT * FROM signing_jobs WHERE id = $1")
+                .bind(&job.id)
+                .fetch_optional(&state.db)
+                .await?
+                .ok_or_else(|| {
+                    AppError::coded(StatusCode::NOT_FOUND, "JOB_NOT_FOUND", "Job not found")
+                })?;
+            if again.status != "READY" {
+                return Err(AppError::coded(
+                    StatusCode::CONFLICT,
+                    "LAUNCH_USED",
+                    "Launch token already used",
+                ));
+            }
+        }
+    }
 
     let remaining = (job.expires_at - Utc::now()).num_minutes().max(1);
     let (access, exp) = issue_access_jwt(&state.cfg.jwt_secret, &job.id, remaining)?;
@@ -221,13 +241,21 @@ fn bearer(headers: &HeaderMap) -> AppResult<String> {
         .get(axum::http::header::AUTHORIZATION)
         .and_then(|v| v.to_str().ok())
         .ok_or_else(|| {
-            AppError::coded(StatusCode::UNAUTHORIZED, "INVALID_TOKEN", "Missing Authorization")
+            AppError::coded(
+                StatusCode::UNAUTHORIZED,
+                "INVALID_TOKEN",
+                "Missing Authorization",
+            )
         })?;
     let token = raw
         .strip_prefix("Bearer ")
         .or_else(|| raw.strip_prefix("bearer "))
         .ok_or_else(|| {
-            AppError::coded(StatusCode::UNAUTHORIZED, "INVALID_TOKEN", "Expected Bearer token")
+            AppError::coded(
+                StatusCode::UNAUTHORIZED,
+                "INVALID_TOKEN",
+                "Expected Bearer token",
+            )
         })?;
     Ok(token.to_string())
 }
@@ -239,9 +267,7 @@ async fn load_job_for_access(state: &AppState, headers: &HeaderMap) -> AppResult
         .bind(&claims.job)
         .fetch_optional(&state.db)
         .await?
-        .ok_or_else(|| {
-            AppError::coded(StatusCode::NOT_FOUND, "JOB_NOT_FOUND", "Job not found")
-        })?;
+        .ok_or_else(|| AppError::coded(StatusCode::NOT_FOUND, "JOB_NOT_FOUND", "Job not found"))?;
     if Utc::now() > job.expires_at && job.status == "READY" {
         return Err(AppError::coded(
             StatusCode::GONE,
@@ -337,10 +363,7 @@ pub async fn signer_file(
     let key = key.ok_or_else(|| AppError::not_found("File not found"))?.0;
     let bytes = state.storage.read(&key).await?;
     Ok((
-        [(
-            axum::http::header::CONTENT_TYPE,
-            "application/pdf",
-        )],
+        [(axum::http::header::CONTENT_TYPE, "application/pdf")],
         bytes,
     ))
 }
@@ -371,32 +394,66 @@ pub async fn complete(
             return Ok(Json(v));
         }
     }
-    if job.status != "READY" {
-        return Err(AppError::coded(
-            StatusCode::BAD_REQUEST,
-            "JOB_NOT_READY",
-            "Job is not ready for signing",
-        ));
-    }
-    if Utc::now() > job.expires_at {
+    if Utc::now() > job.expires_at && job.status == "READY" {
         return Err(AppError::coded(
             StatusCode::GONE,
             "JOB_EXPIRED",
             "Job has expired",
         ));
     }
+    // Claim the job so concurrent completes cannot double-write versions/quota.
+    let claimed = sqlx::query(
+        r#"UPDATE signing_jobs SET status = 'COMPLETING'
+           WHERE id = $1 AND status = 'READY'"#,
+    )
+    .bind(&job.id)
+    .execute(&state.db)
+    .await?
+    .rows_affected();
+    if claimed == 0 {
+        let again = sqlx::query_as::<_, JobRow>("SELECT * FROM signing_jobs WHERE id = $1")
+            .bind(&job.id)
+            .fetch_optional(&state.db)
+            .await?
+            .ok_or_else(|| {
+                AppError::coded(StatusCode::NOT_FOUND, "JOB_NOT_FOUND", "Job not found")
+            })?;
+        if again.status == "COMPLETED" {
+            if let Some(raw) = &again.complete_response_json {
+                let v: Value = serde_json::from_str(raw).unwrap_or(json!({}));
+                return Ok(Json(v));
+            }
+        }
+        return Err(AppError::coded(
+            StatusCode::CONFLICT,
+            "JOB_NOT_READY",
+            "Job is not ready for signing",
+        ));
+    }
+
+    async fn release_claim(state: &AppState, job_id: &str) {
+        let _ = sqlx::query(
+            "UPDATE signing_jobs SET status = 'READY' WHERE id = $1 AND status = 'COMPLETING'",
+        )
+        .bind(job_id)
+        .execute(&state.db)
+        .await;
+    }
 
     let mut file_bytes: Option<Vec<u8>> = None;
     let mut cert_meta_raw: Option<String> = None;
-    while let Some(field) = multipart.next_field().await.map_err(|e| {
-        AppError::coded(StatusCode::BAD_REQUEST, "INVALID_MULTIPART", e.to_string())
-    })? {
+    while let Some(field) = multipart
+        .next_field()
+        .await
+        .map_err(|e| AppError::coded(StatusCode::BAD_REQUEST, "INVALID_MULTIPART", e.to_string()))?
+    {
         let name = field.name().unwrap_or("").to_string();
         if name == "file" || name == "signedPdf" {
             let data = field.bytes().await.map_err(|e| {
                 AppError::coded(StatusCode::BAD_REQUEST, "INVALID_MULTIPART", e.to_string())
             })?;
             if data.len() > state.cfg.max_signed_pdf_bytes {
+                release_claim(&state, &job.id).await;
                 return Err(AppError::coded(
                     StatusCode::PAYLOAD_TOO_LARGE,
                     "FILE_TOO_LARGE",
@@ -408,22 +465,40 @@ pub async fn complete(
             cert_meta_raw = Some(field.text().await.unwrap_or_default());
         }
     }
-    let bytes = file_bytes.ok_or_else(|| {
-        AppError::coded(StatusCode::BAD_REQUEST, "INVALID_MULTIPART", "Missing signed PDF")
-    })?;
+    let bytes = match file_bytes {
+        Some(b) => b,
+        None => {
+            release_claim(&state, &job.id).await;
+            return Err(AppError::coded(
+                StatusCode::BAD_REQUEST,
+                "INVALID_MULTIPART",
+                "Missing signed PDF",
+            ));
+        }
+    };
 
     let cert_meta: Option<Value> = match cert_meta_raw.as_deref() {
-        Some(s) if !s.trim().is_empty() => Some(serde_json::from_str(s).map_err(|_| {
-            AppError::coded(
-                StatusCode::BAD_REQUEST,
-                "INVALID_CERT_META",
-                "certMeta must be JSON",
-            )
-        })?),
+        Some(s) if !s.trim().is_empty() => match serde_json::from_str(s) {
+            Ok(v) => Some(v),
+            Err(_) => {
+                release_claim(&state, &job.id).await;
+                return Err(AppError::coded(
+                    StatusCode::BAD_REQUEST,
+                    "INVALID_CERT_META",
+                    "certMeta must be JSON",
+                ));
+            }
+        },
         _ => None,
     };
 
-    let verified = verify_signed_pdf(&bytes, cert_meta.as_ref())?;
+    let verified = match verify_signed_pdf(&bytes, cert_meta.as_ref()) {
+        Ok(v) => v,
+        Err(e) => {
+            release_claim(&state, &job.id).await;
+            return Err(e);
+        }
+    };
     let mut pdf = verified.pdf;
     pdf = maybe_upgrade(
         pdf,
@@ -435,11 +510,10 @@ pub async fn complete(
         .bind(&job.document_id)
         .fetch_one(&state.db)
         .await?;
-    let cur_ver: i32 =
-        sqlx::query_scalar("SELECT version FROM document_versions WHERE id = $1")
-            .bind(&job.document_version_id)
-            .fetch_one(&state.db)
-            .await?;
+    let cur_ver: i32 = sqlx::query_scalar("SELECT version FROM document_versions WHERE id = $1")
+        .bind(&job.document_version_id)
+        .fetch_one(&state.db)
+        .await?;
     let next_version = cur_ver + 1;
     let storage_key = format!("documents/{public_id}/v{next_version}.pdf");
     state.storage.upload(&storage_key, &pdf).await?;
@@ -492,21 +566,19 @@ pub async fn complete(
 
     // Refresh file retention clock from sign time; count toward account quota.
     let new_expires = expires_from_now(&state.cfg);
-    let _ = sqlx::query(
-        r#"UPDATE documents SET expires_at = $2 WHERE id = $1 AND purged_at IS NULL"#,
-    )
-    .bind(&job.document_id)
-    .bind(new_expires)
-    .execute(&state.db)
-    .await;
+    let _ =
+        sqlx::query(r#"UPDATE documents SET expires_at = $2 WHERE id = $1 AND purged_at IS NULL"#)
+            .bind(&job.document_id)
+            .bind(new_expires)
+            .execute(&state.db)
+            .await;
 
-    if let Some(uid) = sqlx::query_as::<_, (Option<String>,)>(
-        "SELECT user_id FROM documents WHERE id = $1",
-    )
-    .bind(&job.document_id)
-    .fetch_optional(&state.db)
-    .await?
-    .and_then(|r| r.0)
+    if let Some(uid) =
+        sqlx::query_as::<_, (Option<String>,)>("SELECT user_id FROM documents WHERE id = $1")
+            .bind(&job.document_id)
+            .fetch_optional(&state.db)
+            .await?
+            .and_then(|r| r.0)
     {
         record_signed_usage(&state, &uid).await?;
     }
@@ -524,7 +596,7 @@ pub async fn status(
         sqlx::query_as::<_, JobRow>(
             r#"SELECT j.* FROM signing_jobs j
                JOIN documents d ON d.id = j.document_id
-               WHERE j.id = $1 AND (d.user_id = $2 OR d.user_id IS NULL)"#,
+               WHERE j.id = $1 AND d.user_id = $2"#,
         )
         .bind(&job_id)
         .bind(&u.id)
@@ -543,9 +615,7 @@ pub async fn status(
     } else {
         None
     }
-    .ok_or_else(|| {
-        AppError::coded(StatusCode::NOT_FOUND, "JOB_NOT_FOUND", "Job not found")
-    })?;
+    .ok_or_else(|| AppError::coded(StatusCode::NOT_FOUND, "JOB_NOT_FOUND", "Job not found"))?;
 
     let mut status = job.status.clone();
     if status == "READY" && Utc::now() > job.expires_at {

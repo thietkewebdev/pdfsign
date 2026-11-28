@@ -54,10 +54,7 @@ pub fn hash_ip(ip: &str) -> String {
     sha256_hex(&format!("ip:{ip}"))
 }
 
-pub async fn guest_from_jar(
-    state: &AppState,
-    jar: &CookieJar,
-) -> AppResult<Option<GuestSession>> {
+pub async fn guest_from_jar(state: &AppState, jar: &CookieJar) -> AppResult<Option<GuestSession>> {
     let Some(c) = jar.get(GUEST_COOKIE) else {
         return Ok(None);
     };
@@ -140,13 +137,16 @@ pub async fn completed_count(
         .fingerprint_hash
         .clone()
         .or_else(|| fingerprint_from_headers(headers).map(|r| hash_fp(&r)));
+    let ip = hash_ip(&client_ip(headers));
     let count: (i64,) = sqlx::query_as(
         r#"SELECT COUNT(*)::bigint FROM guest_completions
            WHERE guest_id = $1
-              OR ($2::text IS NOT NULL AND fingerprint_hash = $2)"#,
+              OR ($2::text IS NOT NULL AND fingerprint_hash = $2)
+              OR (ip_hash IS NOT NULL AND ip_hash = $3)"#,
     )
     .bind(&guest.id)
     .bind(fp.as_deref())
+    .bind(&ip)
     .fetch_one(&state.db)
     .await?;
     Ok(count.0)
@@ -171,11 +171,7 @@ pub async fn assert_under_limit(
     Ok(n)
 }
 
-pub async fn record_completion(
-    state: &AppState,
-    job_id: &str,
-    document_id: &str,
-) -> AppResult<()> {
+pub async fn record_completion(state: &AppState, job_id: &str, document_id: &str) -> AppResult<()> {
     let row: Option<(Option<String>,)> =
         sqlx::query_as("SELECT guest_id FROM documents WHERE id = $1")
             .bind(document_id)

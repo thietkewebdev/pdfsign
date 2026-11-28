@@ -22,9 +22,13 @@ services:
     environment:
       DATABASE_URL: postgres://pdfsign:pdfsign@db:5432/pdfsign
       APP_URL: http://localhost:8080
+      PUBLIC_BASE_URL: http://localhost:8080
+      JWT_SECRET: docker-compose-dev-jwt-secret-32chars
+      PDFSIGN_ALLOW_INSECURE_DEV: "1"
       APP_PUBLIC_HOST: localhost
       LISTEN: 0.0.0.0:8080
       STORAGE_DIR: /data/storage
+      DOWNLOADS_DIR: /data/downloads
       WEB_DIST: /app/web/dist
     ports:
       - "8080:8080"

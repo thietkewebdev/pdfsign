@@ -1545,7 +1545,7 @@ dependencies = [
 
 [[package]]
 name = "pdfsign-core"
-version = "0.3.0"
+version = "0.3.2"
 dependencies = [
  "chrono",
  "cmpv2",
@@ -1584,6 +1584,7 @@ dependencies = [
  "chrono",
  "dotenvy",
  "hex",
+ "hmac",
  "jsonwebtoken",
  "mime_guess",
  "password-hash",
@@ -1593,6 +1594,7 @@ dependencies = [
  "serde_json",
  "sha2 0.10.9",
  "sqlx",
+ "subtle",
  "thiserror",
  "time",
  "tokio",
