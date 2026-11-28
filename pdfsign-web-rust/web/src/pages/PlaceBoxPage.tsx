@@ -229,8 +229,8 @@ export default function PlaceBoxPage() {
           </div>
         </div>
       ) : (
-        <div className="viewer-layout">
-          <div className="card card-pad">
+        <div className="viewer-layout viewer-layout-sign">
+          <div className="card card-pad place-sidebar">
             <div className="field">
               <label>Trang</label>
               <input
@@ -262,24 +262,6 @@ export default function PlaceBoxPage() {
                 </button>
               ))}
             </div>
-            <button
-              className="btn btn-primary"
-              style={{ width: "100%" }}
-              disabled={busy || !doc || phase === "waiting"}
-              onClick={() => void sign()}
-            >
-              {phase === "waiting" ? "Đang ký…" : busy ? "…" : "Ký"}
-            </button>
-            {phase === "waiting" && (
-              <div style={{ marginTop: 12 }}>
-                <div className="skeleton" style={{ height: 8, width: "100%" }} />
-                {showAppHint && (
-                  <p style={{ marginTop: 10, marginBottom: 0, fontSize: 13 }}>
-                    <a href={WINDOWS_INSTALLER_URL}>Tải app ký</a>
-                  </p>
-                )}
-              </div>
-            )}
           </div>
 
           <div className="viewer-canvas-wrap">
@@ -307,6 +289,26 @@ export default function PlaceBoxPage() {
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {phase !== "done" && (
+        <div className="sign-sticky-bar" role="region" aria-label="Ký">
+          <button
+            className="btn btn-primary"
+            disabled={busy || !doc || phase === "waiting"}
+            onClick={() => void sign()}
+          >
+            {phase === "waiting" ? "Đang ký…" : busy ? "…" : "Ký"}
+          </button>
+          {phase === "waiting" && showAppHint && (
+            <a className="btn btn-ghost" href={WINDOWS_INSTALLER_URL}>
+              Tải app ký
+            </a>
+          )}
+          {phase === "waiting" && (
+            <div className="skeleton" style={{ height: 6, flex: 1, maxWidth: 200 }} />
+          )}
         </div>
       )}
     </div>
