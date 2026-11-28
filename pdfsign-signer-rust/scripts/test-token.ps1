@@ -124,9 +124,9 @@ foreach ($t in $tests) {
         $levels += ([regex]::Matches($v.text, "mức (B-[A-Z]+|DocTimeStamp)") | ForEach-Object { $_.Groups[1].Value })
     }
     $lv = ($levels | Select-Object -Unique) -join ","
-    # B-LTA = signature at B-LT plus a document timestamp; the verifier reports the latter separately.
-    $wantSig = if ($t.want -eq "B-LTA") { "B-LT" } else { $t.want }
-    $levelOk = ($levels -contains $wantSig) -and ($t.want -ne "B-LTA" -or $levels -contains "DocTimeStamp")
+    # The verifier reports B-LTA directly; older output showed B-LT + a separate DocTimeStamp.
+    $levelOk = ($levels -contains $t.want) -or
+        ($t.want -eq "B-LTA" -and $levels -contains "B-LT" -and $levels -contains "DocTimeStamp")
     if (-not $ok) { Say "KÝ ĐƯỢC NHƯNG XÁC MINH LỖI - xem bao-cao.txt" "Red"; $results += "[LỖI XÁC MINH] $($t.name)"; $stopped = $true; break }
     elseif ($levelOk) { Say "ĐẠT (mức: $lv)" "Green"; $results += "[ĐẠT] $($t.name) - mức $lv" }
     else { Say "CHƯA ĐỦ MỨC: yêu cầu $($t.want), file đạt $lv - xem cảnh báo LTV trong bao-cao.txt" "Yellow"; $results += "[CHƯA ĐỦ MỨC] $($t.name) - yêu cầu $($t.want), đạt $lv" }
