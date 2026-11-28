@@ -184,9 +184,7 @@ function renderBoxes(boxes) {
 
 function updateSignEnabled() {
   const hasToken = $("token-select").value && $("cert-select").value;
-  $("sign-btn").disabled = pendingDeepLink
-    ? !hasToken
-    : !(files.length && hasToken);
+  $("sign-btn").disabled = !(files.length && hasToken);
 }
 
 export async function scanTokens() {
@@ -289,9 +287,6 @@ function buildJob() {
   };
 }
 
-/** Pending `pdfsign://v1/sign?t=…` deep link awaiting PIN. */
-let pendingDeepLink = null;
-
 function openPinModal(opts = {}) {
   const modal = $("pin-modal");
   const pin = $("pin");
@@ -313,102 +308,10 @@ function closePinModal() {
   if (confirm) confirm.textContent = "Ký";
 }
 
-export function handleDeepLink(url) {
-  if (!url || !String(url).toLowerCase().startsWith("pdfsign://")) return;
-  pendingDeepLink = String(url).trim();
-  window.__pdfsignShowView?.("sign");
-  setStatus("Nhận lệnh ký từ trình duyệt. Chọn token/chứng thư rồi nhập PIN.", "ok");
-  toast("Lệnh ký từ web — nhập PIN để tiếp tục", 5000);
-  // Ensure token list is fresh, then open PIN once a cert is selected.
-  scanTokens()
-    .then(() => {
-      updateSignEnabled();
-      if ($("token-select").value && $("cert-select").value) {
-        openPinModal({ title: "Ký từ trình duyệt", confirmLabel: "Ký web" });
-      } else {
-        setStatus("Chọn token và chứng thư, rồi bấm Ký số để nhập PIN.", "err");
-      }
-    })
-    .catch((e) => setStatus(errText(e), "err"));
-}
-
-async function doWebSign(pin) {
-  const deepLink = pendingDeepLink;
-  if (!deepLink) return;
-  if (!$("token-select").value || !$("cert-select").value) {
-    setStatus("Chọn token và chứng thư trước khi ký web.", "err");
-    return;
-  }
-  const { module, slot } = JSON.parse($("token-select").value);
-  $("sign-btn").disabled = true;
-  $("progress").hidden = false;
-  $("progress").querySelector(".bar").style.width = "30%";
-  $("progress").querySelector("span").textContent = "Đang ký từ trình duyệt…";
-  setStatus("Đang ký job web…");
-  try {
-    const result = await invoke("web_sign", {
-      req: {
-        deepLink,
-        templateId: currentTemplate()?.id || "default",
-        module,
-        slot,
-        certSerial: $("cert-select").value,
-        pin,
-        level: $("level-select").value || state.settings.level,
-        tsaUrl: $("level-select").value === "B-B" ? null : $("tsa-select").value || null,
-      },
-    });
-    pendingDeepLink = null;
-    setStatus("Đã ký và gửi lại máy chủ.", "ok");
-    toast("Ký web thành công", 4000);
-    $("results").innerHTML = "";
-    const li = document.createElement("li");
-    li.className = "ok";
-    const info = document.createElement("div");
-    const title = document.createElement("b");
-    title.textContent = "Job web đã ký";
-    const sub = document.createElement("span");
-    sub.className = "muted";
-    sub.textContent = result.signedDownloadUrl || "";
-    sub.title = result.signedDownloadUrl || "";
-    info.append(title, sub);
-    li.append(info);
-    if (result.signedDownloadUrl) {
-      const actions = document.createElement("span");
-      actions.className = "actions";
-      const open = document.createElement("button");
-      open.textContent = "Mở link";
-      open.onclick = () => opener.openUrl(result.signedDownloadUrl);
-      actions.append(open);
-      li.append(actions);
-    }
-    $("results").append(li);
-    signStep = 4;
-    updateStepper();
-    state.settings = await invoke("get_settings");
-  } catch (e) {
-    // Keep deep link so PIN / network retries can re-handshake while job is READY.
-    const code = e?.code || "";
-    const msg = errText(e);
-    setStatus(`${code ? code + ": " : ""}${msg}`, "err");
-    toast(msg, 8000);
-    if (["LAUNCH_USED", "LAUNCH_EXPIRED", "JOB_EXPIRED"].includes(code)) {
-      pendingDeepLink = null;
-      setStatus(`${code}: mở lại lệnh ký từ trình duyệt.`, "err");
-    }
-  } finally {
-    $("progress").hidden = true;
-    updateSignEnabled();
-  }
-}
-
 async function doSign(pin) {
   if (!pin) {
     setStatus("Vui lòng nhập mã PIN.", "err");
     return;
-  }
-  if (pendingDeepLink) {
-    return doWebSign(pin);
   }
   const { module, slot } = JSON.parse($("token-select").value);
   const req = {
@@ -596,15 +499,6 @@ export function initSign() {
     if (d) $("out-dir").value = d;
   };
   $("sign-btn").onclick = () => {
-    // Offline sign requires files; web deep-link only needs token+cert.
-    if (pendingDeepLink) {
-      if (!$("token-select").value || !$("cert-select").value) {
-        setStatus("Chọn token và chứng thư trước.", "err");
-        return;
-      }
-      openPinModal({ title: "Ký từ trình duyệt", confirmLabel: "Ký web" });
-      return;
-    }
     if ($("sign-btn").disabled) return;
     openPinModal();
   };
@@ -661,7 +555,6 @@ export function initSign() {
     addFiles,
     openPinModal,
     doSign,
-    handleDeepLink,
     files,
     getViewer: () => viewer,
     setSignStep,

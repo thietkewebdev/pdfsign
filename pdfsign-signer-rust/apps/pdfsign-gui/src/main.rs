@@ -89,7 +89,10 @@ fn ui_app_err(e: AppError) -> UiError {
 
 impl From<TokenError> for UiError {
     fn from(e: TokenError) -> Self {
-        UiError { code: e.code.as_str().into(), message: e.code.message_vi().into() }
+        UiError {
+            code: e.code.as_str().into(),
+            message: e.code.message_vi().into(),
+        }
     }
 }
 
@@ -97,6 +100,60 @@ type UiResult<T> = Result<T, UiError>;
 
 fn store() -> TemplateStore {
     TemplateStore::new(&config_dir())
+}
+
+const QUICK_LABEL: &str = "quick";
+const MAIN_LABEL: &str = "main";
+
+fn focus(win: &tauri::WebviewWindow) {
+    let _ = win.unminimize();
+    let _ = win.show();
+    let _ = win.set_focus();
+}
+
+/// Full app window (offline / batch signing, templates, verify, settings).
+fn open_main(app: &tauri::AppHandle) {
+    if let Some(win) = app.get_webview_window(MAIN_LABEL) {
+        return focus(&win);
+    }
+    let Some(cfg) = app
+        .config()
+        .app
+        .windows
+        .iter()
+        .find(|w| w.label == MAIN_LABEL)
+        .cloned()
+    else {
+        return;
+    };
+    match tauri::WebviewWindowBuilder::from_config(app, &cfg).and_then(|b| b.build()) {
+        Ok(win) => focus(&win),
+        Err(e) => support_log(&format!("open main window: {e}")),
+    }
+}
+
+/// Compact PIN-only window used for web signing (pdfsign:// deep links).
+fn open_quick(app: &tauri::AppHandle) {
+    if let Some(win) = app.get_webview_window(QUICK_LABEL) {
+        return focus(&win);
+    }
+    let built = tauri::WebviewWindowBuilder::new(
+        app,
+        QUICK_LABEL,
+        tauri::WebviewUrl::App("quick.html".into()),
+    )
+    .title("PDFSign - Ký số")
+    .inner_size(420.0, 470.0)
+    .resizable(false)
+    .maximizable(false)
+    .always_on_top(true)
+    .center()
+    .focused(true)
+    .build();
+    match built {
+        Ok(win) => focus(&win),
+        Err(e) => support_log(&format!("open quick window: {e}")),
+    }
 }
 
 fn emit_deep_link(app: &tauri::AppHandle, url: &str) {
@@ -107,11 +164,14 @@ fn emit_deep_link(app: &tauri::AppHandle, url: &str) {
     if let Ok(mut g) = PENDING_DEEP_LINK.lock() {
         *g = Some(url.to_string());
     }
-    let _ = app.emit("deep-link", url.to_string());
-    if let Some(win) = app.get_webview_window("main") {
-        let _ = win.set_focus();
-        let _ = win.unminimize();
-    }
+    open_quick(app);
+    // A freshly created window drains PENDING_DEEP_LINK on boot; an open one gets the event.
+    let _ = app.emit_to(QUICK_LABEL, "deep-link", url.to_string());
+}
+
+#[tauri::command]
+fn open_main_window(app: tauri::AppHandle) {
+    open_main(&app);
 }
 
 /// Drain a buffered deep link (cold start before `listen("deep-link")`).
@@ -155,20 +215,22 @@ async fn list_tokens(extra_module: Option<PathBuf>) -> Vec<ModuleInfo> {
         let extra = extra_module.or(Settings::load(&config_dir()).last_module);
         discover(extra.as_deref())
             .into_iter()
-            .map(|c| match Module::load(&c.path).and_then(|m| m.token_slots()) {
-                Ok(slots) => ModuleInfo {
-                    path: c.path,
-                    vendor: c.vendor,
-                    slots: slots.into_iter().map(|(_, s)| s).collect(),
-                    error: None,
+            .map(
+                |c| match Module::load(&c.path).and_then(|m| m.token_slots()) {
+                    Ok(slots) => ModuleInfo {
+                        path: c.path,
+                        vendor: c.vendor,
+                        slots: slots.into_iter().map(|(_, s)| s).collect(),
+                        error: None,
+                    },
+                    Err(e) => ModuleInfo {
+                        path: c.path,
+                        vendor: c.vendor,
+                        slots: vec![],
+                        error: Some(e.code.as_str().into()),
+                    },
                 },
-                Err(e) => ModuleInfo {
-                    path: c.path,
-                    vendor: c.vendor,
-                    slots: vec![],
-                    error: Some(e.code.as_str().into()),
-                },
-            })
+            )
             .collect()
     })
     .await
@@ -214,7 +276,9 @@ async fn list_certs(module: PathBuf, slot: usize) -> UiResult<Vec<CertInfo>> {
 /// PDF bytes as a binary IPC response (ArrayBuffer in JS) for pdf.js.
 #[tauri::command]
 fn read_pdf(path: PathBuf) -> UiResult<tauri::ipc::Response> {
-    Ok(tauri::ipc::Response::new(std::fs::read(path).map_err(ui_err)?))
+    Ok(tauri::ipc::Response::new(
+        std::fs::read(path).map_err(ui_err)?,
+    ))
 }
 
 #[tauri::command]
@@ -234,8 +298,14 @@ fn delete_template(id: String) -> UiResult<()> {
 
 #[tauri::command]
 fn set_template_image(id: String, slot: String, path: Option<PathBuf>) -> UiResult<StampTemplate> {
-    let slot = if slot == "seal" { ImageSlot::Seal } else { ImageSlot::Signature };
-    store().set_image(&id, slot, path.as_deref()).map_err(ui_err)
+    let slot = if slot == "seal" {
+        ImageSlot::Seal
+    } else {
+        ImageSlot::Signature
+    };
+    store()
+        .set_image(&id, slot, path.as_deref())
+        .map_err(ui_err)
 }
 
 /// Stamp preview as a one-page PDF at the box size (points), with sample values.
@@ -288,7 +358,11 @@ async fn sign_job(app: tauri::AppHandle, req: SignRequest) -> UiResult<Vec<FileR
         let tpl = store().get(&req.template_id).unwrap_or_default();
         let appearance = store().appearance(&tpl).map_err(ui_err)?;
         let m = Module::load(&req.module)?;
-        let mut signer = m.signer(req.slot, &pin, &CertSelector::Serial(req.cert_serial.clone()))?;
+        let mut signer = m.signer(
+            req.slot,
+            &pin,
+            &CertSelector::Serial(req.cert_serial.clone()),
+        )?;
         drop(pin);
         // Remember the token and certificate, never the PIN.
         let mut settings = Settings::load(&config_dir());
@@ -297,7 +371,12 @@ async fn sign_job(app: tauri::AppHandle, req: SignRequest) -> UiResult<Vec<FileR
         settings.last_cert_serial = Some(req.cert_serial.clone());
         let _ = settings.save(&config_dir());
 
-        let tsa = req.job.tsa_url.clone().filter(|u| !u.trim().is_empty()).map(HttpTimestamper::new);
+        let tsa = req
+            .job
+            .tsa_url
+            .clone()
+            .filter(|u| !u.trim().is_empty())
+            .map(HttpTimestamper::new);
         let http = UreqHttp::default();
         Ok(run_job(
             &req.job,
@@ -308,7 +387,11 @@ async fn sign_job(app: tauri::AppHandle, req: SignRequest) -> UiResult<Vec<FileR
             |done, total, current| {
                 let _ = app.emit(
                     "sign-progress",
-                    Progress { done, total, current: current.display().to_string() },
+                    Progress {
+                        done,
+                        total,
+                        current: current.display().to_string(),
+                    },
                 );
             },
         ))
@@ -352,7 +435,11 @@ async fn web_sign(app: tauri::AppHandle, req: WebSignRequest) -> UiResult<WebSig
         let tpl = store().get(&req.template_id).unwrap_or_default();
         let appearance = store().appearance(&tpl).map_err(ui_err)?;
         let m = Module::load(&req.module)?;
-        let mut signer = m.signer(req.slot, &pin, &CertSelector::Serial(req.cert_serial.clone()))?;
+        let mut signer = m.signer(
+            req.slot,
+            &pin,
+            &CertSelector::Serial(req.cert_serial.clone()),
+        )?;
         drop(pin);
 
         let mut settings = Settings::load(&config_dir());
@@ -362,16 +449,13 @@ async fn web_sign(app: tauri::AppHandle, req: WebSignRequest) -> UiResult<WebSig
         let _ = settings.save(&config_dir());
 
         let level = req.level.unwrap_or(settings.level);
-        let tsa_url = req
-            .tsa_url
-            .filter(|u| !u.trim().is_empty())
-            .or_else(|| {
-                if matches!(level, PadesLevel::BB) {
-                    None
-                } else {
-                    Some(settings.tsa_url.clone())
-                }
-            });
+        let tsa_url = req.tsa_url.filter(|u| !u.trim().is_empty()).or_else(|| {
+            if matches!(level, PadesLevel::BB) {
+                None
+            } else {
+                Some(settings.tsa_url.clone())
+            }
+        });
         let tsa = tsa_url.map(HttpTimestamper::new);
         let http = UreqHttp::default();
         support_log(&format!(
@@ -421,7 +505,9 @@ async fn verify(path: PathBuf) -> UiResult<Vec<SignatureView>> {
 #[tauri::command]
 async fn test_tsa(url: String) -> UiResult<String> {
     tauri::async_runtime::spawn_blocking(move || {
-        let token = HttpTimestamper::new(url).timestamp(&[7u8; 32]).map_err(ui_err)?;
+        let token = HttpTimestamper::new(url)
+            .timestamp(&[7u8; 32])
+            .map_err(ui_err)?;
         Ok(format!("OK ({} byte)", token.len()))
     })
     .await
@@ -439,11 +525,18 @@ fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
             // Second instance: forward deep-link argv into the running app.
-            for arg in argv.into_iter().skip(1) {
-                if arg.to_ascii_lowercase().starts_with("pdfsign://") {
-                    support_log(&format!("single-instance deep-link"));
-                    emit_deep_link(app, &arg);
-                }
+            let links: Vec<String> = argv
+                .into_iter()
+                .skip(1)
+                .filter(|a| a.to_ascii_lowercase().starts_with("pdfsign://"))
+                .collect();
+            if links.is_empty() {
+                // Launched again from the Start menu: show the full app.
+                open_main(app);
+            }
+            for link in links {
+                support_log("single-instance deep-link");
+                emit_deep_link(app, &link);
             }
         }))
         .plugin(tauri_plugin_deep_link::init())
@@ -462,16 +555,21 @@ fn main() {
             app.deep_link().on_open_url(move |event| {
                 for url in event.urls() {
                     support_log("on_open_url deep-link");
-                    emit_deep_link(&handle, &url.to_string());
+                    emit_deep_link(&handle, url.as_ref());
                 }
             });
 
-            // Cold start: protocol launched the app with a URL.
+            // Cold start: launched by pdfsign:// → only the compact window; otherwise the full app.
+            let mut launched_by_link = false;
             if let Ok(Some(urls)) = app.deep_link().get_current() {
                 for url in urls {
                     support_log("get_current deep-link");
-                    emit_deep_link(app.handle(), &url.to_string());
+                    launched_by_link = true;
+                    emit_deep_link(app.handle(), url.as_ref());
                 }
+            }
+            if !launched_by_link {
+                open_main(app.handle());
             }
 
             Ok(())
@@ -481,6 +579,7 @@ fn main() {
             save_settings,
             config_path,
             take_pending_deep_link,
+            open_main_window,
             support_log_file,
             list_tokens,
             list_certs,

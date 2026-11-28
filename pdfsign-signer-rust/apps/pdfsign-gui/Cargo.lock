@@ -3065,7 +3065,7 @@ dependencies = [
 
 [[package]]
 name = "pdfsign-app"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "base64 0.22.1",
  "chrono",
@@ -3082,7 +3082,7 @@ dependencies = [
 
 [[package]]
 name = "pdfsign-core"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "chrono",
  "cmpv2",
@@ -3111,7 +3111,7 @@ dependencies = [
 
 [[package]]
 name = "pdfsign-gui"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "chrono",
  "pdfsign-app",
@@ -3129,7 +3129,7 @@ dependencies = [
 
 [[package]]
 name = "pdfsign-token"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "chrono",
  "cryptoki",
@@ -3139,6 +3139,7 @@ dependencies = [
  "secrecy",
  "serde",
  "thiserror 2.0.21",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
