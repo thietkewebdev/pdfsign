@@ -14,6 +14,7 @@ use der::{Decode, Encode, SliceReader};
 use lopdf::{Dictionary, Document, Object, ObjectId, StringFormat};
 use sha1::{Digest, Sha1};
 use std::collections::BTreeMap;
+use x509_cert::crl::CertificateList;
 use x509_cert::ext::pkix::name::GeneralName;
 use x509_cert::ext::pkix::{AuthorityInfoAccessSyntax, CrlDistributionPoints};
 use x509_cert::Certificate;
@@ -165,6 +166,25 @@ fn crl_urls(c: &Certificate) -> Vec<String> {
                 .collect()
         })
         .unwrap_or_default()
+}
+
+/// CRL as DER (PAdES DSS requires DER; some CAs such as rootca.gov.vn serve PEM), checked to
+/// parse and to be issued for `cert`'s issuer. Returns the DER and whether `cert` is revoked.
+pub fn normalize_crl(body: &[u8], cert: &Certificate) -> Result<(Vec<u8>, bool)> {
+    let der = crate::soft::der_from_pem_or_der(body, "X509 CRL")
+        .ok_or_else(|| Error::Ltv("CRL PEM không hợp lệ".into()))?;
+    let crl = CertificateList::from_der(&der)
+        .map_err(|e| Error::Ltv(format!("không đọc được CRL: {e}")))?;
+    if crl.tbs_cert_list.issuer != cert.tbs_certificate.issuer {
+        return Err(Error::Ltv("CRL không do CA cấp chứng thư phát hành".into()));
+    }
+    let revoked = crl
+        .tbs_cert_list
+        .revoked_certificates
+        .iter()
+        .flatten()
+        .any(|r| r.serial_number == cert.tbs_certificate.serial_number);
+    Ok((der, revoked))
 }
 
 /// Parse certificates from DER, PEM, or a degenerate PKCS#7 (.p7c) as served by AIA URLs.
@@ -352,15 +372,18 @@ pub fn collect_validation_data(
         }
         if !have_revinfo {
             for url in crl_urls(&cert) {
-                match http.get(&url) {
-                    Ok(crl) => {
+                match http.get(&url).and_then(|body| normalize_crl(&body, &cert)) {
+                    Ok((crl, revoked)) => {
+                        if revoked {
+                            data.revoked.push(label.clone());
+                        }
                         ValidationData::push_unique(&mut data.crls, crl);
                         have_revinfo = true;
                         break;
                     }
                     Err(e) => data
                         .warnings
-                        .push(format!("{label}: không tải được CRL ({e})")),
+                        .push(format!("{label}: không dùng được CRL ({e})")),
                 }
             }
         }

@@ -91,13 +91,13 @@ $batchFiles = @("a", "b", "c") | ForEach-Object { Join-Path $batchIn "$_.pdf" }
 $o = { param($name) Join-Path $OutDir $name }
 
 $tests = @(
-    @{ name = "Ký 1 chữ ký B-B"; out = @(& $o "01-BB.pdf"); args = @($Pdf, "--out", (& $o "01-BB.pdf"), "--box", $boxR, "--level", "B-B") },
-    @{ name = "Ký 1 chữ ký B-T (dấu thời gian)"; out = @(& $o "02-BT.pdf"); args = @($Pdf, "--out", (& $o "02-BT.pdf"), "--box", $boxR, "--level", "B-T", "--tsa", $Tsa) },
-    @{ name = "Ký B-LT (OCSP/CRL)"; out = @(& $o "03-BLT.pdf"); args = @($Pdf, "--out", (& $o "03-BLT.pdf"), "--box", $boxR, "--level", "B-LT", "--tsa", $Tsa) },
-    @{ name = "Ký B-LTA (dấu thời gian tài liệu)"; out = @(& $o "04-BLTA.pdf"); args = @($Pdf, "--out", (& $o "04-BLTA.pdf"), "--box", $boxR, "--level", "B-LTA", "--tsa", $Tsa) },
-    @{ name = "2 ô chữ ký trên 1 file"; out = @(& $o "05-hai-o.pdf"); args = @($Pdf, "--out", (& $o "05-hai-o.pdf"), "--box", $boxL, "--box", $boxR, "--level", "B-T", "--tsa", $Tsa) },
-    @{ name = "Ký lần 2 lên file đã ký"; out = @(& $o "06-ky-lan-2.pdf"); args = @((& $o "02-BT.pdf"), "--out", (& $o "06-ky-lan-2.pdf"), "--box", $boxL, "--level", "B-T", "--tsa", $Tsa) },
-    @{ name = "Ký hàng loạt 3 file"; out = @("a", "b", "c" | ForEach-Object { Join-Path $batchOut "$_-da-ky.pdf" }); args = ($batchFiles + @("--out-dir", $batchOut, "--box", $boxR, "--level", "B-T", "--tsa", $Tsa)) }
+    @{ name = "Ký 1 chữ ký B-B"; want = "B-B"; out = @(& $o "01-BB.pdf"); args = @($Pdf, "--out", (& $o "01-BB.pdf"), "--box", $boxR, "--level", "B-B") },
+    @{ name = "Ký 1 chữ ký B-T (dấu thời gian)"; want = "B-T"; out = @(& $o "02-BT.pdf"); args = @($Pdf, "--out", (& $o "02-BT.pdf"), "--box", $boxR, "--level", "B-T", "--tsa", $Tsa) },
+    @{ name = "Ký B-LT (OCSP/CRL)"; want = "B-LT"; out = @(& $o "03-BLT.pdf"); args = @($Pdf, "--out", (& $o "03-BLT.pdf"), "--box", $boxR, "--level", "B-LT", "--tsa", $Tsa) },
+    @{ name = "Ký B-LTA (dấu thời gian tài liệu)"; want = "B-LTA"; out = @(& $o "04-BLTA.pdf"); args = @($Pdf, "--out", (& $o "04-BLTA.pdf"), "--box", $boxR, "--level", "B-LTA", "--tsa", $Tsa) },
+    @{ name = "2 ô chữ ký trên 1 file"; want = "B-T"; out = @(& $o "05-hai-o.pdf"); args = @($Pdf, "--out", (& $o "05-hai-o.pdf"), "--box", $boxL, "--box", $boxR, "--level", "B-T", "--tsa", $Tsa) },
+    @{ name = "Ký lần 2 lên file đã ký"; want = "B-T"; out = @(& $o "06-ky-lan-2.pdf"); args = @((& $o "02-BT.pdf"), "--out", (& $o "06-ky-lan-2.pdf"), "--box", $boxL, "--level", "B-T", "--tsa", $Tsa) },
+    @{ name = "Ký hàng loạt 3 file"; want = "B-T"; out = @("a", "b", "c" | ForEach-Object { Join-Path $batchOut "$_-da-ky.pdf" }); args = ($batchFiles + @("--out-dir", $batchOut, "--box", $boxR, "--level", "B-T", "--tsa", $Tsa)) }
 )
 
 $results = @()
@@ -121,11 +121,15 @@ foreach ($t in $tests) {
         $v = RunCli @("verify", $f)
         Note "== $($t.name) -> $(Split-Path $f -Leaf) ==`n$($v.text)`n"
         if ($v.text -notmatch "tính toàn vẹn OK") { $ok = $false }
-        $levels += ([regex]::Matches($v.text, "mức (B-[A-Z]+)") | ForEach-Object { $_.Groups[1].Value })
+        $levels += ([regex]::Matches($v.text, "mức (B-[A-Z]+|DocTimeStamp)") | ForEach-Object { $_.Groups[1].Value })
     }
     $lv = ($levels | Select-Object -Unique) -join ","
-    if ($ok) { Say "ĐẠT (mức đạt được: $lv)" "Green"; $results += "[ĐẠT] $($t.name) - mức $lv" }
-    else { Say "KÝ ĐƯỢC NHƯNG XÁC MINH LỖI - xem bao-cao.txt" "Red"; $results += "[LỖI XÁC MINH] $($t.name)"; $stopped = $true; break }
+    # B-LTA = signature at B-LT plus a document timestamp; the verifier reports the latter separately.
+    $wantSig = if ($t.want -eq "B-LTA") { "B-LT" } else { $t.want }
+    $levelOk = ($levels -contains $wantSig) -and ($t.want -ne "B-LTA" -or $levels -contains "DocTimeStamp")
+    if (-not $ok) { Say "KÝ ĐƯỢC NHƯNG XÁC MINH LỖI - xem bao-cao.txt" "Red"; $results += "[LỖI XÁC MINH] $($t.name)"; $stopped = $true; break }
+    elseif ($levelOk) { Say "ĐẠT (mức: $lv)" "Green"; $results += "[ĐẠT] $($t.name) - mức $lv" }
+    else { Say "CHƯA ĐỦ MỨC: yêu cầu $($t.want), file đạt $lv - xem cảnh báo LTV trong bao-cao.txt" "Yellow"; $results += "[CHƯA ĐỦ MỨC] $($t.name) - yêu cầu $($t.want), đạt $lv" }
 }
 $pin = $null; $secure.Dispose(); [GC]::Collect()
 
@@ -139,6 +143,8 @@ if (Test-Path $support) { Copy-Item $support (Join-Path $OutDir "pdfsign-app.log
 $zip = "$OutDir.zip"
 Compress-Archive -Path (Join-Path $OutDir "*") -DestinationPath $zip -Force
 Say "`n== TỔNG KẾT ==" "Cyan"
-$results | ForEach-Object { if ($_ -like "*ĐẠT]*" -and $_ -notlike "*KHÔNG*") { Say $_ "Green" } else { Say $_ "Red" } }
+$results | ForEach-Object {
+    if ($_ -like '`[ĐẠT]*') { Say $_ "Green" } elseif ($_ -like '`[CHƯA ĐỦ MỨC]*') { Say $_ "Yellow" } else { Say $_ "Red" }
+}
 Say "`nBáo cáo: $report" "Cyan"
 Say "Gửi file này cho hỗ trợ (không chứa PIN): $zip" "Cyan"

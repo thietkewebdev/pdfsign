@@ -52,6 +52,20 @@ pub fn certs_from_pem_or_der(data: &[u8]) -> Result<Vec<Vec<u8>>> {
     Ok(out)
 }
 
+/// DER bytes of the first PEM block labelled `label` (e.g. "X509 CRL"), or `data` unchanged
+/// when it is not PEM. `None` when a PEM block is present but its base64 is invalid.
+pub fn der_from_pem_or_der(data: &[u8], label: &str) -> Option<Vec<u8>> {
+    let text = String::from_utf8_lossy(data);
+    let begin = format!("-----BEGIN {label}-----");
+    let Some(start) = text.find(&begin) else {
+        return Some(data.to_vec());
+    };
+    let rest = &text[start + begin.len()..];
+    let body = rest.split(&format!("-----END {label}-----")).next()?;
+    let b64: String = body.chars().filter(|c| !c.is_whitespace()).collect();
+    base64_decode(&b64)
+}
+
 fn base64_decode(s: &str) -> Option<Vec<u8>> {
     fn val(c: u8) -> Option<u32> {
         Some(match c {
