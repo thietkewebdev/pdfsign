@@ -9,7 +9,7 @@
 /** Same-origin installer hosted from DOWNLOADS_DIR (see server `/downloads/*`). */
 export const WINDOWS_INSTALLER_URL = "/downloads/PDFSign-setup.exe";
 
-export const WINDOWS_APP_VERSION = "0.3.1";
+export const WINDOWS_APP_VERSION = "0.3.2";
 
 export const WINDOWS_INSTALL_GUIDE_URL = "/#tai-app";
 

@@ -5,12 +5,15 @@ use pdfsign_app::remote::run_remote_job_with_api;
 use pdfsign_app::settings::{config_dir, Settings};
 use pdfsign_app::templates::{ImageSlot, TemplateStore};
 use pdfsign_app::verify_view::{verify_file, SignatureView};
+use pdfsign_app::AppError;
 use pdfsign_core::appearance::preview_pdf;
 use pdfsign_core::ltv::UreqHttp;
 use pdfsign_core::tsa::HttpTimestamper;
 use pdfsign_core::{PadesLevel, StampTemplate, StampValues, Timestamper};
 use pdfsign_token::{discover, pin_from_string, CertSelector, Module, TokenError};
 use serde::{Deserialize, Serialize};
+use std::fs::OpenOptions;
+use std::io::Write;
 use std::path::PathBuf;
 use std::sync::Mutex;
 use tauri::{Emitter, Manager};
@@ -38,12 +41,50 @@ const KNOWN_CODES: &[&str] = &[
     "CERT_NOT_YET_VALID",
     "NO_PKCS11_DLL",
     "DEVICE_ERROR",
+    "LAUNCH_USED",
+    "LAUNCH_EXPIRED",
+    "JOB_EXPIRED",
+    "JOB_NOT_READY",
+    "INVALID_TOKEN",
+    "FILE_TOO_LARGE",
+    "RATE_LIMITED",
+    "INTEGRITY_FAILED",
 ];
+
+fn support_log_path() -> PathBuf {
+    config_dir().join("logs").join("pdfsign.log")
+}
+
+fn support_log(line: &str) {
+    let path = support_log_path();
+    if let Some(parent) = path.parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+    if let Ok(mut f) = OpenOptions::new().create(true).append(true).open(&path) {
+        let ts = chrono::Utc::now().to_rfc3339();
+        let _ = writeln!(f, "[{ts}] {line}");
+    }
+}
 
 fn ui_err(e: impl std::fmt::Display) -> UiError {
     let message = e.to_string();
-    let code = KNOWN_CODES.iter().find(|c| message.contains(*c)).copied().unwrap_or("GENERAL");
-    UiError { code: code.into(), message }
+    support_log(&format!("ERROR {message}"));
+    let code = KNOWN_CODES
+        .iter()
+        .find(|c| message.contains(*c))
+        .copied()
+        .unwrap_or("GENERAL");
+    UiError {
+        code: code.into(),
+        message,
+    }
+}
+
+fn ui_app_err(e: AppError) -> UiError {
+    let code = e.code_str().to_string();
+    let message = e.to_string();
+    support_log(&format!("ERROR [{code}] {message}"));
+    UiError { code, message }
 }
 
 impl From<TokenError> for UiError {
@@ -77,6 +118,11 @@ fn emit_deep_link(app: &tauri::AppHandle, url: &str) {
 #[tauri::command]
 fn take_pending_deep_link() -> Option<String> {
     PENDING_DEEP_LINK.lock().ok().and_then(|mut g| g.take())
+}
+
+#[tauri::command]
+fn support_log_file() -> String {
+    support_log_path().display().to_string()
 }
 
 #[tauri::command]
@@ -328,6 +374,13 @@ async fn web_sign(app: tauri::AppHandle, req: WebSignRequest) -> UiResult<WebSig
             });
         let tsa = tsa_url.map(HttpTimestamper::new);
         let http = UreqHttp::default();
+        support_log(&format!(
+            "web_sign start module={} slot={} cert={} level={}",
+            req.module.display(),
+            req.slot,
+            req.cert_serial,
+            level.as_str()
+        ));
         let url = run_remote_job_with_api(
             &req.deep_link,
             Some(settings.web_api_base.as_str()),
@@ -337,7 +390,8 @@ async fn web_sign(app: tauri::AppHandle, req: WebSignRequest) -> UiResult<WebSig
             tsa.as_ref().map(|t| t as &dyn Timestamper),
             Some(&http),
         )
-        .map_err(ui_err)?;
+        .map_err(ui_app_err)?;
+        support_log("web_sign ok");
         let _ = app.emit(
             "sign-progress",
             Progress {
@@ -381,11 +435,13 @@ fn page_count(path: PathBuf) -> UiResult<usize> {
 }
 
 fn main() {
+    support_log(&format!("PDFSign {} starting", env!("CARGO_PKG_VERSION")));
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
             // Second instance: forward deep-link argv into the running app.
             for arg in argv.into_iter().skip(1) {
                 if arg.to_ascii_lowercase().starts_with("pdfsign://") {
+                    support_log(&format!("single-instance deep-link"));
                     emit_deep_link(app, &arg);
                 }
             }
@@ -398,13 +454,14 @@ fn main() {
             #[cfg(any(target_os = "linux", all(debug_assertions, windows)))]
             {
                 if let Err(e) = app.deep_link().register_all() {
-                    eprintln!("deep-link register_all: {e}");
+                    support_log(&format!("deep-link register_all: {e}"));
                 }
             }
 
             let handle = app.handle().clone();
             app.deep_link().on_open_url(move |event| {
                 for url in event.urls() {
+                    support_log("on_open_url deep-link");
                     emit_deep_link(&handle, &url.to_string());
                 }
             });
@@ -412,6 +469,7 @@ fn main() {
             // Cold start: protocol launched the app with a URL.
             if let Ok(Some(urls)) = app.deep_link().get_current() {
                 for url in urls {
+                    support_log("get_current deep-link");
                     emit_deep_link(app.handle(), &url.to_string());
                 }
             }
@@ -423,6 +481,7 @@ fn main() {
             save_settings,
             config_path,
             take_pending_deep_link,
+            support_log_file,
             list_tokens,
             list_certs,
             read_pdf,

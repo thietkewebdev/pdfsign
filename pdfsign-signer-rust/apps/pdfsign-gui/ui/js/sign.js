@@ -334,11 +334,9 @@ export function handleDeepLink(url) {
 
 async function doWebSign(pin) {
   const deepLink = pendingDeepLink;
-  pendingDeepLink = null;
   if (!deepLink) return;
   if (!$("token-select").value || !$("cert-select").value) {
     setStatus("Chọn token và chứng thư trước khi ký web.", "err");
-    pendingDeepLink = deepLink;
     return;
   }
   const { module, slot } = JSON.parse($("token-select").value);
@@ -360,6 +358,7 @@ async function doWebSign(pin) {
         tsaUrl: $("level-select").value === "B-B" ? null : $("tsa-select").value || null,
       },
     });
+    pendingDeepLink = null;
     setStatus("Đã ký và gửi lại máy chủ.", "ok");
     toast("Ký web thành công", 4000);
     $("results").innerHTML = "";
@@ -388,8 +387,15 @@ async function doWebSign(pin) {
     updateStepper();
     state.settings = await invoke("get_settings");
   } catch (e) {
-    setStatus(`${e.code ? e.code + ": " : ""}${errText(e)}`, "err");
-    toast(errText(e), 6000);
+    // Keep deep link so PIN / network retries can re-handshake while job is READY.
+    const code = e?.code || "";
+    const msg = errText(e);
+    setStatus(`${code ? code + ": " : ""}${msg}`, "err");
+    toast(msg, 8000);
+    if (["LAUNCH_USED", "LAUNCH_EXPIRED", "JOB_EXPIRED"].includes(code)) {
+      pendingDeepLink = null;
+      setStatus(`${code}: mở lại lệnh ký từ trình duyệt.`, "err");
+    }
   } finally {
     $("progress").hidden = true;
     updateSignEnabled();

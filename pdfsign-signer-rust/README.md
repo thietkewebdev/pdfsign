@@ -43,7 +43,7 @@ CI (`.github/workflows/pdfsign-signer-rust.yml`, runs only on changes under `pdf
 
 | Artifact | Contents |
 |---|---|
-| `pdfsign-windows-installers` | `PDFSign_0.3.1_x64-setup.exe` (NSIS, per-user, no admin; registers `pdfsign://`), `PDFSign_0.3.1_x64_en-US.msi` |
+| `pdfsign-windows-installers` | `PDFSign_0.3.2_x64-setup.exe` (NSIS, per-user, no admin; registers `pdfsign://`), `PDFSign_0.3.2_x64_en-US.msi` |
 | `pdfsign-windows-x64` | `pdfsign.exe` (CLI), `PDFSign.exe` (portable GUI) |
 | `pdfsign-linux-x64` | Linux CLI |
 

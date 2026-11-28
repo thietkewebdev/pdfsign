@@ -86,6 +86,10 @@ export function showSettings() {
 
 export function initSettings(onSaved) {
   invoke("config_path").then((p) => ($("config-path").textContent = p));
+  invoke("support_log_file").then((p) => {
+    const el = $("support-log-path");
+    if (el) el.textContent = p;
+  }).catch(() => {});
   $("tsa-add").onclick = () => {
     state.settings.tsas.push({ name: "TSA mới", url: "http://", enabled: true, verified: false });
     renderTsas();

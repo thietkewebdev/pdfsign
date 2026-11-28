@@ -258,6 +258,19 @@ body {
 }
 .group:first-child { padding-top: var(--space-2); }
 .group:last-child { border-bottom: 0; }
+.sticky-sign {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  margin-top: auto;
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+  border-bottom: 0;
+  padding-top: var(--space-3);
+  padding-bottom: var(--space-3);
+  box-shadow: 0 -6px 16px rgba(15, 23, 42, 0.06);
+}
+.sticky-sign .primary.big { width: 100%; }
 .group-title {
   font-size: 11px;
   font-weight: 600;

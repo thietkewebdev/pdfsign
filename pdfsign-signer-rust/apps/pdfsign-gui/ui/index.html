@@ -30,7 +30,7 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"/><circle cx="12" cy="12" r="3"/></svg>
         <span class="label">Cài đặt</span>
       </button>
-      <div class="nav-foot"><strong>PDFSign</strong> · v0.3.1<br />Offline · Windows</div>
+      <div class="nav-foot"><strong>PDFSign</strong> · v0.3.2<br />Offline · Windows</div>
     </nav>
 
     <div class="app-shell">
@@ -118,8 +118,7 @@
             </div>
           </div>
 
-          <div class="group" data-sign-step="4">
-            <h2 class="group-title">Ký</h2>
+          <div class="group sign-action sticky-sign" data-sign-step="4">
             <button id="sign-btn" class="primary big" type="button" disabled>Ký số</button>
             <div id="progress" class="progress" hidden><div class="bar"></div><span></span></div>
             <p id="sign-status" class="status"></p>
@@ -261,7 +260,6 @@
             <label class="field" style="margin-top:12px">Máy chủ web (API)
               <input id="set-web-api" type="url" placeholder="https://pdfsign.thietkeweb.dev" />
             </label>
-            <p class="muted" style="font-size:12px;margin-top:6px">Dùng khi mở <code>pdfsign://v1/sign?t=…</code> mà JWT không kèm claim <code>api</code>.</p>
           </div>
           <div class="page-card">
             <h2 class="group-title">CA gốc tin cậy</h2>
@@ -278,6 +276,7 @@
             <span id="settings-status" class="status"></span>
           </div>
           <p class="muted" style="font-size:12px">Cấu hình: <code id="config-path"></code></p>
+          <p class="muted" style="font-size:12px">Nhật ký hỗ trợ: <code id="support-log-path"></code></p>
         </main>
       </section>
     </div>
