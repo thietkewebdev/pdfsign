@@ -143,7 +143,7 @@ fn open_quick(app: &tauri::AppHandle) {
         tauri::WebviewUrl::App("quick.html".into()),
     )
     .title("PDFSign - Ký số")
-    .inner_size(420.0, 470.0)
+    .inner_size(420.0, 440.0)
     .resizable(false)
     .maximizable(false)
     .always_on_top(true)

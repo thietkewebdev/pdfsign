@@ -11,6 +11,7 @@ let settings = null;
 /** @type {{module: string, slot: number, cert: any, token: any}[]} */
 let candidates = [];
 let busy = false;
+let done = false;
 
 function errMessage(e) {
   if (!e) return "Đã xảy ra lỗi. Vui lòng thử lại.";
@@ -49,9 +50,11 @@ function refreshState() {
   const c = selected();
   const pin = $("q-pin").value;
   $("q-sign").disabled = busy || !deepLink || !c || !pin || c.token.pinLocked;
-  $("q-sub").textContent = deepLink
-    ? "Nhập mã PIN để ký tài liệu"
-    : "Đang chờ lệnh ký từ trình duyệt…";
+  $("q-sub").textContent = done
+    ? "Hoàn tất"
+    : deepLink
+      ? "Nhập mã PIN để ký tài liệu"
+      : "Đang chờ lệnh ký từ trình duyệt…";
 }
 
 function certLabel(c) {
@@ -67,7 +70,7 @@ function renderCandidates() {
     const c = candidates[0];
     $("q-cert-name").textContent = certLabel(c);
     $("q-cert-meta").textContent =
-      `${c.cert.issuerCn || ""} · hết hạn ${c.cert.validTo} · ${c.token.label || c.token.model || ""}`;
+      `${c.cert.issuerCn || ""} · hết hạn ${c.cert.validTo}`;
   } else if (candidates.length > 1) {
     const sel = $("q-cert");
     sel.innerHTML = "";
@@ -146,9 +149,9 @@ async function sign() {
       },
     });
     deepLink = null;
+    done = true;
     $("q-form").hidden = true;
     $("q-done").hidden = false;
-    $("q-sub").textContent = "Hoàn tất";
     setTimeout(() => window.__TAURI__.window.getCurrentWindow().close(), 2500);
   } catch (e) {
     if (DEAD_LINK.includes(e?.code)) deepLink = null;
@@ -165,6 +168,7 @@ function acceptLink(url) {
   const u = String(url || "").trim();
   if (!u.toLowerCase().startsWith("pdfsign://")) return;
   deepLink = u;
+  done = false;
   $("q-form").hidden = false;
   $("q-done").hidden = true;
   if (!busy) showMsg(pinWarning(selected()), "err");
