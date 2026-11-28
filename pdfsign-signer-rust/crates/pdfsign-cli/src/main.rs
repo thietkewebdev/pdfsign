@@ -9,7 +9,9 @@ use pdfsign_core::ltv::UreqHttp;
 use pdfsign_core::soft::{certs_from_pem_or_der, SoftSigner};
 use pdfsign_core::tsa::HttpTimestamper;
 use pdfsign_core::{PadesLevel, RawSigner, StampTemplate, Timestamper};
-use pdfsign_token::{discover, AuthPin, CertSelector, ErrorCode, Module, TokenError};
+use pdfsign_token::{
+    discover, discover_present, AuthPin, CertSelector, ErrorCode, Module, TokenError,
+};
 use serde_json::json;
 use std::io::BufRead;
 use std::path::{Path, PathBuf};
@@ -228,7 +230,7 @@ fn open_module(token: &TokenArgs) -> Result<Module> {
     if let Some(m) = &token.module {
         return Ok(Module::load(m)?);
     }
-    let candidates = discover(None);
+    let candidates = discover_present(None);
     if candidates.is_empty() {
         bail!(TokenError::new(
             ErrorCode::NoPkcs11Dll,
@@ -258,6 +260,19 @@ fn open_module(token: &TokenArgs) -> Result<Module> {
 }
 
 fn cmd_list_tokens(module: Option<&Path>, as_json: bool) -> Result<()> {
+    let cards = pdfsign_token::present_cards();
+    if !as_json {
+        // PC/SC view first: identifies the CA without loading drivers (support reports).
+        for c in &cards {
+            println!(
+                "Thẻ: {} | CSP: {} | đầu đọc: {} | ATR {}",
+                c.card.as_deref().unwrap_or("(chưa đăng ký)"),
+                c.csp.as_deref().unwrap_or("-"),
+                c.reader,
+                c.atr
+            );
+        }
+    }
     let mut rows = Vec::new();
     for c in discover(module) {
         let slots = Module::load(&c.path)
@@ -275,7 +290,9 @@ fn cmd_list_tokens(module: Option<&Path>, as_json: bool) -> Result<()> {
             .collect();
         println!(
             "{}",
-            serde_json::to_string_pretty(&json!({ "found": !out.is_empty(), "modules": out }))?
+            serde_json::to_string_pretty(
+                &json!({ "found": !out.is_empty(), "cards": cards, "modules": out })
+            )?
         );
         return Ok(());
     }

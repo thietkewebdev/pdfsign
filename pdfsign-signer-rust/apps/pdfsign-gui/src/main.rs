@@ -10,7 +10,7 @@ use pdfsign_core::appearance::preview_pdf;
 use pdfsign_core::ltv::UreqHttp;
 use pdfsign_core::tsa::HttpTimestamper;
 use pdfsign_core::{PadesLevel, StampTemplate, StampValues, Timestamper};
-use pdfsign_token::{discover, pin_from_string, CertSelector, Module, TokenError};
+use pdfsign_token::{discover_present, pin_from_string, CertSelector, Module, TokenError};
 use serde::{Deserialize, Serialize};
 use std::fs::OpenOptions;
 use std::io::Write;
@@ -213,7 +213,7 @@ struct ModuleInfo {
 async fn list_tokens(extra_module: Option<PathBuf>) -> Vec<ModuleInfo> {
     tauri::async_runtime::spawn_blocking(move || {
         let extra = extra_module.or(Settings::load(&config_dir()).last_module);
-        discover(extra.as_deref())
+        discover_present(extra.as_deref())
             .into_iter()
             .map(
                 |c| match Module::load(&c.path).and_then(|m| m.token_slots()) {
